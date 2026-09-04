@@ -1,6 +1,1 @@
-{
-  "version": "1.0.10",
-  "versionCode": 11,
-  "url": "https://github.com/exoxiexie/zhiguanjia/releases/latest/download/zhiguanjia_v1.0.10.apk",
-  "note": "模型选择下拉移入输入框内部"
-}
+{"version":"1.0.11","versionCode":12,"url":"https://github.com/exoxiexie/zhiguanjia/releases/latest/download/zhiguanjia_v1.0.11.apk","note":"新增联网搜索开关"}
