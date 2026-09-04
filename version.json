@@ -1,6 +1,6 @@
 {
-  "version": "1.0.7",
-  "versionCode": 8,
-  "url": "https://github.com/exoxiexie/zhiguanjia/releases/latest/download/zhiguanjia_v1.0.7.apk",
-  "note": "对话与更新全面脱离局域网，5G/任何网络可用"
+  "version": "1.0.8",
+  "versionCode": 9,
+  "url": "https://github.com/exoxiexie/zhiguanjia/releases/latest/download/zhiguanjia_v1.0.8.apk",
+  "note": "输入框加高两倍 + 模型选择下拉（Flash / Pro / Vision Expert）"
 }
