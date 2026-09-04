@@ -1,6 +1,6 @@
 {
-  "version": "1.0.8",
-  "versionCode": 9,
-  "url": "https://github.com/exoxiexie/zhiguanjia/releases/latest/download/zhiguanjia_v1.0.8.apk",
-  "note": "输入框加高两倍 + 模型选择下拉（Flash / Pro / Vision Expert）"
+  "version": "1.0.9",
+  "versionCode": 10,
+  "url": "https://github.com/exoxiexie/zhiguanjia/releases/latest/download/zhiguanjia_v1.0.9.apk",
+  "note": "发送按钮改版：圆形 + 向上箭头"
 }
