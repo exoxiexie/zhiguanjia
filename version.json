@@ -1,6 +1,6 @@
 {
-  "version": "1.0.9",
-  "versionCode": 10,
-  "url": "https://github.com/exoxiexie/zhiguanjia/releases/latest/download/zhiguanjia_v1.0.9.apk",
-  "note": "发送按钮改版：圆形 + 向上箭头"
+  "version": "1.0.10",
+  "versionCode": 11,
+  "url": "https://github.com/exoxiexie/zhiguanjia/releases/latest/download/zhiguanjia_v1.0.10.apk",
+  "note": "模型选择下拉移入输入框内部"
 }
