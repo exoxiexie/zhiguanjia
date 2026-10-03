@@ -25,7 +25,7 @@ class SearchDataItem {
   final List<String> tags; // 标签
   final String category; // 分类，固定"联网搜索"
   final String searchQuery; // 原始搜索关键词
-  final String source; // 搜索来源（DSH搜索等）
+  final String source; // 搜索来源（联网搜索等）
   final String content; // MD正文（搜索提炼内容，输入模型的上下文）
   final List<SearchSource> sources; // 信源列表（备注，不进上下文）
   final DateTime createdAt;
@@ -41,7 +41,7 @@ class SearchDataItem {
     this.tags = const [],
     this.category = '联网搜索',
     required this.searchQuery,
-    this.source = 'DSH搜索',
+    this.source = '联网搜索',
     required this.content,
     this.sources = const [],
     required this.createdAt,
@@ -170,7 +170,7 @@ class SearchDataStore {
             .toList(),
         category: yaml['category'] ?? '联网搜索',
         searchQuery: yaml['search_query'] ?? '',
-        source: yaml['source'] ?? 'DSH搜索',
+        source: yaml['source'] ?? '联网搜索',
         content: body,
         sources: sources,
         createdAt:
@@ -241,7 +241,7 @@ class SearchDataStore {
     required String searchQuery,
     required String content,
     List<SearchSource> sources = const [],
-    String source = 'DSH搜索',
+    String source = '联网搜索',
     List<String> tags = const [],
     int weight = defaultWeight,
   }) async {
