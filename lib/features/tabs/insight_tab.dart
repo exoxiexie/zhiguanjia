@@ -258,7 +258,7 @@ class _InsightTabState extends State<InsightTab> {
         gradient: const LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-          colors: [Color(0xFFBFD9F2), Color(0xFF8FB8E0)],
+          colors: [Color(0xFFFF7A3D), Color(0xFFFD5C13)],
         ),
         borderRadius: BorderRadius.circular(12),
       ),
@@ -279,11 +279,11 @@ class _InsightTabState extends State<InsightTab> {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.55),
+                        color: Colors.white.withOpacity(0.25),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.chat_bubble_outline,
-                          size: 22, color: Color(0xFF1B3A5C)),
+                          size: 22, color: Colors.white),
                     ),
                     const SizedBox(width: 12),
                     // 标题和小字
@@ -296,7 +296,7 @@ class _InsightTabState extends State<InsightTab> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF1B3A5C),
+                              color: Colors.white,
                             ),
                           ),
                           const SizedBox(height: 3),
@@ -304,7 +304,7 @@ class _InsightTabState extends State<InsightTab> {
                             '与职管家 AI 职业管家对话',
                             style: TextStyle(
                               fontSize: 12,
-                              color: const Color(0xFF1B3A5C).withOpacity(0.75),
+                              color: Colors.white.withOpacity(0.85),
                             ),
                           ),
                         ],
@@ -312,7 +312,7 @@ class _InsightTabState extends State<InsightTab> {
                     ),
                     // 右侧箭头
                     const Icon(Icons.arrow_forward_ios,
-                        size: 16, color: Color(0xFF1B3A5C)),
+                        size: 16, color: Colors.white70),
                   ],
                 ),
               ),
@@ -340,7 +340,7 @@ class _InsightTabState extends State<InsightTab> {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF5B7FD4),
+                      color: Colors.white.withOpacity(0.25),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.auto_awesome,
@@ -357,7 +357,7 @@ class _InsightTabState extends State<InsightTab> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF1B3A5C),
+                            color: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -365,7 +365,7 @@ class _InsightTabState extends State<InsightTab> {
                           '基于职业数据生成分析报告',
                           style: TextStyle(
                             fontSize: 12,
-                            color: const Color(0xFF1B3A5C).withOpacity(0.75),
+                            color: Colors.white.withOpacity(0.85),
                           ),
                         ),
                       ],
@@ -375,7 +375,7 @@ class _InsightTabState extends State<InsightTab> {
                   const Icon(
                     Icons.arrow_forward_ios,
                     size: 14,
-                    color: Color(0xFF1B3A5C),
+                    color: Colors.white70,
                   ),
                 ],
               ),

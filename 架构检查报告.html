@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>职管家 · 代码架构检查报告</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; padding: 24px; background: #f5f7fa; color: #333; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .subtitle { color: #888; font-size: 13px; margin-bottom: 20px; }
+  .summary { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .card { flex: 1; min-width: 200px; background: #fff; border-radius: 12px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .card .label { font-size: 13px; color: #888; margin-bottom: 6px; }
+  .card .value { font-size: 28px; font-weight: 700; }
+  .card .desc { font-size: 12px; color: #aaa; margin-top: 4px; }
+  .pass { color: #52c41a; }
+  .fail { color: #f5222d; }
+  .warn { color: #fa8c16; }
+  .panel { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .panel h2 { font-size: 16px; margin: 0 0 12px; padding-left: 10px; border-left: 3px solid #1890ff; }
+  .chart { width: 100%; height: 340px; }
+  .cycle-diagram { display: flex; align-items: center; justify-content: center; gap: 0; padding: 20px 0; flex-wrap: wrap; }
+  .node { background: #fff1f0; border: 2px solid #f5222d; border-radius: 10px; padding: 12px 18px; font-size: 13px; font-weight: 600; color: #a8071a; text-align: center; min-width: 140px; }
+  .node small { display: block; font-weight: 400; color: #999; margin-top: 3px; font-size: 11px; }
+  .arrow { font-size: 24px; color: #f5222d; margin: 0 6px; }
+  .coupling-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .coupling-table th, .coupling-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #f0f0f0; }
+  .coupling-table th { background: #fafafa; color: #666; font-weight: 600; }
+  .coupling-table td code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-high { background: #fff1f0; color: #f5222d; }
+  .badge-mid { background: #fff7e6; color: #fa8c16; }
+  .fix-list { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.9; }
+  .fix-list li strong { color: #1890ff; }
+</style>
+</head>
+<body>
+
+<h1>职管家 · 代码架构规范检查</h1>
+<div class="subtitle">检查维度：单文件≤500行 · 无循环依赖 · 可独立测试 ｜ lib/ 共 54 文件 / 12,606 行</div>
+
+<div class="summary">
+  <div class="card">
+    <div class="label">单文件 ≤ 500 行</div>
+    <div class="value fail">❌ 不达标</div>
+    <div class="desc">4 个文件超标，最严重 1115 行</div>
+  </div>
+  <div class="card">
+    <div class="label">无循环依赖</div>
+    <div class="value fail">❌ 不达标</div>
+    <div class="desc">1 个环：登录→主框架→我的→登录</div>
+  </div>
+  <div class="card">
+    <div class="label">可独立测试</div>
+    <div class="value warn">⚠️ 部分达标</div>
+    <div class="desc">契约层存在，但 60+ 跨模块直连实现</div>
+  </div>
+  <div class="card">
+    <div class="label">内部依赖边</div>
+    <div class="value">101 条</div>
+    <div class="desc">跨 features 模块直连 60+ 条</div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>① 文件行数分布（Top 12）</h2>
+  <div id="lineChart" class="chart"></div>
+</div>
+
+<div class="panel">
+  <h2>② 循环依赖（唯一的环）</h2>
+  <div class="cycle-diagram">
+    <div class="node">personal_login_page.dart<small>登录页 · 登录成功跳转</small></div>
+    <div class="arrow">→</div>
+    <div class="node">shell_page.dart<small>主框架 · 组装底部Tab</small></div>
+    <div class="arrow">→</div>
+    <div class="node">profile_tab.dart<small>我的页 · 退出登录跳转</small></div>
+    <div class="arrow">→</div>
+    <div class="node" style="border-color:#fa8c16;background:#fff7e6;color:#ad4e00;">回到自身<small>形成闭环</small></div>
+  </div>
+  <p style="font-size:13px;color:#666;margin:8px 0 0;">根因：三个页面通过 <code>import</code> 直接互相引用做页面跳转，而非通过路由表或回调解耦。</p>
+</div>
+
+<div class="panel">
+  <h2>③ 跨模块直接耦合（高耦合文件 Top）</h2>
+  <table class="coupling-table">
+    <thead><tr><th>文件</th><th>直接依赖的其他模块数</th><th>耦合度</th></tr></thead>
+    <tbody>
+      <tr><td><code>features/tabs/home_tab.dart</code></td><td>6 个（chat/agent/personal/memory/data/storage）</td><td><span class="badge badge-high">极高</span></td></tr>
+      <tr><td><code>features/shell/shell_page.dart</code></td><td>6 个（所有 tab + chat + personal）</td><td><span class="badge badge-high">高（组装层可接受）</span></td></tr>
+      <tr><td><code>features/chat/business_agent_page.dart</code></td><td>4 个（data/personal/storage）</td><td><span class="badge badge-mid">中高</span></td></tr>
+      <tr><td><code>features/chat/chat_session_service_impl.dart</code></td><td>4 个（personal/memory/storage）</td><td><span class="badge badge-mid">中高</span></td></tr>
+      <tr><td><code>features/personal/personal_login_page.dart</code></td><td>3 个（agent/chat/shell）</td><td><span class="badge badge-mid">中</span></td></tr>
+      <tr><td><code>features/personal/personal_register_page.dart</code></td><td>3 个（agent/chat/shell）</td><td><span class="badge badge-mid">中</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>修复优先级建议</h2>
+  <ol class="fix-list">
+    <li><strong>P0 · 拆 home_tab.dart（1115行）</strong>：消息气泡/附件/思考气泡三个私有 Widget 拆到 <code>chat/widgets/</code>；附件选择逻辑（_pickImage/_pickFile/_pickFolder）拆到 <code>chat/attachment_picker.dart</code>；快捷指令卡片拆独立 widget。目标降到 ~400 行。</li>
+    <li><strong>P0 · 断循环依赖</strong>：登录页和"我的"页不直接 import 目标页面，改为通过 <code>AuthGate</code>（main.dart）的登录态回调或命名路由跳转。三个文件互不 import。</li>
+    <li><strong>P1 · 拆 business_agent_page.dart（891行）</strong>：同 home_tab 拆分思路，消息组件、输入栏、附件逻辑独立。</li>
+    <li><strong>P1 · personal 模块去直连</strong>：登录/注册页不应直接 import <code>agent_service_impl</code> / <code>chat_service_impl</code>，应通过 <code>contracts/</code> + DI 容器获取服务。</li>
+    <li><strong>P2 · agent_service_impl（627行）、insight_tab（526行）</strong>：小幅拆分，工具执行循环与 UI 分离。</li>
+    <li><strong>P2 · 300-500行的10个文件</strong>：暂可接受，下次改动时顺手拆。</li>
+  </ol>
+</div>
+
+<script>
+const lineData = [
+  {name:'home_tab.dart', value:1115},
+  {name:'business_agent_page.dart', value:891},
+  {name:'agent_service_impl.dart', value:627},
+  {name:'insight_tab.dart', value:526},
+  {name:'chat_service_impl.dart', value:495},
+  {name:'profile_tab.dart', value:467},
+  {name:'search_data_history_page.dart', value:396},
+  {name:'local_data_confirm_page.dart', value:386},
+  {name:'search_data_detail_page.dart', value:375},
+  {name:'chat_session_service_impl.dart', value:337},
+  {name:'search_data_store.dart', value:330},
+  {name:'local_file_store.dart', value:314},
+];
+const chart = echarts.init(document.getElementById('lineChart'));
+chart.setOption({
+  grid: {left:170, right:40, top:20, bottom:30},
+  xAxis: {type:'value', name:'行数', max:1200, splitLine:{lineStyle:{type:'dashed'}}},
+  yAxis: {type:'category', data:lineData.map(d=>d.name).reverse(), axisLabel:{fontSize:11}},
+  series: [{
+    type:'bar',
+    data: lineData.map(d=>({
+      value:d.value,
+      itemStyle:{color: d.value>500?'#f5222d':(d.value>400?'#fa8c16':'#1890ff'), borderRadius:[0,4,4,0]}
+    })).reverse(),
+    label:{show:true, position:'right', fontSize:11, formatter:'{c}'},
+    markLine:{symbol:'none', data:[{xAxis:500, lineStyle:{color:'#f5222d',type:'dashed'}, label:{formatter:'500行上限',color:'#f5222d'}}]}
+  }]
+});
+window.addEventListener('resize',()=>chart.resize());
+</script>
+</body>
+</html>
