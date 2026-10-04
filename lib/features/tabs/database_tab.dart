@@ -1,10 +1,19 @@
 /// 数据 Tab（职管家 · 个人职业版）
 ///
-/// 个人职业数据宇宙：对话记忆 / 本地私有 / 外接应用等多源数据沉淀。
-/// MVP 阶段先搭结构占位，后续对齐智懂你数据页的标签/来源/任务三视图。
+/// 顶部：实名认证信息卡片（已认证显示姓名/年龄/性别，未认证引导去认证）
+/// 下方：个人职业数据宇宙占位（对话记忆 / 简历 / 证书 / 作品等多源数据沉淀）。
+/// 注意：本页不自带 AppBar，顶栏「数据」标题由 ShellPage 统一提供，避免重复。
 library;
 
 import 'package:flutter/material.dart';
+
+import '../personal/personal_auth_service.dart';
+import '../personal/personal_model.dart';
+import '../personal/personal_verify_page.dart';
+
+/// 品牌活力橙（与 App 图标主色一致）
+const Color _kBrandOrange = Color(0xFFFD5C13);
+const Color _kBrandOrangeLight = Color(0xFFFF7A3D);
 
 class DatabaseTab extends StatefulWidget {
   const DatabaseTab({super.key});
@@ -14,89 +23,286 @@ class DatabaseTab extends StatefulWidget {
 }
 
 class DatabaseTabState extends State<DatabaseTab> {
-  /// 供主框架在切到本页时调用刷新（接口保留，占位期为空实现）
-  void refresh() {
-    if (mounted) setState(() {});
+  PersonalAuth? _auth;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final auth = await PersonalAuthService.getAuth();
+    if (mounted) {
+      setState(() {
+        _auth = auth;
+        _loading = false;
+      });
+    }
+  }
+
+  /// 供主框架在切到本页时调用刷新（认证返回后也能立即更新）
+  void refresh() => _load();
+
+  /// 由出生日期（yyyy-MM-dd）计算周岁
+  int _ageOf(String birthday) {
+    try {
+      final p = birthday.split('-');
+      final birth =
+          DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
+      final now = DateTime.now();
+      var age = now.year - birth.year;
+      if (now.month < birth.month ||
+          (now.month == birth.month && now.day < birth.day)) {
+        age--;
+      }
+      return age < 0 ? 0 : age;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// 跳转实名认证页，返回后刷新
+  Future<void> _goVerify() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PersonalVerifyPage()),
+    );
+    await _load();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text('数据'),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: const Color(0xFFF5F5F5),
-        foregroundColor: const Color(0xFF1A1B1C),
-      ),
-      body: const _ComingSoon(
-        icon: Icons.dataset_outlined,
-        title: '职业数据宇宙',
-        desc: '对话记忆、简历、证书、作品与职业资料\n将在这里按标签结构化沉淀',
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+          children: [
+            if (_loading)
+              const SizedBox(height: 92)
+            else
+              _buildIdentityCard(),
+            const SizedBox(height: 16),
+            _buildDataPlaceholder(),
+          ],
+        ),
       ),
     );
   }
-}
 
-/// “建设中”占位
-class _ComingSoon extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String desc;
+  /// 顶部实名信息卡片
+  Widget _buildIdentityCard() {
+    final auth = _auth;
+    final verified = auth != null && auth.isVerified;
+    return verified ? _buildVerifiedCard(auth) : _buildUnverifiedCard();
+  }
 
-  const _ComingSoon({
-    required this.icon,
-    required this.title,
-    required this.desc,
-  });
+  /// 已认证：姓名 / 年龄 / 性别
+  Widget _buildVerifiedCard(PersonalAuth auth) {
+    final age = _ageOf(auth.birthday);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [_kBrandOrangeLight, _kBrandOrange],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.22),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.person, size: 30, color: Colors.white),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        auth.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.22),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.verified,
+                              size: 12, color: Colors.white),
+                          SizedBox(width: 3),
+                          Text(
+                            '已认证',
+                            style:
+                                TextStyle(fontSize: 11, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '年龄 $age岁　·　性别 ${auth.gender}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withOpacity(0.88),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
+  /// 未认证：提示 + 引导去认证
+  Widget _buildUnverifiedCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [_kBrandOrangeLight, _kBrandOrange],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.22),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.how_to_reg, size: 28, color: Colors.white),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '你还尚未通过实名认证',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '完成认证后可获得更精准的职业管家服务',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: _goVerify,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
               decoration: BoxDecoration(
-                color: const Color(0xFF5B7FD4).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 36, color: const Color(0xFF5B7FD4)),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1A1B1C),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              desc,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF), height: 1.6),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF5B7FD4).withOpacity(0.08),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(
-                '即将上线',
-                style: TextStyle(fontSize: 12, color: Color(0xFF5B7FD4)),
+                '去认证',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _kBrandOrange,
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 数据宇宙占位（品牌橙）
+  Widget _buildDataPlaceholder() {
+    return Container(
+      height: 300,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: _kBrandOrange.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.dataset_outlined,
+                size: 36, color: _kBrandOrange),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            '职业数据宇宙',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1A1B1C),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '对话记忆、简历、证书、作品与职业资料\n将在这里按标签结构化沉淀',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 13, color: Color(0xFF9CA3AF), height: 1.6),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: _kBrandOrange.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              '即将上线',
+              style: TextStyle(fontSize: 12, color: _kBrandOrange),
+            ),
+          ),
+        ],
       ),
     );
   }
