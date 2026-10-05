@@ -87,7 +87,7 @@ class _InsightTabState extends State<InsightTab> {
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 18, 16, 4),
                     child: Text(
-                      '管理任务智能体',
+                      '管理专业智能体',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -108,7 +108,7 @@ class _InsightTabState extends State<InsightTab> {
                             child: Padding(
                               padding: EdgeInsets.all(24),
                               child: Text(
-                                '暂无任务智能体，后续版本开放',
+                                '暂无专业智能体，后续版本开放',
                                 style: TextStyle(
                                     fontSize: 13, color: Color(0xFF9CA3AF)),
                               ),
@@ -185,7 +185,7 @@ class _InsightTabState extends State<InsightTab> {
                 child: Row(
                   children: [
                     const Text(
-                      '任务智能体',
+                      '专业智能体',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -242,7 +242,7 @@ class _InsightTabState extends State<InsightTab> {
       ),
       child: const Center(
         child: Text(
-          '职业任务智能体即将上线，敬请期待',
+          '专业智能体即将上线，敬请期待',
           style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
         ),
       ),

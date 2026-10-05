@@ -29,7 +29,7 @@ class BusinessAgentRole {
         contextText.trim() != '【任务域上下文：$businessTag】';
 
     final buf = StringBuffer();
-    buf.writeln('你是「职管家」AI 职业管家的【$name】任务智能体，'
+    buf.writeln('你是「职管家」AI 职业管家的【$name】专业智能体，'
         '专注为当前个人用户提供$name领域的专业职业管家服务。\n');
     buf.writeln('【你能帮助用户解决】\n$scope\n');
     buf.writeln('【当前个人$name任务域数据现状】\n'
@@ -39,7 +39,7 @@ class BusinessAgentRole {
         '- 回答用户问题时，优先结合用户的职业身份画像与以上任务域数据进行分析，给出针对性建议\n'
         '- 数据不足时，明确告诉用户还需要补充哪些材料（如：$need），'
         '不要凭空猜测或编造个人数据\n'
-        '- 当用户询问你的身份时，介绍你是「职管家」AI 职业管家的【$name】任务智能体，'
+        '- 当用户询问你的身份时，介绍你是「职管家」AI 职业管家的【$name】专业智能体，'
         '以及你能提供的服务范围\n'
         '- 始终用中文回答，保持专业、准确、诚实');
     return buf.toString();

@@ -82,5 +82,29 @@ class BusinessDomain {
 ///   skill_learning(技能学习) / salary(薪酬谈判) /
 ///   workplace_law(职场法律) / career_health(职业健康) 等。
 const List<BusinessDomain> kBusinessDomains = [
-  // 暂无注册的职业任务域，待填充。
+  // ── 学习智能体 ──
+  BusinessDomain(
+    id: 'skill_learning',
+    tag: '学习',
+    table: 'skill_learning_data',
+    subtitle: '技能学习、考证与知识提升规划',
+    icon: Icons.school,
+    color: Color(0xFF5B7FD4),
+    scope: '职业技能学习与知识提升：学习路径设计、课程与资料推荐、'
+        '考证规划、学习计划制定与知识点答疑。',
+    need: '你想提升的技能方向、目标证书或岗位要求、可投入的学习时间等资料',
+  ),
+  // ── 招聘智能体 ──
+  BusinessDomain(
+    id: 'recruit',
+    tag: '招聘',
+    table: 'recruit_data',
+    subtitle: '求职与招聘对接、简历与面试辅导',
+    icon: Icons.work_outline,
+    color: Color(0xFF3AA76D),
+    scope: '求职与招聘服务：岗位匹配与推荐、简历诊断与优化、'
+        '面试准备、招聘信息解读与投递建议。',
+    need: '你的求职意向（目标岗位 / 城市 / 行业）、简历或工作经历、'
+        '目标岗位的招聘要求等资料',
+  ),
 ];

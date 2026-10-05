@@ -40,20 +40,20 @@ class DataSourceTag {
 /// 不对个人数据自动打企业类标签。后续定义职业任务域（职业规划/简历/求职/技能等）
 /// 时，在此补充对应常量、all 列表与关键词规则。
 class DataBusinessTag {
-  // 职业任务标签常量将随职业域定义补充，例如：
-  // static const String careerPlan = '职业规划';
-  // static const String resume = '简历';
-  // static const String jobHunting = '求职面试';
-  // static const String skillLearning = '技能学习';
-  // static const String salary = '薪酬谈判';
-  // static const String workplaceLaw = '职场法律';
-  // static const String careerHealth = '职业健康';
+  /// 学习
+  static const String skillLearning = '学习';
 
-  /// 全部任务域标签（有序，与任务智能体展示顺序一致）；MVP 为空
-  static const List<String> all = [];
+  /// 招聘
+  static const String recruit = '招聘';
 
-  /// 关键词规则表：任务域 -> 触发关键词（用于零成本自动打标）；MVP 为空
-  static const Map<String, List<String>> _keywordRules = {};
+  /// 全部任务域标签（有序，与专业智能体展示顺序一致）
+  static const List<String> all = [skillLearning, recruit];
+
+  /// 关键词规则表：任务域 -> 触发关键词（用于零成本自动打标）
+  static const Map<String, List<String>> _keywordRules = {
+    skillLearning: ['学习', '课程', '培训', '考证', '证书', '备考', '技能提升'],
+    recruit: ['招聘', '求职', '简历', '面试', '岗位', '应聘', '猎头'],
+  };
 
   /// 根据文本关键词匹配任务标签（零模型成本）。
   /// 命中多个任务域时全部返回（多对多）；匹配不到返回空。

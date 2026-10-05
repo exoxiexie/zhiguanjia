@@ -32,7 +32,7 @@ class AppDatabase {
     final path = await TenantStorage.getDatabasePath(tenantId);
     _db = await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -242,6 +242,11 @@ class AppDatabase {
       await db.execute(
         'ALTER TABLE sessions ADD COLUMN business_tag TEXT',
       );
+    }
+
+    if (oldVersion < 8) {
+      // v7 → v8：按三位一体注册表补建新注册专业智能体的数据表（IF NOT EXISTS，安全幂等）
+      await _createBusinessDomainTables(db);
     }
   }
 }
