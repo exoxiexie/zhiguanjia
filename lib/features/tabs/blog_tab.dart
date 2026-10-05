@@ -4,11 +4,11 @@
 /// 顶栏三个子 Tab：推荐 / 关注 / 我的；右下角浮动「＋」用于写博客。
 ///
 /// 当前版本：
-/// - 发布博客 → 本地存储（[BlogStore]）→ **同时**出现在「推荐」流与「我的」列表；
-///   两个列表均按发布时间倒序，新发布的一条即最新一条（推荐流第一条）；
-/// - 卡片渲染规则统一由 [BlogPostCard] 提供，保证两个入口呈现一致
-///   （无标题只显示正文，不显示占位标题与分隔线）；
-/// - 「推荐」的智能推荐算法、「关注」的关注关系待后续接入（关注当前为空态占位）。
+/// - **推荐 / 关注**：展示本机所有作者发布的博客**时间线**（倒序，最新一条在最前）。
+///   推荐规则与关注关系待后续接入，当前先以全量时间线解决内容过少的问题；
+/// - **我的**：只展示当前登录账号发布的博客（按作者手机号隔离）；
+/// - 发布后自动刷新，新文章同时出现在时间线与「我的」；
+/// - 卡片渲染规则统一由 [BlogPostCard] 提供（作者信息置顶；无标题只显示正文）。
 library;
 
 import 'package:flutter/material.dart';
@@ -38,16 +38,19 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
 
   late final TabController _tabController;
 
-  /// 我发布的博客（本地）；「推荐」流与「我的」列表共用同一份数据，
-  /// 因此发布后两处同时可见，无需分别刷新。
+  /// 全站时间线：本机所有作者发布的博客（「推荐」「关注」共用）
+  List<BlogPost> _feedPosts = [];
+
+  /// 我发布的博客（本地，按作者手机号隔离）
   List<BlogPost> _myPosts = [];
+
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
-    _loadMyPosts();
+    _loadPosts();
   }
 
   @override
@@ -58,14 +61,17 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
 
   /// 供主框架在切到本页时调用刷新
   void refresh() {
-    if (mounted) _loadMyPosts();
+    if (mounted) _loadPosts();
   }
 
-  Future<void> _loadMyPosts() async {
-    final posts = await BlogStore.loadMyPosts();
+  /// 一次读取两份数据：时间线（推荐/关注）与我的（我的）
+  Future<void> _loadPosts() async {
+    final feed = await BlogStore.loadFeed();
+    final mine = await BlogStore.loadMyPosts();
     if (mounted) {
       setState(() {
-        _myPosts = posts;
+        _feedPosts = feed;
+        _myPosts = mine;
         _loading = false;
       });
     }
@@ -76,7 +82,7 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
       MaterialPageRoute(builder: (_) => const BlogEditorPage()),
     );
     if (ok == true) {
-      await _loadMyPosts();
+      await _loadPosts();
       // 发布成功后切到「我的」，让用户立刻看到新文章（推荐流同样已包含）
       _tabController.animateTo(_mineTabIndex);
     }
@@ -120,20 +126,21 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
       body: TabBarView(
         controller: _tabController,
         children: [
-          // 推荐流：当前展示已发布的博客（倒序，最新一条在最前）；
-          // 正式推荐逻辑（结合职业画像与数据宇宙）后续接入。
+          // 推荐：全量时间线（推荐算法接入前的过渡形态）
           _PostList(
-            posts: _myPosts,
+            posts: _feedPosts,
             loading: _loading,
             emptyIcon: Icons.recommend_outlined,
-            emptyTitle: '推荐',
-            emptyDesc: '你发布的博客会出现在这里\n结合职业画像与数据宇宙的智能推荐即将上线',
+            emptyTitle: '还没有博客内容',
+            emptyDesc: '所有人发布的博客会按时间线出现在这里\n点击右下角 ＋ 发布第一篇',
           ),
-          const _BlogPlaceholder(
-            icon: Icons.people_alt_outlined,
-            title: '关注',
-            desc: '你关注的作者与专栏更新\n将在这里展示',
-            comingSoon: true,
+          // 关注：关注关系接入前同样展示全量时间线，避免内容过少
+          _PostList(
+            posts: _feedPosts,
+            loading: _loading,
+            emptyIcon: Icons.people_alt_outlined,
+            emptyTitle: '还没有博客内容',
+            emptyDesc: '关注关系上线前，这里先展示全部博客时间线\n点击右下角 ＋ 发布第一篇',
           ),
           _PostList(
             posts: _myPosts,
@@ -156,7 +163,7 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
   }
 }
 
-/// 博客列表（「推荐」流与「我的」共用）
+/// 博客列表（「推荐」「关注」「我的」共用）
 ///
 /// 只负责列表容器与空态；单条卡片的渲染规则统一交给 [BlogPostCard]。
 class _PostList extends StatelessWidget {
@@ -180,7 +187,7 @@ class _PostList extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (posts.isEmpty) {
-      return _BlogPlaceholder(
+      return _BlogEmpty(
         icon: emptyIcon,
         title: emptyTitle,
         desc: emptyDesc,
@@ -194,21 +201,16 @@ class _PostList extends StatelessWidget {
   }
 }
 
-/// 空态 / 未开放占位
-///
-/// [comingSoon] 仅在功能尚未开放时显示「即将上线」角标；
-/// 列表为空（如「还没有发布博客」）不属于未开放，不显示角标。
-class _BlogPlaceholder extends StatelessWidget {
+/// 列表空态
+class _BlogEmpty extends StatelessWidget {
   final IconData icon;
   final String title;
   final String desc;
-  final bool comingSoon;
 
-  const _BlogPlaceholder({
+  const _BlogEmpty({
     required this.icon,
     required this.title,
     required this.desc,
-    this.comingSoon = false,
   });
 
   @override
@@ -245,21 +247,6 @@ class _BlogPlaceholder extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 13, color: Color(0xFF9CA3AF), height: 1.6),
               ),
-              if (comingSoon) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _kBrandOrange.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    '即将上线',
-                    style: TextStyle(fontSize: 12, color: _kBrandOrange),
-                  ),
-                ),
-              ],
             ],
           ),
         ),

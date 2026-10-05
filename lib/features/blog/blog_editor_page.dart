@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../personal/personal_auth_service.dart';
 import 'blog_store.dart';
 
 /// 品牌活力橙
@@ -41,14 +42,19 @@ class _BlogEditorPageState extends State<BlogEditorPage> {
     }
 
     setState(() => _publishing = true);
+    final auth = await PersonalAuthService.getAuth();
     final now = DateTime.now().millisecondsSinceEpoch;
     // 标题允许为空：展示层按「无标题」规则直接显示正文，
     // 不再填充「无标题」占位文字（避免污染数据与列表展示）。
+    // id 拼接作者手机号，保证全站时间线里不同作者同一毫秒发布不会撞号；
+    // 作者信息随文章快照存储，时间线展示头像/昵称时无需回查用户表。
     await BlogStore.addPost(BlogPost(
-      id: '$now',
+      id: '${now}_${auth?.phone ?? ''}',
       title: title,
       content: content,
       createdAt: now,
+      authorPhone: auth?.phone ?? '',
+      authorName: auth?.name ?? '',
     ));
     if (mounted) Navigator.pop(context, true);
   }
