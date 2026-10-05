@@ -4,7 +4,7 @@
 /// 规则完全一致（单一事实来源），避免多处各写一套样式而产生偏差。
 ///
 /// **排版结构**（自上而下）：
-/// 1. 作者信息行：头像 + 昵称 + 发布时间；
+/// 1. 作者信息行：头像 + 昵称 + 发布时间（整行可点击 → 进入作者主页）；
 /// 2. 标题（**仅有标题时**才渲染）；
 /// 3. 正文。
 ///
@@ -40,11 +40,18 @@ class BlogPostCard extends StatelessWidget {
   /// 头像直径
   final double avatarSize;
 
+  /// 点击**作者信息行**（头像 + 昵称那一整横栏）的回调：进入作者主页。
+  ///
+  /// 为 null 时不响应点击（例如作者主页内的卡片，避免自己跳自己）。
+  /// 注意：标题与正文区**不在**本回调范围内。
+  final VoidCallback? onTapAuthor;
+
   const BlogPostCard({
     super.key,
     required this.post,
     this.margin = const EdgeInsets.only(bottom: 12),
     this.avatarSize = 40,
+    this.onTapAuthor,
   });
 
   @override
@@ -63,40 +70,46 @@ class BlogPostCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── ① 作者信息行：头像 + 昵称 + 发布时间 ──
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              UserAvatar(
-                avatarPath: post.authorAvatarPath,
-                name: post.displayAuthor,
-                seed: post.avatarSeed,
-                size: avatarSize,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      post.displayAuthor,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: _kTitleColor,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      formatBlogTime(post.createdAt),
-                      style: const TextStyle(fontSize: 12, color: _kMetaColor),
-                    ),
-                  ],
+          // 整行可点击（进入作者主页）；标题与正文区不在点击范围内。
+          GestureDetector(
+            onTap: onTapAuthor,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                UserAvatar(
+                  avatarPath: post.authorAvatarPath,
+                  name: post.displayAuthor,
+                  seed: post.avatarSeed,
+                  size: avatarSize,
                 ),
-              ),
-            ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        post.displayAuthor,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: _kTitleColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        formatBlogTime(post.createdAt),
+                        style:
+                            const TextStyle(fontSize: 12, color: _kMetaColor),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
 
           // ── ② 标题（仅有标题时渲染）──

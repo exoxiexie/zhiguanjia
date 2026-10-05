@@ -3,10 +3,12 @@
 /// **存储形态**：SharedPreferences，按**作者手机号**分键存储（`blog_posts_{手机号}`），
 /// 与全站「按手机号做本地数据隔离」的约定一致。
 ///
-/// **两种读取口径**：
+/// **三种读取口径**：
 /// - [loadMyPosts]：只读当前登录账号的键 → 用于「我的」子 Tab；
-/// - [loadFeed]：聚合本机**所有账号**发布的博客并按时间倒序 → 用于「推荐 / 关注」
-///   时间线（推荐规则与关注关系待后续接入，当前先以全量时间线填充内容）。
+/// - [loadByAuthor]：只读指定作者的键 → 用于用户主页与「关注」流
+///   （关注关系存在 follow_store.dart，与说说数据分开）；
+/// - [loadFeed]：聚合本机**所有账号**发布的博客并按时间倒序 → 用于「推荐」时间线
+///   （推荐规则待后续接入，当前先以全量时间线填充内容）。
 ///
 /// **为什么按作者分键、而不是建一个全局键**：
 /// 1. 与既有数据完全兼容 —— v1.0.7/v1.0.8 已发布的博客无需任何迁移即可进入时间线；
@@ -134,8 +136,8 @@ class BlogStore {
 
   /// 全站时间线：聚合本机所有作者发布的博客（按发布时间倒序）
   ///
-  /// 用于「推荐 / 关注」两个内容 Tab。推荐规则与关注关系接入前，
-  /// 先以全量时间线解决内容过少的问题。
+  /// 用于「推荐」子 Tab。推荐规则接入前，先以全量时间线解决内容过少的问题；
+  /// 「关注」流只取已关注作者，见 follow_store.dart。
   static Future<List<BlogPost>> loadFeed() async {
     final prefs = await SharedPreferences.getInstance();
     final names = await _authorRegistry();
@@ -150,9 +152,15 @@ class BlogStore {
   }
 
   /// 我发布的博客（只读当前账号的存储键，按发布时间倒序）
-  static Future<List<BlogPost>> loadMyPosts() async {
+  static Future<List<BlogPost>> loadMyPosts() async =>
+      loadByAuthor(await _currentPhone());
+
+  /// 指定作者发布的博客（只读该作者的存储键，按发布时间倒序）
+  ///
+  /// 用于用户主页与「关注」流：按作者手机号精确取数，不触碰其他账号的键。
+  static Future<List<BlogPost>> loadByAuthor(String phone) async {
+    if (phone.isEmpty) return const [];
     final prefs = await SharedPreferences.getInstance();
-    final phone = await _currentPhone();
     final names = await _authorRegistry();
     final list =
         _decode(prefs.getStringList(_keyFor(phone)) ?? const [], phone, names);

@@ -4,9 +4,12 @@
 /// 顶栏三个子 Tab：推荐 / 关注 / 我的；右下角浮动「＋」用于写说说。
 ///
 /// 当前版本：
-/// - **推荐 / 关注**：展示本机所有作者发布的说说**时间线**（倒序，最新一条在最前）。
-///   推荐规则与关注关系待后续接入，当前先以全量时间线解决内容过少的问题；
+/// - **推荐**：展示本机所有作者发布的说说**时间线**（倒序，最新一条在最前）。
+///   推荐规则待后续接入，当前先以全量时间线解决内容过少的问题；
+/// - **关注**：只展示**已关注作者**的说说，同样按时间倒序（由近及远）；
+///   关注关系存在 follow_store.dart，不混进说说数据；
 /// - **我的**：只展示当前登录账号发布的说说（按作者手机号隔离）；
+/// - 点击卡片**作者信息栏**（头像 + 昵称那一横栏）进入该作者主页，可在主页关注 / 取关；
 /// - 发布后自动刷新，新文章同时出现在时间线与「我的」；
 /// - 卡片渲染规则统一由 [BlogPostCard] 提供（作者信息置顶；无标题只显示正文）。
 library;
@@ -16,6 +19,8 @@ import 'package:flutter/material.dart';
 import '../blog/blog_editor_page.dart';
 import '../blog/blog_post_card.dart';
 import '../blog/blog_store.dart';
+import '../blog/follow_store.dart';
+import '../blog/user_profile_page.dart';
 
 /// 品牌活力橙（与 App 图标主色一致）
 const Color _kBrandOrange = Color(0xFFFD5C13);
@@ -38,8 +43,11 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
 
   late final TabController _tabController;
 
-  /// 全站时间线：本机所有作者发布的说说（「推荐」「关注」共用）
+  /// 推荐流：本机所有作者发布的说说
   List<BlogPost> _feedPosts = [];
+
+  /// 关注流：我关注的作者发布的说说（按时间倒序）
+  List<BlogPost> _followingPosts = [];
 
   /// 我发布的说说（本地，按作者手机号隔离）
   List<BlogPost> _myPosts = [];
@@ -64,13 +72,15 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
     if (mounted) _loadPosts();
   }
 
-  /// 一次读取两份数据：时间线（推荐/关注）与我的（我的）
+  /// 一次读取三份数据：推荐流、关注流、我的
   Future<void> _loadPosts() async {
     final feed = await BlogStore.loadFeed();
+    final following = await FollowStore.loadFollowingFeed();
     final mine = await BlogStore.loadMyPosts();
     if (mounted) {
       setState(() {
         _feedPosts = feed;
+        _followingPosts = following;
         _myPosts = mine;
         _loading = false;
       });
@@ -86,6 +96,22 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
       // 发布成功后切到「我的」，让用户立刻看到新文章（推荐流同样已包含）
       _tabController.animateTo(_mineTabIndex);
     }
+  }
+
+  /// 进入作者主页。
+  ///
+  /// 返回后**无条件刷新**：用户可能刚在主页关注 / 取关，关注流要跟着变。
+  Future<void> _openUserProfile(BlogPost post) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => UserProfilePage(
+          phone: post.authorPhone,
+          name: post.displayAuthor,
+          avatarPath: post.authorAvatarPath,
+        ),
+      ),
+    );
+    await _loadPosts();
   }
 
   @override
@@ -130,21 +156,24 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
           _PostList(
             posts: _feedPosts,
             loading: _loading,
+            onTapAuthor: _openUserProfile,
             emptyIcon: Icons.recommend_outlined,
             emptyTitle: '还没有说说内容',
             emptyDesc: '所有人发布的说说会按时间线出现在这里\n点击右下角 ＋ 发布第一篇',
           ),
-          // 关注：关注关系接入前同样展示全量时间线，避免内容过少
+          // 关注：只展示已关注作者的说说（时间倒序）
           _PostList(
-            posts: _feedPosts,
+            posts: _followingPosts,
             loading: _loading,
+            onTapAuthor: _openUserProfile,
             emptyIcon: Icons.people_alt_outlined,
-            emptyTitle: '还没有说说内容',
-            emptyDesc: '关注关系上线前，这里先展示全部说说时间线\n点击右下角 ＋ 发布第一篇',
+            emptyTitle: '还没有关注的人',
+            emptyDesc: '点击说说里的作者头像进入主页关注\n他们的说说会按时间线出现在这里',
           ),
           _PostList(
             posts: _myPosts,
             loading: _loading,
+            onTapAuthor: _openUserProfile,
             emptyIcon: Icons.edit_note,
             emptyTitle: '还没有发布说说',
             emptyDesc: '点击右下角 ＋ 写第一篇说说',
@@ -173,12 +202,16 @@ class _PostList extends StatelessWidget {
   final String emptyTitle;
   final String emptyDesc;
 
+  /// 点击卡片作者信息栏 → 进入作者主页；为空则不响应
+  final void Function(BlogPost post)? onTapAuthor;
+
   const _PostList({
     required this.posts,
     required this.loading,
     required this.emptyIcon,
     required this.emptyTitle,
     required this.emptyDesc,
+    this.onTapAuthor,
   });
 
   @override
@@ -196,7 +229,11 @@ class _PostList extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
       itemCount: posts.length,
-      itemBuilder: (context, index) => BlogPostCard(post: posts[index]),
+      itemBuilder: (context, index) => BlogPostCard(
+        post: posts[index],
+        onTapAuthor:
+            onTapAuthor == null ? null : () => onTapAuthor!(posts[index]),
+      ),
     );
   }
 }

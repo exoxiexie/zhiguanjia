@@ -2,7 +2,8 @@
 ///
 /// 覆盖点：
 /// 1. 卡片排版：作者信息（头像/昵称/发布时间）在顶部，标题与正文在下；
-/// 2. 推荐 / 关注：展示本机**所有作者**的博客时间线，按发布时间倒序；
+/// 2. 推荐：展示本机**所有作者**的博客时间线；关注：只展示**已关注作者**的博客，
+///    两者均按发布时间倒序；
 /// 3. 我的：只展示当前登录账号的博客（租户隔离）；
 /// 4. 无标题博客：不显示「无标题」占位与分隔线，直接显示正文；
 /// 5. 历史数据（无作者字段）的作者昵称回填与兜底；
@@ -75,10 +76,12 @@ Future<void> _pumpBlogTab(
   Map<String, List<String>> groupedPosts = const {},
   List<Map<String, dynamic>> users = const [],
   String? auth,
+  List<String> following = const [],
 }) async {
   SharedPreferences.setMockInitialValues({
     _authKey: auth ?? _authJson(),
     if (users.isNotEmpty) _usersKey: jsonEncode(users),
+    if (following.isNotEmpty) 'follows_$_mePhone': following,
     ...groupedPosts,
   });
   await tester.pumpWidget(const MaterialApp(home: BlogTab()));
@@ -229,15 +232,29 @@ void main() {
       expect(find.text(_meName), findsNWidgets(2));
     });
 
-    testWidgets('关注：当前同样展示全站时间线（关注关系待接入）', (tester) async {
+    testWidgets('关注：未关注任何人时为空态（不再展示全站时间线）', (tester) async {
       await _pumpBlogTab(tester, groupedPosts: multiAuthorPosts());
+
+      await _switchTab(tester, 1);
+      expect(find.byType(BlogPostCard), findsNothing);
+      expect(find.text('还没有关注的人'), findsOneWidget);
+    });
+
+    testWidgets('关注：只展示已关注作者的博客，按时间倒序', (tester) async {
+      await _pumpBlogTab(
+        tester,
+        groupedPosts: multiAuthorPosts(),
+        // 已关注「李四」
+        following: [_otherPhone],
+      );
 
       await _switchTab(tester, 1);
       final cards =
           tester.widgetList<BlogPostCard>(find.byType(BlogPostCard)).toList();
-      expect(cards.length, 3);
-      expect(cards.first.post.title, '我最新的一篇');
-      expect(find.text(_otherName), findsOneWidget);
+      expect(cards.length, 1, reason: '关注流只应出现已关注作者的博客');
+      expect(cards.first.post.authorPhone, _otherPhone);
+      expect(find.text('别人中间的一篇'), findsOneWidget);
+      expect(find.text('我最新的一篇'), findsNothing);
     });
 
     testWidgets('我的：只展示当前账号的博客（租户隔离）', (tester) async {
@@ -472,7 +489,7 @@ void main() {
       expect(find.text('即将上线'), findsNothing);
 
       await _switchTab(tester, 1); // 关注
-      expect(find.text('还没有说说内容'), findsOneWidget);
+      expect(find.text('还没有关注的人'), findsOneWidget);
 
       await _switchTab(tester, 2); // 我的
       expect(find.text('还没有发布说说'), findsOneWidget);
