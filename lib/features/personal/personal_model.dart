@@ -35,6 +35,9 @@ class PersonalUser {
   /// 注册时间
   final String createdAt;
 
+  /// 头像本地文件路径（空=未设置，界面回落为默认图标）
+  final String avatarPath;
+
   const PersonalUser({
     required this.phone,
     required this.password,
@@ -45,6 +48,7 @@ class PersonalUser {
     this.province = '',
     this.verifiedAt = '',
     required this.createdAt,
+    this.avatarPath = '',
   });
 
   bool get isVerified => idCard.isNotEmpty;
@@ -66,6 +70,7 @@ class PersonalUser {
         province: json['province'] as String? ?? '',
         verifiedAt: json['verifiedAt'] as String? ?? '',
         createdAt: json['createdAt'] as String? ?? '',
+        avatarPath: json['avatarPath'] as String? ?? '',
       );
 
   Map<String, dynamic> toJson() => {
@@ -78,6 +83,7 @@ class PersonalUser {
         'province': province,
         'verifiedAt': verifiedAt,
         'createdAt': createdAt,
+        'avatarPath': avatarPath,
       };
 
   PersonalUser copyWith({
@@ -88,6 +94,7 @@ class PersonalUser {
     String? birthday,
     String? province,
     String? verifiedAt,
+    String? avatarPath,
   }) {
     return PersonalUser(
       phone: phone,
@@ -99,6 +106,7 @@ class PersonalUser {
       province: province ?? this.province,
       verifiedAt: verifiedAt ?? this.verifiedAt,
       createdAt: createdAt,
+      avatarPath: avatarPath ?? this.avatarPath,
     );
   }
 }
@@ -114,6 +122,9 @@ class PersonalAuth {
   final String province;
   final String verifiedAt;
 
+  /// 头像本地文件路径（空=未设置）
+  final String avatarPath;
+
   const PersonalAuth({
     required this.token,
     required this.phone,
@@ -123,6 +134,7 @@ class PersonalAuth {
     this.birthday = '',
     this.province = '',
     this.verifiedAt = '',
+    this.avatarPath = '',
   });
 
   bool get isVerified => idCard.isNotEmpty;
@@ -142,6 +154,7 @@ class PersonalAuth {
         birthday: u.birthday,
         province: u.province,
         verifiedAt: u.verifiedAt,
+        avatarPath: u.avatarPath,
       );
 
   factory PersonalAuth.fromJson(Map<String, dynamic> json) => PersonalAuth(
@@ -153,6 +166,7 @@ class PersonalAuth {
         birthday: json['birthday'] as String? ?? '',
         province: json['province'] as String? ?? '',
         verifiedAt: json['verifiedAt'] as String? ?? '',
+        avatarPath: json['avatarPath'] as String? ?? '',
       );
 
   Map<String, dynamic> toJson() => {
@@ -164,5 +178,6 @@ class PersonalAuth {
         'birthday': birthday,
         'province': province,
         'verifiedAt': verifiedAt,
+        'avatarPath': avatarPath,
       };
 }

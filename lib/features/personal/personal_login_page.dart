@@ -109,7 +109,10 @@ class _PersonalLoginPageState extends State<PersonalLoginPage> {
               const SizedBox(height: 20),
               const Text(
                 '职管家 · AI职业管家',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Color(0xFF1A1B1C)),
+                style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1B1C)),
               ),
               const SizedBox(height: 8),
               const Text(
@@ -117,7 +120,8 @@ class _PersonalLoginPageState extends State<PersonalLoginPage> {
                 style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
               ),
               const SizedBox(height: 40),
-              const Text('手机号', style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
+              const Text('手机号',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
               const SizedBox(height: 8),
               TextField(
                 controller: _phoneController,
@@ -126,12 +130,15 @@ class _PersonalLoginPageState extends State<PersonalLoginPage> {
                 decoration: InputDecoration(
                   hintText: '请输入手机号',
                   counterText: '',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('密码', style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
+              const Text('密码',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
               const SizedBox(height: 8),
               TextField(
                 controller: _passwordController,
@@ -143,8 +150,10 @@ class _PersonalLoginPageState extends State<PersonalLoginPage> {
                 },
                 decoration: InputDecoration(
                   hintText: '请输入密码',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
               const SizedBox(height: 24),
@@ -156,17 +165,20 @@ class _PersonalLoginPageState extends State<PersonalLoginPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2563EB),
                     disabledBackgroundColor: const Color(0xFFCBD5E1),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   child: Text(_loading ? '登录中…' : '登 录',
-                      style: const TextStyle(fontSize: 16, color: Colors.white)),
+                      style:
+                          const TextStyle(fontSize: 16, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('还没有账号？', style: TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
+                  const Text('还没有账号？',
+                      style: TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).push(
@@ -178,13 +190,17 @@ class _PersonalLoginPageState extends State<PersonalLoginPage> {
                         ),
                       );
                     },
-                    child: const Text('注册账号', style: TextStyle(color: Color(0xFF2563EB), fontSize: 13)),
+                    child: const Text('注册账号',
+                        style:
+                            TextStyle(color: Color(0xFF2563EB), fontSize: 13)),
                   ),
                 ],
               ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                Text(_error, style: const TextStyle(color: Color(0xFFEA6668), fontSize: 13)),
+                Text(_error,
+                    style: const TextStyle(
+                        color: Color(0xFFEA6668), fontSize: 13)),
               ],
             ],
           ),

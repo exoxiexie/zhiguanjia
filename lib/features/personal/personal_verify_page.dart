@@ -128,22 +128,27 @@ class _PersonalVerifyPageState extends State<PersonalVerifyPage> {
                 ),
                 child: const Text(
                   '实名认证用于建立你的职业身份档案，信息仅保存在本机，不会公开显示。',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF1E40AF), height: 1.5),
+                  style: TextStyle(
+                      fontSize: 13, color: Color(0xFF1E40AF), height: 1.5),
                 ),
               ),
               const SizedBox(height: 24),
-              const Text('真实姓名', style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
+              const Text('真实姓名',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
               const SizedBox(height: 8),
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
                   hintText: '请输入身份证上的姓名',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('身份证号', style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
+              const Text('身份证号',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
               const SizedBox(height: 8),
               TextField(
                 controller: _idCardController,
@@ -155,8 +160,10 @@ class _PersonalVerifyPageState extends State<PersonalVerifyPage> {
                 ],
                 decoration: InputDecoration(
                   hintText: '请输入18位身份证号',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
               const SizedBox(height: 12),
@@ -180,7 +187,8 @@ class _PersonalVerifyPageState extends State<PersonalVerifyPage> {
                     ),
                     child: Text(
                       '校验通过：${info.gender} · $bStr · ${info.province ?? ''}',
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF15803D)),
+                      style: const TextStyle(
+                          fontSize: 13, color: Color(0xFF15803D)),
                     ),
                   );
                 },
@@ -194,15 +202,19 @@ class _PersonalVerifyPageState extends State<PersonalVerifyPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2563EB),
                     disabledBackgroundColor: const Color(0xFFCBD5E1),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   child: Text(_loading ? '提交中…' : '提交认证',
-                      style: const TextStyle(fontSize: 16, color: Colors.white)),
+                      style:
+                          const TextStyle(fontSize: 16, color: Colors.white)),
                 ),
               ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                Text(_error, style: const TextStyle(color: Color(0xFFEA6668), fontSize: 13)),
+                Text(_error,
+                    style: const TextStyle(
+                        color: Color(0xFFEA6668), fontSize: 13)),
               ],
             ],
           ),

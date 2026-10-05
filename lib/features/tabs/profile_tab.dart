@@ -4,15 +4,33 @@
 /// 不接触存储 / 网络实现细节；具体实现由外部注入或默认装配。
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../contracts/update_service.dart';
+import '../personal/avatar_store.dart';
 import '../personal/personal_auth_service.dart';
 import '../personal/personal_login_page.dart';
 import '../personal/personal_model.dart';
 import '../personal/personal_verify_page.dart';
 import '../update/update_service_impl.dart';
+
+/// 头像图片选择回调（可注入，便于测试；默认走 image_picker）
+typedef AvatarPickFn = Future<String?> Function(ImageSource source);
+
+/// 默认头像选择实现：调用系统相机 / 相册，返回所选图片的临时路径
+Future<String?> defaultPickAvatar(ImageSource source) async {
+  final picked = await ImagePicker().pickImage(
+    source: source,
+    maxWidth: 800,
+    maxHeight: 800,
+    imageQuality: 85,
+  );
+  return picked?.path;
+}
 
 /// 更新服务器地址（多源：Gitee API 优先，GitHub 回退；均公网可访问）
 /// Gitee 用 API 方式获取文件内容，避免 raw URL 302 重定向导致超时
@@ -24,7 +42,10 @@ const List<String> _kUpdateBaseUrls = [
 class ProfileTab extends StatefulWidget {
   final UpdateService? updateService;
 
-  const ProfileTab({super.key, this.updateService});
+  /// 头像选择器（默认使用 image_picker 的相机 / 相册；测试可注入假实现）
+  final AvatarPickFn? avatarPicker;
+
+  const ProfileTab({super.key, this.updateService, this.avatarPicker});
 
   @override
   State<ProfileTab> createState() => ProfileTabState();
@@ -62,6 +83,115 @@ class ProfileTabState extends State<ProfileTab> {
     if (mounted) _refreshAuth();
   }
 
+  /// 头像选择实现（默认 image_picker）
+  AvatarPickFn get _pickAvatar => widget.avatarPicker ?? defaultPickAvatar;
+
+  /// 点击头像：弹出「拍照 / 从相册选择 / 移除头像」
+  Future<void> _showAvatarSheet() async {
+    final auth = await PersonalAuthService.getAuth();
+    if (!mounted || auth == null) return;
+    final hasAvatar = auth.avatarPath.isNotEmpty;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Text(
+                '更换头像',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A1B1C),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined,
+                  color: Color(0xFF5B7FD4)),
+              title: const Text('拍照'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAndSaveAvatar(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined,
+                  color: Color(0xFF5B7FD4)),
+              title: const Text('从相册选择'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAndSaveAvatar(ImageSource.gallery);
+              },
+            ),
+            if (hasAvatar)
+              ListTile(
+                leading:
+                    const Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
+                title: const Text('移除头像',
+                    style: TextStyle(color: Color(0xFFEF4444))),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _removeAvatar();
+                },
+              ),
+            const SizedBox(height: 6),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 选图 → 复制进私有目录 → 写入用户档案与登录态 → 刷新界面
+  Future<void> _pickAndSaveAvatar(ImageSource source) async {
+    final auth = await PersonalAuthService.getAuth();
+    if (auth == null) return;
+    try {
+      // image_picker 返回的是系统临时缓存路径，必须复制进私有目录长期保存
+      final sourcePath = await _pickAvatar(source);
+      if (sourcePath == null) return; // 用户取消
+      final savedPath =
+          await AvatarStore.save(phone: auth.phone, sourcePath: sourcePath);
+      final result = await PersonalAuthService.updateAvatar(
+        phone: auth.phone,
+        avatarPath: savedPath,
+      );
+      if (!mounted) return;
+      if (result['ok'] != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${result['error'] ?? '头像更新失败'}')),
+        );
+        return;
+      }
+      _refreshAuth();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('头像已更新')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('头像更新失败：$e')),
+      );
+    }
+  }
+
+  /// 移除头像（删除文件 + 清空档案字段，回落默认图标）
+  Future<void> _removeAvatar() async {
+    final auth = await PersonalAuthService.getAuth();
+    if (auth == null) return;
+    await AvatarStore.remove(auth.phone);
+    await PersonalAuthService.updateAvatar(phone: auth.phone, avatarPath: '');
+    if (!mounted) return;
+    _refreshAuth();
+  }
+
   Future<void> _logout(BuildContext context) async {
     await PersonalAuthService.clearAuth();
     if (!context.mounted) return;
@@ -74,7 +204,8 @@ class ProfileTabState extends State<ProfileTab> {
   /// 打开实名认证页
   Future<void> _openVerify() async {
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => PersonalVerifyPage(onVerified: _refreshAuth)),
+      MaterialPageRoute(
+          builder: (_) => PersonalVerifyPage(onVerified: _refreshAuth)),
     );
     _refreshAuth();
   }
@@ -100,8 +231,12 @@ class ProfileTabState extends State<ProfileTab> {
           content: Text(
               '最新版本：${info.version}\n\n更新内容：\n${info.note.isEmpty ? '暂无' : info.note}'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('立即更新')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('立即更新')),
           ],
         ),
       );
@@ -120,7 +255,8 @@ class ProfileTabState extends State<ProfileTab> {
     }
   }
 
-  Future<void> _downloadAndInstall(BuildContext context, UpdateInfo info) async {
+  Future<void> _downloadAndInstall(
+      BuildContext context, UpdateInfo info) async {
     setState(() => _downloading = true);
     BuildContext? dialogRebuild;
 
@@ -138,14 +274,16 @@ class ProfileTabState extends State<ProfileTab> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_progress >= 0)
-                    LinearProgressIndicator(value: _progress > 0 ? _progress / 100 : null)
+                    LinearProgressIndicator(
+                        value: _progress > 0 ? _progress / 100 : null)
                   else
                     const LinearProgressIndicator(),
                   const SizedBox(height: 12),
                   if (_progress >= 0)
                     Text('${_progress.toStringAsFixed(0)}%')
                   else
-                    Text('已下载 ${(_progress.abs() / 1024 / 1024).toStringAsFixed(1)} MB'),
+                    Text(
+                        '已下载 ${(_progress.abs() / 1024 / 1024).toStringAsFixed(1)} MB'),
                 ],
               );
             },
@@ -179,7 +317,8 @@ class ProfileTabState extends State<ProfileTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ok ? '下载完成，请在系统安装界面确认安装' : '下载完成，但打开安装器失败（${r.message}）'),
+          content:
+              Text(ok ? '下载完成，请在系统安装界面确认安装' : '下载完成，但打开安装器失败（${r.message}）'),
         ),
       );
     } catch (e) {
@@ -218,16 +357,14 @@ class ProfileTabState extends State<ProfileTab> {
                   ),
                   child: Row(
                     children: [
-                      // 用户头像（圆形）
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF5B7FD4).withOpacity(0.12),
-                          shape: BoxShape.circle,
+                      // 用户头像（圆形，点击可更换）
+                      GestureDetector(
+                        onTap: _showAvatarSheet,
+                        behavior: HitTestBehavior.opaque,
+                        child: _ProfileAvatar(
+                          avatarPath: auth?.avatarPath ?? '',
+                          size: 56,
                         ),
-                        child: const Icon(Icons.person,
-                            size: 30, color: Color(0xFF5B7FD4)),
                       ),
                       const SizedBox(width: 14),
                       // 个人信息
@@ -256,8 +393,10 @@ class ProfileTabState extends State<ProfileTab> {
                                       horizontal: 6, vertical: 1),
                                   decoration: BoxDecoration(
                                     color: verified
-                                        ? const Color(0xFF10B981).withOpacity(0.1)
-                                        : const Color(0xFFF59E0B).withOpacity(0.12),
+                                        ? const Color(0xFF10B981)
+                                            .withOpacity(0.1)
+                                        : const Color(0xFFF59E0B)
+                                            .withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -375,7 +514,8 @@ class ProfileTabState extends State<ProfileTab> {
                           ),
                         ),
                         child: const Text('退出登录',
-                            style: TextStyle(fontSize: 16, color: Color(0xFFD05656))),
+                            style: TextStyle(
+                                fontSize: 16, color: Color(0xFFD05656))),
                       ),
                     ),
                   ),
@@ -470,6 +610,72 @@ class _ListItem extends StatelessWidget {
                   size: 20, color: Color(0xFFC0C0C0)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 「我的」页头像（点击外层可更换）
+///
+/// 未设置头像或图片文件已失效时，回落为默认的人形图标；
+/// 右下角小相机角标提示「此处可更换头像」。
+class _ProfileAvatar extends StatelessWidget {
+  final String avatarPath;
+  final double size;
+
+  const _ProfileAvatar({required this.avatarPath, this.size = 56});
+
+  /// 默认（无头像）图标
+  Widget _fallback() => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: const Color(0xFF5B7FD4).withOpacity(0.12),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.person, size: 30, color: Color(0xFF5B7FD4)),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        children: [
+          ClipOval(
+            child: SizedBox(
+              width: size,
+              height: size,
+              // 文件缺失/解码失败时回落默认图标，避免裂图
+              child: avatarPath.isEmpty
+                  ? _fallback()
+                  : Image.file(
+                      File(avatarPath),
+                      width: size,
+                      height: size,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _fallback(),
+                    ),
+            ),
+          ),
+          // 右下角相机角标
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: const Color(0xFF5B7FD4),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFF0F5FF), width: 2),
+              ),
+              child:
+                  const Icon(Icons.photo_camera, size: 10, color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
   }

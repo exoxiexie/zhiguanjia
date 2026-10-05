@@ -122,6 +122,29 @@ class PersonalAuthService {
     return {'ok': true, 'user': users[idx]};
   }
 
+  /// 更新头像路径（写入用户档案并同步刷新登录态）
+  ///
+  /// 传空字符串表示移除头像（界面回落为默认图标）。
+  static Future<Map<String, dynamic>> updateAvatar({
+    required String phone,
+    required String avatarPath,
+  }) async {
+    final users = await getUsers();
+    final idx = users.indexWhere((u) => u.phone == phone);
+    if (idx < 0) {
+      return {'ok': false, 'error': '账号不存在，请重新登录'};
+    }
+    users[idx] = users[idx].copyWith(avatarPath: avatarPath);
+    await _saveUsers(users);
+
+    // 同步登录态，避免「我的」页重新读取时拿到旧值
+    final auth = await getAuth();
+    if (auth != null && auth.phone == phone) {
+      await setAuth(PersonalAuth.fromUser(users[idx]));
+    }
+    return {'ok': true, 'user': users[idx]};
+  }
+
   /// 设置登录态
   static Future<void> setAuth(PersonalAuth auth) async {
     final prefs = await SharedPreferences.getInstance();

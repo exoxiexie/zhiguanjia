@@ -30,6 +30,26 @@
 
 ---
 
+## [1.0.10] - 2026-10-05
+
+「我的」页可更换头像 + 构建提速。
+
+### 新增
+- **更换头像**：「我的」页点击顶部头像弹出面板，支持**拍照 / 从相册选择 / 移除头像**；头像右下角新增相机角标提示可点击。
+  - 头像文件复制进应用私有目录 `avatars/<手机号>.<扩展名>`（系统相册/相机返回的是临时缓存路径，直接存会被系统清理导致裂图）；同一账号只保留一份，换格式时自动清理旧文件。
+  - 头像路径写入用户档案并同步登录态，换设备/重登后仍生效；未设置或文件失效时回落默认图标（不出现裂图）。
+  - 相关实现：[avatar_store.dart](lib/features/personal/avatar_store.dart)、`PersonalUser/PersonalAuth.avatarPath`、`PersonalAuthService.updateAvatar()`。
+
+### 工程
+- **构建提速**（release 构建 4分54秒 → 见发版清单实测）：
+  - `android.enableJetifier=false`：依赖已全为 AndroidX，省去对所有依赖的字节码重写；
+  - `org.gradle.caching=true` / `org.gradle.parallel=true`：复用构建缓存、并行任务；
+  - `build_apk.sh` 默认只打 **arm64-v8a** 单 ABI：Dart AOT 由 3 份减为 1 份（原 24.3MB 包内 3 个 ABI 各含一份 `libapp.so` + `libflutter.so`），构建时间与包体同时下降。需要兼容 32 位老机型时执行 `./build_apk.sh --universal` 出全 ABI 通用包。
+- 回归测试 81 → 84 例（新增头像文件保存/移除、头像档案与登录态同步、点击头像弹出更换面板）。
+- 版本：`pubspec.yaml` `1.0.10+11`、`version.json` `1.0.10`（versionCode 11）。
+
+---
+
 ## [1.0.9] - 2026-10-05
 
 博客内容区改造：作者信息置顶 + 全站时间线（推荐/关注先以全量时间线解决内容过少问题）。

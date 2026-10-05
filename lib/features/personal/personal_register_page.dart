@@ -122,7 +122,10 @@ class _PersonalRegisterPageState extends State<PersonalRegisterPage> {
               const SizedBox(height: 8),
               const Text(
                 '创建你的职管家账号',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF1A1B1C)),
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1B1C)),
               ),
               const SizedBox(height: 8),
               const Text(
@@ -130,7 +133,8 @@ class _PersonalRegisterPageState extends State<PersonalRegisterPage> {
                 style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
               ),
               const SizedBox(height: 28),
-              const Text('手机号', style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
+              const Text('手机号',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
               const SizedBox(height: 8),
               TextField(
                 controller: _phoneController,
@@ -139,32 +143,40 @@ class _PersonalRegisterPageState extends State<PersonalRegisterPage> {
                 decoration: InputDecoration(
                   hintText: '请输入手机号',
                   counterText: '',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('姓名', style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
+              const Text('姓名',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
               const SizedBox(height: 8),
               TextField(
                 controller: _nameController,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
                   hintText: '请输入真实姓名',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('密码', style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
+              const Text('密码',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF374151))),
               const SizedBox(height: 8),
               TextField(
                 controller: _passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
                   hintText: '请设置密码（至少6位）',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
               const SizedBox(height: 28),
@@ -176,15 +188,19 @@ class _PersonalRegisterPageState extends State<PersonalRegisterPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2563EB),
                     disabledBackgroundColor: const Color(0xFFCBD5E1),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   child: Text(_loading ? '注册中…' : '注册并登录',
-                      style: const TextStyle(fontSize: 16, color: Colors.white)),
+                      style:
+                          const TextStyle(fontSize: 16, color: Colors.white)),
                 ),
               ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                Text(_error, style: const TextStyle(color: Color(0xFFEA6668), fontSize: 13)),
+                Text(_error,
+                    style: const TextStyle(
+                        color: Color(0xFFEA6668), fontSize: 13)),
               ],
             ],
           ),
