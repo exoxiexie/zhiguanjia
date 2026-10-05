@@ -1,5 +1,6 @@
-/// 说说 Tab（职管家 · 个人职业版）
+/// 说说页（职管家 · 个人职业版）
 ///
+/// 入口：「发现」页的「说说」通栏卡片（以独立页面推入）。
 /// 职业内容社区：行业文章 / 职业洞察 / 专栏。
 /// 顶栏三个子 Tab：推荐 / 关注 / 我的；右下角浮动「＋」用于写说说。
 ///
@@ -29,7 +30,11 @@ const Color _kBrandOrange = Color(0xFFFD5C13);
 const Color _kPageBg = Color(0xFFF5F5F5);
 
 class BlogTab extends StatefulWidget {
-  const BlogTab({super.key});
+  /// 是否作为独立页面推入（从「发现」页的「说说」卡片进入）。
+  /// 为 true 时顶栏显示返回按钮；作为常驻页面时为 false。
+  final bool standalone;
+
+  const BlogTab({super.key, this.standalone = false});
 
   @override
   State<BlogTab> createState() => _BlogTabState();
@@ -122,7 +127,7 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: widget.standalone,
         title: Center(
           child: SizedBox(
             width: 240,
