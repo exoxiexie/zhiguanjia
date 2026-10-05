@@ -1,12 +1,12 @@
-/// 博客 Tab（职管家 · 个人职业版）
+/// 说说 Tab（职管家 · 个人职业版）
 ///
 /// 职业内容社区：行业文章 / 职业洞察 / 专栏。
-/// 顶栏三个子 Tab：推荐 / 关注 / 我的；右下角浮动「＋」用于写博客。
+/// 顶栏三个子 Tab：推荐 / 关注 / 我的；右下角浮动「＋」用于写说说。
 ///
 /// 当前版本：
-/// - **推荐 / 关注**：展示本机所有作者发布的博客**时间线**（倒序，最新一条在最前）。
+/// - **推荐 / 关注**：展示本机所有作者发布的说说**时间线**（倒序，最新一条在最前）。
 ///   推荐规则与关注关系待后续接入，当前先以全量时间线解决内容过少的问题；
-/// - **我的**：只展示当前登录账号发布的博客（按作者手机号隔离）；
+/// - **我的**：只展示当前登录账号发布的说说（按作者手机号隔离）；
 /// - 发布后自动刷新，新文章同时出现在时间线与「我的」；
 /// - 卡片渲染规则统一由 [BlogPostCard] 提供（作者信息置顶；无标题只显示正文）。
 library;
@@ -38,10 +38,10 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
 
   late final TabController _tabController;
 
-  /// 全站时间线：本机所有作者发布的博客（「推荐」「关注」共用）
+  /// 全站时间线：本机所有作者发布的说说（「推荐」「关注」共用）
   List<BlogPost> _feedPosts = [];
 
-  /// 我发布的博客（本地，按作者手机号隔离）
+  /// 我发布的说说（本地，按作者手机号隔离）
   List<BlogPost> _myPosts = [];
 
   bool _loading = true;
@@ -131,23 +131,23 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
             posts: _feedPosts,
             loading: _loading,
             emptyIcon: Icons.recommend_outlined,
-            emptyTitle: '还没有博客内容',
-            emptyDesc: '所有人发布的博客会按时间线出现在这里\n点击右下角 ＋ 发布第一篇',
+            emptyTitle: '还没有说说内容',
+            emptyDesc: '所有人发布的说说会按时间线出现在这里\n点击右下角 ＋ 发布第一篇',
           ),
           // 关注：关注关系接入前同样展示全量时间线，避免内容过少
           _PostList(
             posts: _feedPosts,
             loading: _loading,
             emptyIcon: Icons.people_alt_outlined,
-            emptyTitle: '还没有博客内容',
-            emptyDesc: '关注关系上线前，这里先展示全部博客时间线\n点击右下角 ＋ 发布第一篇',
+            emptyTitle: '还没有说说内容',
+            emptyDesc: '关注关系上线前，这里先展示全部说说时间线\n点击右下角 ＋ 发布第一篇',
           ),
           _PostList(
             posts: _myPosts,
             loading: _loading,
             emptyIcon: Icons.edit_note,
-            emptyTitle: '还没有发布博客',
-            emptyDesc: '点击右下角 ＋ 写第一篇博客',
+            emptyTitle: '还没有发布说说',
+            emptyDesc: '点击右下角 ＋ 写第一篇说说',
           ),
         ],
       ),
@@ -156,14 +156,14 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
         backgroundColor: _kBrandOrange,
         foregroundColor: Colors.white,
         elevation: 4,
-        tooltip: '写博客',
+        tooltip: '写说说',
         child: const Icon(Icons.add, size: 30),
       ),
     );
   }
 }
 
-/// 博客列表（「推荐」「关注」「我的」共用）
+/// 说说列表（「推荐」「关注」「我的」共用）
 ///
 /// 只负责列表容器与空态；单条卡片的渲染规则统一交给 [BlogPostCard]。
 class _PostList extends StatelessWidget {

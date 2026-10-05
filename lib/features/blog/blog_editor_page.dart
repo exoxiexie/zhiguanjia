@@ -1,7 +1,7 @@
-/// 写博客页（职管家 · 个人职业版）
+/// 写说说页（职管家 · 个人职业版）
 ///
 /// 极简编辑器：标题 + 正文，点「发布」存入本地（[BlogStore]），
-/// 发布成功后 pop 并返回 true，由博客页刷新「我的」列表。
+/// 发布成功后 pop 并返回 true，由说说页刷新「我的」列表。
 library;
 
 import 'package:flutter/material.dart';
@@ -36,7 +36,7 @@ class _BlogEditorPageState extends State<BlogEditorPage> {
     final content = _contentCtrl.text.trim();
     if (title.isEmpty && content.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入博客内容')),
+        const SnackBar(content: Text('请输入说说内容')),
       );
       return;
     }
@@ -64,7 +64,7 @@ class _BlogEditorPageState extends State<BlogEditorPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('写博客'),
+        title: const Text('写说说'),
         centerTitle: true,
         elevation: 0,
         scrolledUnderElevation: 0,

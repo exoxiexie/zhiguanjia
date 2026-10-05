@@ -468,14 +468,14 @@ void main() {
     testWidgets('无内容时三个子 Tab 均为空态，且不出现「即将上线」', (tester) async {
       await _pumpBlogTab(tester);
 
-      expect(find.text('还没有博客内容'), findsOneWidget); // 推荐
+      expect(find.text('还没有说说内容'), findsOneWidget); // 推荐
       expect(find.text('即将上线'), findsNothing);
 
       await _switchTab(tester, 1); // 关注
-      expect(find.text('还没有博客内容'), findsOneWidget);
+      expect(find.text('还没有说说内容'), findsOneWidget);
 
       await _switchTab(tester, 2); // 我的
-      expect(find.text('还没有发布博客'), findsOneWidget);
+      expect(find.text('还没有发布说说'), findsOneWidget);
       expect(find.text('即将上线'), findsNothing);
     });
 

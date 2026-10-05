@@ -1,1 +1,1 @@
-{"versionName":"1.0.11","versionCode":12,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.11/zhiguanjia-v1.0.11.apk","changelog":"博客推荐/关注信息流卡片的作者头像与「我的」页统一：设置了头像就显示真实头像图片，未设置才回落首字头像；作者头像以用户表为准，换头像后历史博客也同步更新；全站共用同一个头像组件"}
+{"versionName":"1.0.12","versionCode":13,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.12/zhiguanjia-v1.0.12.apk","changelog":"底部导航更名：第 2 个 Tab「数据」改为「学习」，第 3 个 Tab「博客」改为「说说」，两处图标同步更换；发帖页标题「写博客」改为「写说说」"}

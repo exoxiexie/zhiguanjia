@@ -1,6 +1,6 @@
 /// 主框架模块 · 登录后的五栏导航壳
 ///
-/// 底部五个 Tab：懂你 / 数据 / 博客 / 发现 / 我的。
+/// 底部五个 Tab：懂你 / 学习 / 说说 / 发现 / 我的。
 /// 对话页不再占用 Tab，改为独立页面（从首页"对话"卡片进入）。
 library;
 
@@ -29,7 +29,7 @@ class ShellPage extends StatefulWidget {
 }
 
 class _ShellPageState extends State<ShellPage> {
-  /// Tab 索引：0 懂你（首页）、1 数据、2 博客、3 发现、4 我的
+  /// Tab 索引：0 懂你（首页）、1 学习、2 说说、3 发现、4 我的
   int _index = 0;
   final GlobalKey<DatabaseTabState> _databaseTabKey =
       GlobalKey<DatabaseTabState>();
@@ -57,7 +57,7 @@ class _ShellPageState extends State<ShellPage> {
     }
   }
 
-  static const _titles = ['懂你', '数据', '博客', '发现', '我的'];
+  static const _titles = ['懂你', '学习', '说说', '发现', '我的'];
 
   /// 打开对话页（不带指令）
   void openChat() {
@@ -97,7 +97,7 @@ class _ShellPageState extends State<ShellPage> {
     ];
 
     return Scaffold(
-      // 懂你(0)、数据(1) 用外层统一标题栏；博客(2)/发现(3)/我的(4) 各自管理顶栏
+      // 懂你(0)、学习(1) 用外层统一标题栏；说说(2)/发现(3)/我的(4) 各自管理顶栏
       appBar: (_index == 0 || _index == 1)
           ? AppBar(
               title: Text(_titles[_index]),
@@ -112,8 +112,8 @@ class _ShellPageState extends State<ShellPage> {
         onDestinationSelected: (i) {
           setState(() => _index = i);
           // 常驻页面按需刷新，避免显示上次的旧数据：
-          // 「数据」页是第 2 位（index 1）—— 切回时刷新记忆列表；
-          // 「我的」页是第 5 位（index 4）—— 在数据页完成实名认证后刷新认证状态。
+          // 「学习」页是第 2 位（index 1）—— 切回时刷新记忆列表；
+          // 「我的」页是第 5 位（index 4）—— 在学习页完成实名认证后刷新认证状态。
           if (i == 1) {
             _databaseTabKey.currentState?.refresh();
           } else if (i == 4) {
@@ -127,14 +127,14 @@ class _ShellPageState extends State<ShellPage> {
             label: '懂你',
           ),
           NavigationDestination(
-            icon: Icon(Icons.dataset_outlined),
-            selectedIcon: Icon(Icons.dataset),
-            label: '数据',
+            icon: Icon(Icons.school_outlined),
+            selectedIcon: Icon(Icons.school),
+            label: '学习',
           ),
           NavigationDestination(
-            icon: Icon(Icons.article_outlined),
-            selectedIcon: Icon(Icons.article),
-            label: '博客',
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble),
+            label: '说说',
           ),
           NavigationDestination(
             icon: Icon(Icons.explore_outlined),
