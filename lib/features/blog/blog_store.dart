@@ -36,6 +36,13 @@ class BlogPost {
   final String id;
   final String title;
   final String content;
+
+  /// 配图本地文件路径（应用私有目录，见 post_image_store.dart）
+  ///
+  /// 一条说说可以是「纯文字」「纯图片」或「文字 + 图片」；
+  /// 无配图时为空列表（历史数据天然兼容）。
+  final List<String> images;
+
   final int createdAt; // 毫秒时间戳
 
   /// 作者手机号（发布时快照；历史数据在读取时由所属存储键回填）
@@ -52,6 +59,7 @@ class BlogPost {
     required this.title,
     required this.content,
     required this.createdAt,
+    this.images = const [],
     this.authorPhone = '',
     this.authorName = '',
     this.authorAvatarPath = '',
@@ -69,6 +77,9 @@ class BlogPost {
   /// 正文（去首尾空白，便于展示层直接使用）
   String get displayContent => content.trim();
 
+  /// 是否带配图
+  bool get hasImages => images.isNotEmpty;
+
   /// 作者昵称（缺失时兜底为「匿名用户」）
   String get displayAuthor {
     final n = authorName.trim();
@@ -83,6 +94,11 @@ class BlogPost {
         title: json['title']?.toString() ?? '',
         content: json['content']?.toString() ?? '',
         createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
+        images: (json['images'] as List?)
+                ?.map((e) => e.toString())
+                .where((e) => e.isNotEmpty)
+                .toList() ??
+            const [],
         authorPhone: json['authorPhone']?.toString() ?? '',
         authorName: json['authorName']?.toString() ?? '',
         authorAvatarPath: json['authorAvatarPath']?.toString() ?? '',
@@ -93,6 +109,7 @@ class BlogPost {
         'title': title,
         'content': content,
         'createdAt': createdAt,
+        'images': images,
         'authorPhone': authorPhone,
         'authorName': authorName,
         'authorAvatarPath': authorAvatarPath,
@@ -103,6 +120,7 @@ class BlogPost {
     String? title,
     String? content,
     int? createdAt,
+    List<String>? images,
     String? authorPhone,
     String? authorName,
     String? authorAvatarPath,
@@ -112,6 +130,7 @@ class BlogPost {
         title: title ?? this.title,
         content: content ?? this.content,
         createdAt: createdAt ?? this.createdAt,
+        images: images ?? this.images,
         authorPhone: authorPhone ?? this.authorPhone,
         authorName: authorName ?? this.authorName,
         authorAvatarPath: authorAvatarPath ?? this.authorAvatarPath,

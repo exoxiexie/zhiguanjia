@@ -6,11 +6,14 @@
 /// **排版结构**（自上而下）：
 /// 1. 作者信息行：头像 + 昵称 + 发布时间（整行可点击 → 进入作者主页）；
 /// 2. 标题（**仅有标题时**才渲染）；
-/// 3. 正文。
+/// 3. 正文；
+/// 4. 配图（仅有配图时渲染）：单图走大图，多图走九宫格缩略图，点击进全屏预览。
 ///
 /// 标题规则：空标题、纯空白，以及历史版本自动填充的「无标题」，都视为无标题 ——
 /// 不渲染标题元素、不留下任何占位文字或分隔线，直接展示正文。
 library;
+
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -21,6 +24,9 @@ import 'blog_store.dart';
 const Color _kTitleColor = Color(0xFF1A1B1C);
 const Color _kBodyColor = Color(0xFF6B7280);
 const Color _kMetaColor = Color(0xFF9CA3AF);
+
+/// 配图加载失败时的占位底色
+const Color _kImagePlaceholder = Color(0xFFF3F4F6);
 
 /// 发布时间格式：yyyy-MM-dd HH:mm
 String formatBlogTime(int ms) {
@@ -141,7 +147,141 @@ class BlogPostCard extends StatelessWidget {
               ),
             ),
           ],
+
+          // ── ④ 配图（纯图片说说在此直接呈现）──
+          if (post.hasImages) ...[
+            const SizedBox(height: 10),
+            _PostImages(images: post.images),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// 说说配图区
+///
+/// 布局规则：单图走 4:3 大图（观感更好），多图走九宫格缩略图
+/// （4 张时用 2 列，避免第三格空着难看）；
+/// 点击任意一张进入全屏预览，可在多图之间左右翻页。
+class _PostImages extends StatelessWidget {
+  final List<String> images;
+
+  const _PostImages({required this.images});
+
+  void _openViewer(BuildContext context, int index) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => _PostImageViewer(images: images, initialIndex: index),
+      ),
+    );
+  }
+
+  /// 单张图片：统一走 [BoxFit.cover] 填充，加载失败回落占位图标
+  Widget _image(String path, BoxFit fit) => Image.file(
+        File(path),
+        fit: fit,
+        errorBuilder: (_, __, ___) => Container(
+          color: _kImagePlaceholder,
+          alignment: Alignment.center,
+          child: const Icon(Icons.broken_image_outlined,
+              color: Color(0xFFB5B9C0)),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    if (images.length == 1) {
+      return GestureDetector(
+        onTap: () => _openViewer(context, 0),
+        child: AspectRatio(
+          aspectRatio: 4 / 3,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: _image(images.first, BoxFit.cover),
+          ),
+        ),
+      );
+    }
+
+    final columns = images.length == 4 ? 2 : 3;
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        mainAxisSpacing: 4,
+        crossAxisSpacing: 4,
+      ),
+      itemCount: images.length,
+      itemBuilder: (context, i) => GestureDetector(
+        onTap: () => _openViewer(context, i),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: _image(images[i], BoxFit.cover),
+        ),
+      ),
+    );
+  }
+}
+
+/// 配图全屏预览：黑底、可双指缩放、多图可左右翻页
+class _PostImageViewer extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+
+  const _PostImageViewer({required this.images, this.initialIndex = 0});
+
+  @override
+  State<_PostImageViewer> createState() => _PostImageViewerState();
+}
+
+class _PostImageViewerState extends State<_PostImageViewer> {
+  late final PageController _controller =
+      PageController(initialPage: widget.initialIndex);
+  late int _index = widget.initialIndex;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final multi = widget.images.length > 1;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          multi ? '${_index + 1} / ${widget.images.length}' : '图片',
+          style: const TextStyle(color: Colors.white, fontSize: 15),
+        ),
+      ),
+      body: PageView.builder(
+        controller: _controller,
+        onPageChanged: (i) => setState(() => _index = i),
+        itemCount: widget.images.length,
+        itemBuilder: (_, i) => InteractiveViewer(
+          minScale: 1,
+          maxScale: 4,
+          child: Center(
+            child: Image.file(
+              File(widget.images[i]),
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.broken_image_outlined,
+                color: Colors.white54,
+                size: 48,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

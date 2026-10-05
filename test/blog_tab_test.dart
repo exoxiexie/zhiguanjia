@@ -60,6 +60,7 @@ String _postJson({
   required int createdAt,
   String authorPhone = '',
   String authorName = '',
+  List<String> images = const [],
 }) =>
     jsonEncode({
       'id': id,
@@ -68,6 +69,7 @@ String _postJson({
       'createdAt': createdAt,
       'authorPhone': authorPhone,
       'authorName': authorName,
+      if (images.isNotEmpty) 'images': images,
     });
 
 /// 预置数据并渲染博客页
@@ -468,6 +470,52 @@ void main() {
       expect(post(BlogPost.legacyUntitled).showTitle, isFalse);
       expect(post('', author: '  ').displayAuthor, BlogPost.anonymousAuthor);
       expect(post('', author: '张三').displayAuthor, '张三');
+    });
+  });
+
+  group('说说配图', () {
+    test('images 随 JSON 往返不丢失，历史数据（无 images 字段）为空列表', () {
+      const post = BlogPost(
+        id: '1',
+        title: '',
+        content: '文字 + 图片',
+        createdAt: 1,
+        images: ['/tmp/a.png', '/tmp/b.jpg'],
+      );
+      final back = BlogPost.fromJson(jsonDecode(jsonEncode(post.toJson())));
+      expect(back.images, ['/tmp/a.png', '/tmp/b.jpg']);
+      expect(back.hasImages, isTrue);
+
+      final legacy = BlogPost.fromJson(jsonDecode(_postJson(id: '2', createdAt: 2)));
+      expect(legacy.images, isEmpty, reason: '历史数据无 images 字段时应为空列表');
+      expect(legacy.hasImages, isFalse);
+    });
+
+    testWidgets('带配图的说说渲染图片；纯文字说说不渲染图片', (tester) async {
+      await _pumpBlogTab(tester, groupedPosts: {
+        _key(_mePhone): [
+          _postJson(
+            id: 'with-image',
+            content: '一张图配文',
+            createdAt: 1750000200000,
+            authorPhone: _mePhone,
+            authorName: _meName,
+            images: ['/tmp/not_exists_1.png', '/tmp/not_exists_2.png'],
+          ),
+          _postJson(
+            id: 'text-only',
+            content: '纯文字说说',
+            createdAt: 1750000100000,
+            authorPhone: _mePhone,
+            authorName: _meName,
+          ),
+        ],
+      });
+
+      // 两张配图 → 两个 Image（文件不存在时由 errorBuilder 兜底，不产生裂图）
+      expect(find.byType(Image), findsNWidgets(2));
+      expect(find.text('一张图配文'), findsOneWidget);
+      expect(find.text('纯文字说说'), findsOneWidget);
     });
   });
 

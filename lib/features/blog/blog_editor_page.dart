@@ -1,16 +1,30 @@
 /// 写说说页（职管家 · 个人职业版）
 ///
-/// 极简编辑器：标题 + 正文，点「发布」存入本地（[BlogStore]），
+/// 极简编辑器：标题 + 正文 + 配图，点「发布」存入本地（[BlogStore]），
 /// 发布成功后 pop 并返回 true，由说说页刷新「我的」列表。
+///
+/// **内容形态**：一条说说可以是「纯文字」「纯图片」或「文字 + 图片」，
+/// 因此校验条件是三者不能同时为空；标题始终可选。
+///
+/// **配图落盘**：选中的图片由 [PostImageStore] 复制进应用私有目录后，
+/// 再以绝对路径写入说说数据（不能直接存系统临时路径，会被清理成裂图）。
+/// 若用户中途放弃（未点发布就退出），dispose 时清理本次已落盘的文件，不留孤儿图片。
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../personal/personal_auth_service.dart';
 import 'blog_store.dart';
+import 'post_image_store.dart';
 
 /// 品牌活力橙
 const Color _kBrandOrange = Color(0xFFFD5C13);
+
+/// 配图数量上限（与主流信息流一致：最多 9 张）
+const int _kMaxImages = 9;
 
 class BlogEditorPage extends StatefulWidget {
   const BlogEditorPage({super.key});
@@ -22,21 +36,141 @@ class BlogEditorPage extends StatefulWidget {
 class _BlogEditorPageState extends State<BlogEditorPage> {
   final TextEditingController _titleCtrl = TextEditingController();
   final TextEditingController _contentCtrl = TextEditingController();
+
+  /// 已选配图的**私有目录绝对路径**（选一张即落盘一张）
+  final List<String> _images = [];
+
   bool _publishing = false;
+
+  /// 是否已成功发布：为 true 时退出不清理图片（图片已归说说所有）
+  bool _published = false;
+
+  /// 选图期间忽略重复点击
+  bool _picking = false;
 
   @override
   void dispose() {
     _titleCtrl.dispose();
     _contentCtrl.dispose();
+    // 未发布就退出 → 回收本次选中的图片文件，避免私有目录堆积孤儿图
+    if (!_published && _images.isNotEmpty) {
+      PostImageStore.removeAll(List.of(_images));
+    }
     super.dispose();
+  }
+
+  /// 弹出图片来源选择（拍照 / 从相册选择），与「更换头像」保持同一交互
+  Future<void> _showImageSheet() async {
+    if (_images.length >= _kMaxImages) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('最多添加 $_kMaxImages 张图片')),
+      );
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Text(
+                '添加图片',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A1B1C),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined,
+                  color: Color(0xFF5B7FD4)),
+              title: const Text('拍照'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAndSave(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined,
+                  color: Color(0xFF5B7FD4)),
+              title: const Text('从相册选择'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAndSave(ImageSource.gallery);
+              },
+            ),
+            const SizedBox(height: 6),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 选图 → 复制进私有目录 → 追加到预览列表
+  Future<void> _pickAndSave(ImageSource source) async {
+    if (_picking) return;
+    _picking = true;
+    try {
+      final picker = ImagePicker();
+      final List<XFile> picked;
+      if (source == ImageSource.gallery) {
+        // 相册支持多选，便于一次挑好几张
+        picked = await picker.pickMultiImage(
+          maxWidth: 1600,
+          maxHeight: 1600,
+          imageQuality: 85,
+        );
+      } else {
+        final one = await picker.pickImage(
+          source: ImageSource.camera,
+          maxWidth: 1600,
+          maxHeight: 1600,
+          imageQuality: 85,
+        );
+        picked = one == null ? const [] : [one];
+      }
+      if (picked.isEmpty) return; // 用户取消
+
+      final remain = _kMaxImages - _images.length;
+      final take = picked.take(remain).toList();
+      final saved = await PostImageStore.saveAll(take.map((e) => e.path));
+      if (!mounted) return;
+      setState(() => _images.addAll(saved));
+      if (picked.length > remain) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('最多添加 $_kMaxImages 张图片，多余的已忽略')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('添加图片失败：$e')),
+      );
+    } finally {
+      _picking = false;
+    }
+  }
+
+  /// 移除一张已选图片：同时删除已落盘的文件
+  void _removeImage(int index) {
+    final path = _images.removeAt(index);
+    setState(() {});
+    PostImageStore.removeAll([path]);
   }
 
   Future<void> _publish() async {
     final title = _titleCtrl.text.trim();
     final content = _contentCtrl.text.trim();
-    if (title.isEmpty && content.isEmpty) {
+    if (title.isEmpty && content.isEmpty && _images.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入说说内容')),
+        const SnackBar(content: Text('请输入说说内容或添加图片')),
       );
       return;
     }
@@ -52,10 +186,12 @@ class _BlogEditorPageState extends State<BlogEditorPage> {
       id: '${now}_${auth?.phone ?? ''}',
       title: title,
       content: content,
+      images: List.of(_images),
       createdAt: now,
       authorPhone: auth?.phone ?? '',
       authorName: auth?.name ?? '',
     ));
+    _published = true; // 图片已归属这条说说，退出时不再清理
     if (mounted) Navigator.pop(context, true);
   }
 
@@ -117,7 +253,86 @@ class _BlogEditorPageState extends State<BlogEditorPage> {
                 ),
               ),
             ),
+
+            // ── 配图：已选缩略图（横向滚动）+ 「添加图片」入口 ──
+            if (_images.isNotEmpty) _buildImageStrip(),
+            _buildAddImageButton(),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// 已选配图缩略图条（每张右上角可移除）
+  Widget _buildImageStrip() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: SizedBox(
+        height: 92,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _images.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (_, i) => Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(_images[i]),
+                  width: 88,
+                  height: 88,
+                  fit: BoxFit.cover,
+                  // 文件被清理/解码失败时回落占位，避免裂图
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 88,
+                    height: 88,
+                    color: const Color(0xFFF3F4F6),
+                    child: const Icon(Icons.broken_image_outlined,
+                        color: Color(0xFFB5B9C0)),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 2,
+                top: 2,
+                child: GestureDetector(
+                  onTap: () => _removeImage(i),
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.55),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close,
+                        size: 14, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 添加图片入口（达上限后禁用并提示）
+  Widget _buildAddImageButton() {
+    final full = _images.length >= _kMaxImages;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: full ? null : _showImageSheet,
+        icon: const Icon(Icons.add_photo_alternate_outlined, size: 20),
+        label: Text(full
+            ? '已达 $_kMaxImages 张上限'
+            : '添加图片${_images.isEmpty ? '' : '（${_images.length}/$_kMaxImages）'}'),
+        style: TextButton.styleFrom(
+          foregroundColor: _kBrandOrange,
+          disabledForegroundColor: const Color(0xFFB5B9C0),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          minimumSize: const Size(0, 40),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       ),
     );
