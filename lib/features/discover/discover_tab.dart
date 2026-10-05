@@ -1,9 +1,9 @@
 /// 发现 Tab（职管家 · 个人职业版）
 ///
 /// 微信式发现页：通栏卡片分组，每行 = 图标 + 名称 + 右箭头，点开进入对应页面。
-/// 第一批通栏模块三张卡片（点卡片推入独立页面，内容与原入口一致）：
-/// - 学习：占位模块，功能后续开发；
+/// 第一批通栏模块三张卡片（**各自独立成卡**，互不同组），自上而下：
 /// - 说说：原底栏「说说」Tab 的内容，折叠进本页；
+/// - 学习：占位模块，功能后续开发；
 /// - 招聘：原「发现」页的职位推荐流，折叠进本页。
 library;
 
@@ -50,6 +50,18 @@ class DiscoverTab extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.only(top: 12),
         children: [
+          // 三张模块卡片各自独立成卡，互不同组
+          _DiscoverGroup(
+            entries: [
+              _DiscoverEntry(
+                icon: Icons.chat_bubble_outline,
+                color: const Color(0xFFFD5C13),
+                label: '说说',
+                onTap: () => _open(context, const BlogTab(standalone: true)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           _DiscoverGroup(
             entries: [
               _DiscoverEntry(
@@ -58,12 +70,11 @@ class DiscoverTab extends StatelessWidget {
                 label: '学习',
                 onTap: () => _open(context, const LearningPage()),
               ),
-              _DiscoverEntry(
-                icon: Icons.chat_bubble_outline,
-                color: const Color(0xFFFD5C13),
-                label: '说说',
-                onTap: () => _open(context, const BlogTab(standalone: true)),
-              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _DiscoverGroup(
+            entries: [
               _DiscoverEntry(
                 icon: Icons.work_outline,
                 color: const Color(0xFF16B89C),
