@@ -18,6 +18,7 @@ import '../../core/di/service_locator.dart';
 import '../agent/agent_service_impl.dart';
 import '../chat/attachment_parser.dart';
 import '../chat/chat_input_bar.dart';
+import '../chat/identity_question.dart';
 import '../chat/preset_commands_page.dart';
 import '../memory/memory_distiller.dart';
 import '../personal/personal_auth_service.dart';
@@ -315,7 +316,8 @@ class HomeTabState extends State<HomeTab> {
 
     try {
       // ── 身份问题统一拦截：不管 Agent 还是普通对话，都直接返回标准答案 ──
-      if (_isIdentityQuestion(text)) {
+      // 判定为整句白名单匹配（见 chat/identity_question.dart），不误伤业务提问
+      if (isIdentityQuestion(text)) {
         const answer = '我是职管家 AI 职业管家，致力于为你提供职业规划、求职发展、技能成长等全职业生涯的智能服务。';
         for (var i = 0; i < answer.length; i++) {
           if (!mounted) return;
@@ -428,25 +430,6 @@ class HomeTabState extends State<HomeTab> {
       );
     }
     _scrollToBottom();
-  }
-
-  /// 判断是否为身份类问题（模糊匹配，不走模型）
-  bool _isIdentityQuestion(String msg) {
-    final cleaned = msg.replaceAll(RegExp(r'[\s，。？！、,.!?\n~～]'), '').toLowerCase();
-    if (!cleaned.contains('你') && !cleaned.contains('您')) return false;
-    const identityKeywords = [
-      '是谁', '是啥', '到底是谁', '究竟是谁',
-      '叫什么', '叫啥', '名字', '名叫',
-      '介绍', '自我介绍', '介绍下', '介绍一下', '说说你', '讲讲你',
-      '身份', '什么身份', '啥身份',
-      '模型', '什么模型', '啥模型', '用的什么', '用的啥', '基于什么', '大模型', '哪个模型',
-      '哪家公司', '哪个公司', '什么公司', '谁开发', '哪家做的', '哪个做的', '厂商', '出自',
-      '版本', '版本号', '几号', '多少版本',
-      'ai', '人工智能', '是不是ai', '是不是人工智能', '是ai吗', '是人工智能吗',
-      '助手', '管家', '是不是助手', '是不是管家', '是助手吗', '是管家吗',
-      '职管家', '什么东西', '啥东西', '干什么的', '做什么的', '干嘛的', '能做什么', '会什么',
-    ];
-    return identityKeywords.any((k) => cleaned.contains(k));
   }
 
   /// 弹出附件选择面板（相册 / 拍照 / 文件）

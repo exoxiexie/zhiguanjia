@@ -33,6 +33,8 @@ class _ShellPageState extends State<ShellPage> {
   int _index = 0;
   final GlobalKey<DatabaseTabState> _databaseTabKey =
       GlobalKey<DatabaseTabState>();
+  final GlobalKey<ProfileTabState> _profileTabKey =
+      GlobalKey<ProfileTabState>();
 
   /// 当前个人租户ID（个人版以手机号作为数据隔离租户ID，注册即有、永不变）
   String _currentTenantId = '';
@@ -90,7 +92,7 @@ class _ShellPageState extends State<ShellPage> {
       DatabaseTab(key: _databaseTabKey),
       const BlogTab(),
       DiscoverTab(chatService: widget.chatService, agentService: widget.agentService),
-      const ProfileTab(),
+      ProfileTab(key: _profileTabKey),
     ];
 
     return Scaffold(
@@ -108,10 +110,13 @@ class _ShellPageState extends State<ShellPage> {
         selectedIndex: _index,
         onDestinationSelected: (i) {
           setState(() => _index = i);
-          // 切换到数据页时刷新记忆列表（让自动提炼的记忆立即可见）
-          // 数据页是第2位（index 1）
+          // 常驻页面按需刷新，避免显示上次的旧数据：
+          // 「数据」页是第 2 位（index 1）—— 切回时刷新记忆列表；
+          // 「我的」页是第 5 位（index 4）—— 在数据页完成实名认证后刷新认证状态。
           if (i == 1) {
             _databaseTabKey.currentState?.refresh();
+          } else if (i == 4) {
+            _profileTabKey.currentState?.refresh();
           }
         },
         destinations: const [

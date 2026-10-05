@@ -1,1 +1,1 @@
-{"versionName":"1.0.7","versionCode":8,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.7/zhiguanjia-v1.0.7.apk","changelog":"博客页右下角新增活力橙＋号浮动按钮，可写博客（标题+正文）并发布；发布的文章在「我的」中展示（本地存储，按手机号隔离），推荐/关注后续开发"}
+{"versionName":"1.0.8","versionCode":9,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.8/zhiguanjia-v1.0.8.apk","changelog":"博客发布后同步进入「推荐」流并置顶为最新一条，与「我的」列表同时可见；无标题博客直接显示正文，不再显示「无标题」占位与分隔线；去掉三个子Tab下方那条灰色分隔线（橙色选中下划线保留）；修复三项缺陷：身份问句误拦截正常提问、实名认证后「我的」页不刷新、联网搜索数据改权重生成重复文件/删除删错文件；新增缺陷台账与回归测试（19→77例）"}

@@ -27,10 +27,10 @@ class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key, this.updateService});
 
   @override
-  State<ProfileTab> createState() => _ProfileTabState();
+  State<ProfileTab> createState() => ProfileTabState();
 }
 
-class _ProfileTabState extends State<ProfileTab> {
+class ProfileTabState extends State<ProfileTab> {
   late Future<PersonalAuth?> _authFuture;
   bool _checking = false;
   bool _downloading = false;
@@ -51,6 +51,15 @@ class _ProfileTabState extends State<ProfileTab> {
     setState(() {
       _authFuture = PersonalAuthService.getAuth();
     });
+  }
+
+  /// 供主框架在切到本页时调用刷新
+  ///
+  /// 本页常驻在 ShellPage 的 IndexedStack 中，initState 只执行一次；
+  /// 若用户在「数据」页完成实名认证，本页不会重建，必须由外部触发刷新，
+  /// 否则会出现「已认证但我的页仍显示未认证」。
+  void refresh() {
+    if (mounted) _refreshAuth();
   }
 
   Future<void> _logout(BuildContext context) async {

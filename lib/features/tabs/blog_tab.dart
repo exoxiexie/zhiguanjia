@@ -2,18 +2,26 @@
 ///
 /// 职业内容社区：行业文章 / 职业洞察 / 专栏。
 /// 顶栏三个子 Tab：推荐 / 关注 / 我的；右下角浮动「＋」用于写博客。
+///
 /// 当前版本：
-/// - 推荐 / 关注：占位（后续接智能推荐与关注关系）；
-/// - 写博客 → 本地存储（[BlogStore]）→ 在「我的」中展示，为最小可用闭环。
+/// - 发布博客 → 本地存储（[BlogStore]）→ **同时**出现在「推荐」流与「我的」列表；
+///   两个列表均按发布时间倒序，新发布的一条即最新一条（推荐流第一条）；
+/// - 卡片渲染规则统一由 [BlogPostCard] 提供，保证两个入口呈现一致
+///   （无标题只显示正文，不显示占位标题与分隔线）；
+/// - 「推荐」的智能推荐算法、「关注」的关注关系待后续接入（关注当前为空态占位）。
 library;
 
 import 'package:flutter/material.dart';
 
 import '../blog/blog_editor_page.dart';
+import '../blog/blog_post_card.dart';
 import '../blog/blog_store.dart';
 
 /// 品牌活力橙（与 App 图标主色一致）
 const Color _kBrandOrange = Color(0xFFFD5C13);
+
+/// 页面底色
+const Color _kPageBg = Color(0xFFF5F5F5);
 
 class BlogTab extends StatefulWidget {
   const BlogTab({super.key});
@@ -22,13 +30,18 @@ class BlogTab extends StatefulWidget {
   State<BlogTab> createState() => _BlogTabState();
 }
 
-class _BlogTabState extends State<BlogTab>
-    with SingleTickerProviderStateMixin {
+class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
   static const List<String> _tabs = ['推荐', '关注', '我的'];
+
+  /// 「我的」子 Tab 下标（发布成功后跳转到此）
+  static const int _mineTabIndex = 2;
+
   late final TabController _tabController;
 
-  /// 我发布的博客（本地）
+  /// 我发布的博客（本地）；「推荐」流与「我的」列表共用同一份数据，
+  /// 因此发布后两处同时可见，无需分别刷新。
   List<BlogPost> _myPosts = [];
+  bool _loading = true;
 
   @override
   void initState() {
@@ -45,15 +58,17 @@ class _BlogTabState extends State<BlogTab>
 
   /// 供主框架在切到本页时调用刷新
   void refresh() {
-    if (mounted) {
-      _loadMyPosts();
-      setState(() {});
-    }
+    if (mounted) _loadMyPosts();
   }
 
   Future<void> _loadMyPosts() async {
     final posts = await BlogStore.loadMyPosts();
-    if (mounted) setState(() => _myPosts = posts);
+    if (mounted) {
+      setState(() {
+        _myPosts = posts;
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _openEditor() async {
@@ -62,15 +77,15 @@ class _BlogTabState extends State<BlogTab>
     );
     if (ok == true) {
       await _loadMyPosts();
-      // 发布成功后切到「我的」，让用户立刻看到新文章
-      _tabController.animateTo(2);
+      // 发布成功后切到「我的」，让用户立刻看到新文章（推荐流同样已包含）
+      _tabController.animateTo(_mineTabIndex);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: _kPageBg,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -93,6 +108,10 @@ class _BlogTabState extends State<BlogTab>
               indicatorPadding: const EdgeInsets.only(bottom: 2),
               splashFactory: NoSplash.splashFactory,
               overlayColor: MaterialStateProperty.all(Colors.transparent),
+              // 去掉 Material 3 为 TabBar 默认绘制的灰色分隔线
+              // （即三个子 Tab 下方那根灰线；选中态的橙色下划线不受影响）
+              dividerColor: Colors.transparent,
+              dividerHeight: 0,
               tabs: [for (final t in _tabs) Tab(text: t)],
             ),
           ),
@@ -101,17 +120,28 @@ class _BlogTabState extends State<BlogTab>
       body: TabBarView(
         controller: _tabController,
         children: [
-          const _BlogPlaceholder(
-            icon: Icons.recommend_outlined,
-            title: '推荐',
-            desc: '结合你的职业画像与数据宇宙\n智能推荐行业文章与职业洞察',
+          // 推荐流：当前展示已发布的博客（倒序，最新一条在最前）；
+          // 正式推荐逻辑（结合职业画像与数据宇宙）后续接入。
+          _PostList(
+            posts: _myPosts,
+            loading: _loading,
+            emptyIcon: Icons.recommend_outlined,
+            emptyTitle: '推荐',
+            emptyDesc: '你发布的博客会出现在这里\n结合职业画像与数据宇宙的智能推荐即将上线',
           ),
           const _BlogPlaceholder(
             icon: Icons.people_alt_outlined,
             title: '关注',
             desc: '你关注的作者与专栏更新\n将在这里展示',
+            comingSoon: true,
           ),
-          _MyBlogsView(posts: _myPosts),
+          _PostList(
+            posts: _myPosts,
+            loading: _loading,
+            emptyIcon: Icons.edit_note,
+            emptyTitle: '还没有发布博客',
+            emptyDesc: '点击右下角 ＋ 写第一篇博客',
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -126,16 +156,59 @@ class _BlogTabState extends State<BlogTab>
   }
 }
 
-/// 推荐 / 关注 子 Tab 占位
+/// 博客列表（「推荐」流与「我的」共用）
+///
+/// 只负责列表容器与空态；单条卡片的渲染规则统一交给 [BlogPostCard]。
+class _PostList extends StatelessWidget {
+  final List<BlogPost> posts;
+  final bool loading;
+  final IconData emptyIcon;
+  final String emptyTitle;
+  final String emptyDesc;
+
+  const _PostList({
+    required this.posts,
+    required this.loading,
+    required this.emptyIcon,
+    required this.emptyTitle,
+    required this.emptyDesc,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (posts.isEmpty) {
+      return _BlogPlaceholder(
+        icon: emptyIcon,
+        title: emptyTitle,
+        desc: emptyDesc,
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
+      itemCount: posts.length,
+      itemBuilder: (context, index) => BlogPostCard(post: posts[index]),
+    );
+  }
+}
+
+/// 空态 / 未开放占位
+///
+/// [comingSoon] 仅在功能尚未开放时显示「即将上线」角标；
+/// 列表为空（如「还没有发布博客」）不属于未开放，不显示角标。
 class _BlogPlaceholder extends StatelessWidget {
   final IconData icon;
   final String title;
   final String desc;
+  final bool comingSoon;
 
   const _BlogPlaceholder({
     required this.icon,
     required this.title,
     required this.desc,
+    this.comingSoon = false,
   });
 
   @override
@@ -172,129 +245,25 @@ class _BlogPlaceholder extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 13, color: Color(0xFF9CA3AF), height: 1.6),
               ),
-              const SizedBox(height: 12),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _kBrandOrange.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(20),
+              if (comingSoon) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _kBrandOrange.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    '即将上线',
+                    style: TextStyle(fontSize: 12, color: _kBrandOrange),
+                  ),
                 ),
-                child: const Text(
-                  '即将上线',
-                  style: TextStyle(fontSize: 12, color: _kBrandOrange),
-                ),
-              ),
+              ],
             ],
           ),
         ),
       ],
-    );
-  }
-}
-
-/// 「我的」子 Tab：我发布的博客列表
-class _MyBlogsView extends StatelessWidget {
-  final List<BlogPost> posts;
-
-  const _MyBlogsView({required this.posts});
-
-  String _formatTime(int ms) {
-    final d = DateTime.fromMillisecondsSinceEpoch(ms);
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (posts.isEmpty) {
-      return ListView(
-        children: [
-          const SizedBox(height: 110),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: _kBrandOrange.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.edit_note,
-                      size: 38, color: _kBrandOrange),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  '还没有发布博客',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A1B1C),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '点击右下角 ＋ 写第一篇博客',
-                  style:
-                      TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
-      itemCount: posts.length,
-      itemBuilder: (context, index) {
-        final post = posts[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                post.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A1B1C),
-                ),
-              ),
-              if (post.content.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  post.content,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.5,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 10),
-              Text(
-                _formatTime(post.createdAt),
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFFB5B9C0)),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

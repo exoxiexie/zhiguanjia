@@ -19,7 +19,7 @@ import '../data/data_tags.dart';
 
 /// 联网搜索数据项
 class SearchDataItem {
-  final String id; // 唯一ID（时间戳）
+  final String id; // 唯一ID（= 文件名去 .md 扩展名，形如 时间戳_slug）
   final String title; // 标题
   final int weight; // 权重（0-100），默认30
   final List<String> tags; // 标签
@@ -229,9 +229,29 @@ class SearchDataStore {
   /// 获取单条搜索数据
   static Future<SearchDataItem?> getById(String tenantId, String id) async {
     final dir = await _dir(tenantId);
-    final file = File(p.join(dir, '$id.md'));
-    if (!await file.exists()) return null;
+    final file = await _resolveFile(dir, id);
+    if (file == null) return null;
     return _parseFile(file);
+  }
+
+  /// 按 id 定位数据文件
+  ///
+  /// 约定：**id 即文件名（去 .md 扩展名）**，与 [_parseFile] 读回的一致。
+  /// 历史版本的 id 只有毫秒时间戳（文件名是 `{id}_{slug}.md`），
+  /// 因此额外按 `{id}_` 前缀做一次回退匹配，保证旧数据不失联。
+  static Future<File?> _resolveFile(String dir, String id) async {
+    if (id.isEmpty) return null;
+    final exact = File(p.join(dir, '$id.md'));
+    if (await exact.exists()) return exact;
+    if (!await Directory(dir).exists()) return null;
+    final prefix = '${id}_';
+    await for (final entity in Directory(dir).list()) {
+      if (entity is File &&
+          p.basenameWithoutExtension(entity.path).startsWith(prefix)) {
+        return entity;
+      }
+    }
+    return null;
   }
 
   /// 创建搜索数据（自动沉淀）
@@ -246,9 +266,10 @@ class SearchDataStore {
     int weight = defaultWeight,
   }) async {
     final now = DateTime.now();
-    final id = now.millisecondsSinceEpoch.toString();
     final slug = _slugify(title);
-    final fileName = '${id}_$slug.md';
+    // id 与落盘文件名（去 .md）严格一致，否则 listAll 读回后 update/delete 会匹配不到
+    final id = '${now.millisecondsSinceEpoch}_$slug';
+    final fileName = '$id.md';
     final dir = await _dir(tenantId);
     final file = File(p.join(dir, fileName));
 
@@ -281,23 +302,17 @@ class SearchDataStore {
   static Future<SearchDataItem> update(
       String tenantId, SearchDataItem item) async {
     final dir = await _dir(tenantId);
-    // 找到对应的文件（文件名包含id前缀）
-    File? targetFile;
-    await for (final entity in Directory(dir).list()) {
-      if (entity is File && p.basename(entity.path).startsWith('${item.id}_')) {
-        targetFile = entity;
-        break;
-      }
-    }
+    // 按 id 精确定位原文件（id 即文件名去扩展名）
+    final targetFile = await _resolveFile(dir, item.id);
 
     final updated = item.copyWith(updatedAt: DateTime.now());
     if (targetFile != null) {
+      // 原地覆盖，绝不新建文件（否则会产生重复记录、删除时删错文件）
       await targetFile.writeAsString(_serialize(updated));
     } else {
-      // 文件不存在，重新创建
-      final slug = _slugify(updated.title);
-      final fileName = '${updated.id}_$slug.md';
-      await File(p.join(dir, fileName)).writeAsString(_serialize(updated));
+      // 原文件确实不存在，按统一命名重建
+      await File(p.join(dir, '${updated.id}.md'))
+          .writeAsString(_serialize(updated));
     }
     return updated;
   }
@@ -313,13 +328,10 @@ class SearchDataStore {
   /// 删除搜索数据
   static Future<bool> delete(String tenantId, String id) async {
     final dir = await _dir(tenantId);
-    await for (final entity in Directory(dir).list()) {
-      if (entity is File && p.basename(entity.path).startsWith('${id}_')) {
-        await entity.delete();
-        return true;
-      }
-    }
-    return false;
+    final file = await _resolveFile(dir, id);
+    if (file == null) return false;
+    await file.delete();
+    return true;
   }
 
   /// 获取权重>=阈值的搜索数据（用于注入上下文）

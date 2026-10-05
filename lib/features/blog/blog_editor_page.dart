@@ -42,9 +42,11 @@ class _BlogEditorPageState extends State<BlogEditorPage> {
 
     setState(() => _publishing = true);
     final now = DateTime.now().millisecondsSinceEpoch;
+    // 标题允许为空：展示层按「无标题」规则直接显示正文，
+    // 不再填充「无标题」占位文字（避免污染数据与列表展示）。
     await BlogStore.addPost(BlogPost(
       id: '$now',
-      title: title.isEmpty ? '无标题' : title,
+      title: title,
       content: content,
       createdAt: now,
     ));
@@ -83,8 +85,7 @@ class _BlogEditorPageState extends State<BlogEditorPage> {
             TextField(
               controller: _titleCtrl,
               maxLines: 1,
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               decoration: const InputDecoration(
                 hintText: '请输入标题',
                 hintStyle: TextStyle(

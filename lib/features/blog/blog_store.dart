@@ -13,6 +13,10 @@ import '../personal/personal_auth_service.dart';
 
 /// 博客文章模型
 class BlogPost {
+  /// 历史版本在标题为空时会自动填充的占位标题。
+  /// 展示层需将其视为「无标题」，不再显示该占位文字。
+  static const String legacyUntitled = '无标题';
+
   final String id;
   final String title;
   final String content;
@@ -24,6 +28,18 @@ class BlogPost {
     required this.content,
     required this.createdAt,
   });
+
+  /// 是否应展示标题。
+  ///
+  /// 为空字符串、纯空白，或历史遗留的「无标题」占位，都视为无标题：
+  /// 展示层会跳过标题元素，直接显示正文。
+  bool get showTitle {
+    final t = title.trim();
+    return t.isNotEmpty && t != legacyUntitled;
+  }
+
+  /// 正文（去首尾空白，便于展示层直接使用）
+  String get displayContent => content.trim();
 
   factory BlogPost.fromJson(Map<String, dynamic> json) => BlogPost(
         id: json['id']?.toString() ?? '',
@@ -51,12 +67,20 @@ class BlogStore {
   }
 
   /// 读取我发布的博客（按发布时间倒序）
+  ///
+  /// 单条记录损坏时跳过该条并继续，避免一条坏数据导致整个列表（推荐流与
+  /// 我的列表）加载失败、只剩空态。
   static Future<List<BlogPost>> loadMyPosts() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(await _key()) ?? const [];
-    final list = raw
-        .map((e) => BlogPost.fromJson(jsonDecode(e) as Map<String, dynamic>))
-        .toList();
+    final list = <BlogPost>[];
+    for (final e in raw) {
+      try {
+        list.add(BlogPost.fromJson(jsonDecode(e) as Map<String, dynamic>));
+      } catch (_) {
+        // 跳过损坏条目
+      }
+    }
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
   }
