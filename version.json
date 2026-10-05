@@ -1,1 +1,1 @@
-{"versionName":"1.0.6","versionCode":7,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.6/zhiguanjia-v1.0.6.apk","changelog":"底部「人脉」Tab 改为「博客」，博客页顶栏新增推荐/关注/我的三个子Tab（内容占位，功能后续开发）"}
+{"versionName":"1.0.7","versionCode":8,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.7/zhiguanjia-v1.0.7.apk","changelog":"博客页右下角新增活力橙＋号浮动按钮，可写博客（标题+正文）并发布；发布的文章在「我的」中展示（本地存储，按手机号隔离），推荐/关注后续开发"}
