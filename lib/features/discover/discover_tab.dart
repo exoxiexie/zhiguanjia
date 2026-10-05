@@ -166,7 +166,8 @@ class _DiscoverTabState extends State<DiscoverTab> {
               const Spacer(),
               GestureDetector(
                 onTap: _todo,
-                child: const Icon(Icons.add, size: 28, color: Color(0xFF1A1B1C)),
+                child:
+                    const Icon(Icons.add, size: 28, color: Color(0xFF1A1B1C)),
               ),
               const SizedBox(width: 20),
               GestureDetector(
@@ -362,8 +363,8 @@ class _DiscoverTabState extends State<DiscoverTab> {
                             const SizedBox(height: 2),
                             const Text(
                               '今日活跃',
-                              style: TextStyle(
-                                  fontSize: 12, color: _kSalaryGreen),
+                              style:
+                                  TextStyle(fontSize: 12, color: _kSalaryGreen),
                             ),
                           ],
                         ],

@@ -19,10 +19,13 @@ class SessionDao {
 
   /// 获取指定租户的会话，按更新时间倒序
   /// [createdBy] 不为空时只查该人创建的会话（admin 视角）；为空时查全部（owner 视角）
-  Future<List<SessionEntity>> findByTenant(String tenantId, {String? createdBy}) async {
+  Future<List<SessionEntity>> findByTenant(String tenantId,
+      {String? createdBy}) async {
     final maps = await _db.query(
       'sessions',
-      where: createdBy != null ? 'tenant_id = ? AND created_by = ?' : 'tenant_id = ?',
+      where: createdBy != null
+          ? 'tenant_id = ? AND created_by = ?'
+          : 'tenant_id = ?',
       whereArgs: createdBy != null ? [tenantId, createdBy] : [tenantId],
       orderBy: 'updated_at DESC',
     );
@@ -80,7 +83,8 @@ class SessionDao {
   }
 
   /// 更新最后提炼的消息ID（用于增量提炼）
-  Future<void> updateLastExtractedMessageId(String sessionId, String messageId) async {
+  Future<void> updateLastExtractedMessageId(
+      String sessionId, String messageId) async {
     await _db.rawUpdate(
       'UPDATE sessions SET last_extracted_message_id = ?, updated_at = ? WHERE id = ?',
       [messageId, DateTime.now().millisecondsSinceEpoch, sessionId],

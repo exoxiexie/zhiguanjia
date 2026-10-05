@@ -97,7 +97,8 @@ class _LocalDataDetailPageState extends State<LocalDataDetailPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('插入U盘或移动硬盘'),
-        content: const Text('请将U盘或移动硬盘插入设备，插入后点击"继续"选择文件。\n\n注意：手机需要支持OTG功能才能读取U盘。'),
+        content:
+            const Text('请将U盘或移动硬盘插入设备，插入后点击"继续"选择文件。\n\n注意：手机需要支持OTG功能才能读取U盘。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -169,7 +170,8 @@ class _LocalDataDetailPageState extends State<LocalDataDetailPage> {
               onTap: () {
                 Navigator.of(context)
                     .push(MaterialPageRoute(
-                      builder: (_) => LocalDataHistoryPage(tenantId: widget.tenantId),
+                      builder: (_) =>
+                          LocalDataHistoryPage(tenantId: widget.tenantId),
                     ))
                     .then((_) => _loadStats());
               },
@@ -209,7 +211,8 @@ class _LocalDataDetailPageState extends State<LocalDataDetailPage> {
                   Expanded(
                     child: Text(
                       '单个文件大小限制 20MB，文件数量和类型不限制。选择文件后可确认哪些需要沉淀，默认全部沉淀。',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF6B7280), height: 1.4),
+                      style: TextStyle(
+                          fontSize: 12, color: Color(0xFF6B7280), height: 1.4),
                     ),
                   ),
                 ],

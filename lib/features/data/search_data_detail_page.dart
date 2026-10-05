@@ -36,7 +36,8 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
   Future<void> _loadItem() async {
     setState(() => _loading = true);
     try {
-      final item = await SearchDataStore.getById(widget.tenantId, widget.itemId);
+      final item =
+          await SearchDataStore.getById(widget.tenantId, widget.itemId);
       if (mounted) setState(() => _item = item);
     } catch (e) {
       debugPrint('加载搜索数据详情失败: $e');
@@ -67,7 +68,10 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
           padding: const EdgeInsets.only(top: 12, bottom: 8),
           child: Text(
             trimmed.substring(2),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A1B1C)),
+            style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1A1B1C)),
           ),
         ));
         continue;
@@ -77,7 +81,10 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
           padding: const EdgeInsets.only(top: 10, bottom: 6),
           child: Text(
             trimmed.substring(3),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A1B1C)),
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1A1B1C)),
           ),
         ));
         continue;
@@ -87,7 +94,10 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
           padding: const EdgeInsets.only(top: 8, bottom: 4),
           child: Text(
             trimmed.substring(4),
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
+            style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF374151)),
           ),
         ));
         continue;
@@ -99,8 +109,14 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('• ', style: TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
-              Expanded(child: Text(trimmed.substring(2), style: const TextStyle(fontSize: 14, color: Color(0xFF374151), height: 1.5))),
+              const Text('• ',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
+              Expanded(
+                  child: Text(trimmed.substring(2),
+                      style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF374151),
+                          height: 1.5))),
             ],
           ),
         ));
@@ -113,8 +129,15 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${trimmed.split('.').first}. ', style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
-              Expanded(child: Text(trimmed.replaceFirst(RegExp(r'^\d+\.\s'), ''), style: const TextStyle(fontSize: 14, color: Color(0xFF374151), height: 1.5))),
+              Text('${trimmed.split('.').first}. ',
+                  style:
+                      const TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
+              Expanded(
+                  child: Text(trimmed.replaceFirst(RegExp(r'^\d+\.\s'), ''),
+                      style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF374151),
+                          height: 1.5))),
             ],
           ),
         ));
@@ -123,11 +146,14 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
       // 普通段落
       widgets.add(Padding(
         padding: const EdgeInsets.only(bottom: 6),
-        child: Text(trimmed, style: const TextStyle(fontSize: 14, color: Color(0xFF374151), height: 1.6)),
+        child: Text(trimmed,
+            style: const TextStyle(
+                fontSize: 14, color: Color(0xFF374151), height: 1.6)),
       ));
     }
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: widgets);
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.start, children: widgets);
   }
 
   @override
@@ -177,7 +203,8 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: _item!.weightColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(4),
@@ -194,14 +221,16 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
                               const SizedBox(width: 8),
                               if (_item!.inContext)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFECFDF5),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Text(
                                     '已进入对话上下文',
-                                    style: TextStyle(fontSize: 11, color: Color(0xFF059669)),
+                                    style: TextStyle(
+                                        fontSize: 11, color: Color(0xFF059669)),
                                   ),
                                 ),
                             ],
@@ -209,7 +238,8 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
                           const SizedBox(height: 12),
                           _buildMetaRow('搜索关键词', _item!.searchQuery),
                           _buildMetaRow('搜索来源', _item!.source),
-                          if (_item!.tags.isNotEmpty) _buildMetaRow('标签', _item!.tags.join('、')),
+                          if (_item!.tags.isNotEmpty)
+                            _buildMetaRow('标签', _item!.tags.join('、')),
                           _buildMetaRow('创建时间', _formatDate(_item!.createdAt)),
                           _buildMetaRow('更新时间', _formatDate(_item!.updatedAt)),
                         ],
@@ -221,7 +251,10 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
                       padding: EdgeInsets.only(left: 4, bottom: 8),
                       child: Text(
                         '提炼内容',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)),
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6B7280)),
                       ),
                     ),
                     // MD内容
@@ -253,7 +286,8 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+            child: Text(label,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
           ),
           Expanded(
             child: Text(
@@ -289,7 +323,8 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         children: [
-                          const Icon(Icons.link, size: 18, color: Color(0xFF6B7280)),
+                          const Icon(Icons.link,
+                              size: 18, color: Color(0xFF6B7280)),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -328,12 +363,14 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
                                 children: [
                                   Text(
                                     '${i + 1}.',
-                                    style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+                                    style: const TextStyle(
+                                        fontSize: 12, color: Color(0xFF9CA3AF)),
                                   ),
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           sources[i].title,
@@ -349,7 +386,8 @@ class _SearchDataDetailPageState extends State<SearchDataDetailPage> {
                                           style: const TextStyle(
                                             fontSize: 11,
                                             color: Color(0xFF2563EB),
-                                            decoration: TextDecoration.underline,
+                                            decoration:
+                                                TextDecoration.underline,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,

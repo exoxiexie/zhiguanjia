@@ -21,10 +21,12 @@ class LocalDataSessionDetailPage extends StatefulWidget {
   });
 
   @override
-  State<LocalDataSessionDetailPage> createState() => _LocalDataSessionDetailPageState();
+  State<LocalDataSessionDetailPage> createState() =>
+      _LocalDataSessionDetailPageState();
 }
 
-class _LocalDataSessionDetailPageState extends State<LocalDataSessionDetailPage> {
+class _LocalDataSessionDetailPageState
+    extends State<LocalDataSessionDetailPage> {
   LocalUploadSession? _session;
   bool _loading = true;
 
@@ -37,7 +39,8 @@ class _LocalDataSessionDetailPageState extends State<LocalDataSessionDetailPage>
   Future<void> _loadSession() async {
     setState(() => _loading = true);
     try {
-      final s = await LocalFileStore.getSession(widget.tenantId, widget.sessionId);
+      final s =
+          await LocalFileStore.getSession(widget.tenantId, widget.sessionId);
       if (mounted) setState(() => _session = s);
     } catch (e) {
       debugPrint('加载会话详情失败: $e');
@@ -119,7 +122,8 @@ class _LocalDataSessionDetailPageState extends State<LocalDataSessionDetailPage>
   Future<void> _openFile(LocalFileItem file) async {
     try {
       final docDir = await getApplicationDocumentsDirectory();
-      final fullPath = p.join(docDir.path, 'tenants', widget.tenantId, file.relativePath);
+      final fullPath =
+          p.join(docDir.path, 'tenants', widget.tenantId, file.relativePath);
       final result = await OpenFilex.open(fullPath);
       if (result.type != ResultType.done && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -164,14 +168,17 @@ class _LocalDataSessionDetailPageState extends State<LocalDataSessionDetailPage>
                           Row(
                             children: [
                               Icon(
-                                _session!.source == 'usb' ? Icons.usb : Icons.phone_android,
+                                _session!.source == 'usb'
+                                    ? Icons.usb
+                                    : Icons.phone_android,
                                 size: 18,
                                 color: const Color(0xFF6B7280),
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 _session!.sourceLabel,
-                                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                                style: const TextStyle(
+                                    fontSize: 13, color: Color(0xFF6B7280)),
                               ),
                             ],
                           ),
@@ -187,9 +194,11 @@ class _LocalDataSessionDetailPageState extends State<LocalDataSessionDetailPage>
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              _buildStatItem('文件数量', '${_session!.fileCount} 个'),
+                              _buildStatItem(
+                                  '文件数量', '${_session!.fileCount} 个'),
                               const SizedBox(width: 32),
-                              _buildStatItem('总大小', _session!.totalSizeFormatted),
+                              _buildStatItem(
+                                  '总大小', _session!.totalSizeFormatted),
                             ],
                           ),
                         ],
@@ -260,7 +269,8 @@ class _LocalDataSessionDetailPageState extends State<LocalDataSessionDetailPage>
                 color: iconColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(_fileIcon(file.extension), size: 20, color: iconColor),
+              child:
+                  Icon(_fileIcon(file.extension), size: 20, color: iconColor),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -280,7 +290,8 @@ class _LocalDataSessionDetailPageState extends State<LocalDataSessionDetailPage>
                   const SizedBox(height: 2),
                   Text(
                     '${file.sizeFormatted} · ${file.extension.toUpperCase()}',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+                    style:
+                        const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
                   ),
                 ],
               ),

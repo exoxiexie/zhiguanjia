@@ -49,8 +49,7 @@ class DatabaseTabState extends State<DatabaseTab> {
   int _ageOf(String birthday) {
     try {
       final p = birthday.split('-');
-      final birth =
-          DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
+      final birth = DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
       final now = DateTime.now();
       var age = now.year - birth.year;
       if (now.month < birth.month ||
@@ -79,10 +78,7 @@ class DatabaseTabState extends State<DatabaseTab> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
           children: [
-            if (_loading)
-              const SizedBox(height: 92)
-            else
-              _buildIdentityCard(),
+            if (_loading) const SizedBox(height: 92) else _buildIdentityCard(),
             const SizedBox(height: 16),
             _buildDataPlaceholder(),
           ],
@@ -152,13 +148,11 @@ class DatabaseTabState extends State<DatabaseTab> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.verified,
-                              size: 12, color: Colors.white),
+                          Icon(Icons.verified, size: 12, color: Colors.white),
                           SizedBox(width: 3),
                           Text(
                             '已认证',
-                            style:
-                                TextStyle(fontSize: 11, color: Colors.white),
+                            style: TextStyle(fontSize: 11, color: Colors.white),
                           ),
                         ],
                       ),
@@ -232,8 +226,7 @@ class DatabaseTabState extends State<DatabaseTab> {
           GestureDetector(
             onTap: _goVerify,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -287,8 +280,8 @@ class DatabaseTabState extends State<DatabaseTab> {
           const Text(
             '对话记忆、简历、证书、作品与职业资料\n将在这里按标签结构化沉淀',
             textAlign: TextAlign.center,
-            style: TextStyle(
-                fontSize: 13, color: Color(0xFF9CA3AF), height: 1.6),
+            style:
+                TextStyle(fontSize: 13, color: Color(0xFF9CA3AF), height: 1.6),
           ),
           const SizedBox(height: 12),
           Container(

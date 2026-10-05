@@ -149,15 +149,15 @@ class ChatInputBar extends StatelessWidget {
                         ),
                         tooltip: '添加附件',
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                            minWidth: 32, minHeight: 32),
+                        constraints:
+                            const BoxConstraints(minWidth: 32, minHeight: 32),
                       ),
                       const Spacer(),
                       ValueListenableBuilder<TextEditingValue>(
                         valueListenable: controller,
                         builder: (context, value, _) {
-                          final canSend = !isLoading &&
-                              value.text.trim().isNotEmpty;
+                          final canSend =
+                              !isLoading && value.text.trim().isNotEmpty;
                           return IconButton.filled(
                             onPressed: canSend ? onSend : null,
                             icon: const Icon(Icons.arrow_upward, size: 22),

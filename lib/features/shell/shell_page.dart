@@ -91,7 +91,8 @@ class _ShellPageState extends State<ShellPage> {
       InsightTab(onOpenChat: openChat, onOpenAgent: openAgent),
       DatabaseTab(key: _databaseTabKey),
       const BlogTab(),
-      DiscoverTab(chatService: widget.chatService, agentService: widget.agentService),
+      DiscoverTab(
+          chatService: widget.chatService, agentService: widget.agentService),
       ProfileTab(key: _profileTabKey),
     ];
 

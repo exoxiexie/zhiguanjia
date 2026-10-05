@@ -128,10 +128,9 @@ class HttpAgentService implements AgentService {
           (usage['completion_tokens'] as num?)?.toInt() ?? 0;
 
       final choices = (data['choices'] as List?) ?? [];
-      final msg = (choices.isEmpty
-              ? null
-              : (choices[0] as Map)['message'] as Map?)
-          ?? const {};
+      final msg =
+          (choices.isEmpty ? null : (choices[0] as Map)['message'] as Map?) ??
+              const {};
       final content = msg['content']?.toString() ?? '';
       final rawToolCalls = (msg['tool_calls'] as List?) ?? [];
 
@@ -224,8 +223,12 @@ class HttpAgentService implements AgentService {
     }
 
     // ── 联网搜索自动沉淀：本次调用了搜索工具且有租户ID时，异步沉淀模型回复 ──
-    if (usedSearch && _tenantId != null && _tenantId!.isNotEmpty && reply.isNotEmpty) {
-      print('[搜索沉淀] 触发沉淀: usedSearch=$usedSearch, tenantId=$_tenantId, reply长度=${reply.length}, 搜索结果=${searchSources.length}, 读取网页=${fetchedUrls.length}');
+    if (usedSearch &&
+        _tenantId != null &&
+        _tenantId!.isNotEmpty &&
+        reply.isNotEmpty) {
+      print(
+          '[搜索沉淀] 触发沉淀: usedSearch=$usedSearch, tenantId=$_tenantId, reply长度=${reply.length}, 搜索结果=${searchSources.length}, 读取网页=${fetchedUrls.length}');
       final title = searchQuery.length > 30
           ? '${searchQuery.substring(0, 30)}...'
           : (searchQuery.isEmpty ? '联网搜索' : searchQuery);
@@ -250,14 +253,16 @@ class HttpAgentService implements AgentService {
             content: reply,
             sources: allSources,
           );
-          print('[搜索沉淀] 沉淀成功: id=${created.id}, title=${created.title}, 信源数=${created.sources.length}');
+          print(
+              '[搜索沉淀] 沉淀成功: id=${created.id}, title=${created.title}, 信源数=${created.sources.length}');
         } catch (e, stackTrace) {
           print('[搜索沉淀] 沉淀失败: $e');
           print('[搜索沉淀] 堆栈: $stackTrace');
         }
       }();
     } else {
-      print('[搜索沉淀] 未触发沉淀: usedSearch=$usedSearch, tenantId=${_tenantId ?? "null"}, reply长度=${reply.length}');
+      print(
+          '[搜索沉淀] 未触发沉淀: usedSearch=$usedSearch, tenantId=${_tenantId ?? "null"}, reply长度=${reply.length}');
     }
 
     return AgentResult(
@@ -299,9 +304,8 @@ class HttpAgentService implements AgentService {
 
     final reasoningBuf = StringBuffer();
     final contentBuf = StringBuffer();
-    await for (final raw in utf8.decoder
-        .bind(body.stream)
-        .transform(const LineSplitter())) {
+    await for (final raw
+        in utf8.decoder.bind(body.stream).transform(const LineSplitter())) {
       final line = raw.trim();
       if (!line.startsWith('data:')) continue;
       final data = line.substring(5).trim();
@@ -327,9 +331,8 @@ class HttpAgentService implements AgentService {
         onDelta?.call(content, reasoning: false);
       }
     }
-    final reply = contentBuf.isNotEmpty
-        ? contentBuf.toString()
-        : reasoningBuf.toString();
+    final reply =
+        contentBuf.isNotEmpty ? contentBuf.toString() : reasoningBuf.toString();
     if (reply.trim().isEmpty) throw Exception('模型未返回内容');
     return reply;
   }
@@ -459,7 +462,10 @@ class HttpAgentService implements AgentService {
           {
             'role': 'user',
             'content': [
-              {'type': 'text', 'text': 'Perform a web search for the query: $query'},
+              {
+                'type': 'text',
+                'text': 'Perform a web search for the query: $query'
+              },
             ],
           },
         ],
@@ -514,7 +520,8 @@ class HttpAgentService implements AgentService {
         url,
         options: Options(
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'text/html,application/xhtml+xml',
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
           },
@@ -527,16 +534,26 @@ class HttpAgentService implements AgentService {
       if (html.isEmpty) return '网页内容为空。';
 
       // 1. 去除 script、style、nav、footer、header、aside 等无关标签及内容
-      html = html.replaceAll(RegExp(r'<script[\s\S]*?</script>', caseSensitive: false), '');
-      html = html.replaceAll(RegExp(r'<style[\s\S]*?</style>', caseSensitive: false), '');
-      html = html.replaceAll(RegExp(r'<nav[\s\S]*?</nav>', caseSensitive: false), '');
-      html = html.replaceAll(RegExp(r'<footer[\s\S]*?</footer>', caseSensitive: false), '');
-      html = html.replaceAll(RegExp(r'<header[\s\S]*?</header>', caseSensitive: false), '');
-      html = html.replaceAll(RegExp(r'<aside[\s\S]*?</aside>', caseSensitive: false), '');
-      html = html.replaceAll(RegExp(r'<noscript[\s\S]*?</noscript>', caseSensitive: false), '');
+      html = html.replaceAll(
+          RegExp(r'<script[\s\S]*?</script>', caseSensitive: false), '');
+      html = html.replaceAll(
+          RegExp(r'<style[\s\S]*?</style>', caseSensitive: false), '');
+      html = html.replaceAll(
+          RegExp(r'<nav[\s\S]*?</nav>', caseSensitive: false), '');
+      html = html.replaceAll(
+          RegExp(r'<footer[\s\S]*?</footer>', caseSensitive: false), '');
+      html = html.replaceAll(
+          RegExp(r'<header[\s\S]*?</header>', caseSensitive: false), '');
+      html = html.replaceAll(
+          RegExp(r'<aside[\s\S]*?</aside>', caseSensitive: false), '');
+      html = html.replaceAll(
+          RegExp(r'<noscript[\s\S]*?</noscript>', caseSensitive: false), '');
 
       // 2. 将块级标签替换为换行
-      html = html.replaceAll(RegExp(r'</(p|div|br|li|h1|h2|h3|h4|h5|h6|tr)>', caseSensitive: false), '\n');
+      html = html.replaceAll(
+          RegExp(r'</(p|div|br|li|h1|h2|h3|h4|h5|h6|tr)>',
+              caseSensitive: false),
+          '\n');
 
       // 3. 去除所有剩余 HTML 标签
       html = html.replaceAll(RegExp(r'<[^>]+>'), '');
@@ -552,7 +569,8 @@ class HttpAgentService implements AgentService {
           .replaceAll(RegExp(r'&#\d+;'), '');
 
       // 5. 压缩多余空白行和空格
-      final lines = html.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty);
+      final lines =
+          html.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty);
       var text = lines.join('\n');
       text = text.replaceAll(RegExp(r'[ \t]+'), ' ');
       text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');

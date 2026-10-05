@@ -14,7 +14,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:zhiguanjia/features/blog/blog_author_avatar.dart';
+import 'package:zhiguanjia/features/personal/user_avatar.dart';
 import 'package:zhiguanjia/features/blog/blog_post_card.dart';
 import 'package:zhiguanjia/features/blog/blog_store.dart';
 import 'package:zhiguanjia/features/tabs/blog_tab.dart';
@@ -38,11 +38,17 @@ String _authJson({String phone = _mePhone, String name = _meName}) =>
     });
 
 /// 用户表条目（注意：PersonalAuthService 用 setString 存整份 JSON 数组）
-Map<String, dynamic> _userJson({required String phone, required String name}) => {
+Map<String, dynamic> _userJson({
+  required String phone,
+  required String name,
+  String avatarPath = '',
+}) =>
+    {
       'phone': phone,
       'password': '123456',
       'name': name,
       'createdAt': '2026-01-01T00:00:00.000',
+      'avatarPath': avatarPath,
     };
 
 /// 博客 JSON；authorPhone/authorName 留空即模拟 v1.0.7/v1.0.8 的历史数据
@@ -109,7 +115,7 @@ void main() {
       });
 
       // 作者信息元素都在
-      expect(find.byType(BlogAuthorAvatar), findsOneWidget);
+      expect(find.byType(UserAvatar), findsOneWidget);
       expect(find.text(_meName), findsOneWidget);
       expect(find.text(formatBlogTime(1750000000000)), findsOneWidget);
       expect(find.text('我的职业洞察'), findsOneWidget);
@@ -117,7 +123,7 @@ void main() {
 
       // 垂直顺序：头像 → 昵称 → 标题 → 正文
       double top(Finder f) => tester.getTopLeft(f).dy;
-      final avatarY = top(find.byType(BlogAuthorAvatar));
+      final avatarY = top(find.byType(UserAvatar));
       final nameY = top(find.text(_meName));
       final titleY = top(find.text('我的职业洞察'));
       final bodyY = top(find.text('正文内容'));
@@ -140,13 +146,12 @@ void main() {
         ],
       });
 
-      final avatar =
-          tester.widget<BlogAuthorAvatar>(find.byType(BlogAuthorAvatar));
+      final avatar = tester.widget<UserAvatar>(find.byType(UserAvatar));
       expect(avatar.initial, '李');
       expect(avatar.seed, _otherPhone, reason: '取色种子应为作者手机号');
-      expect(blogAvatarColor(_otherPhone), blogAvatarColor(_otherPhone),
+      expect(userAvatarColor(_otherPhone), userAvatarColor(_otherPhone),
           reason: '同一作者底色必须稳定');
-      expect(blogAvatarColor(_otherPhone), isNot(blogAvatarColor(_mePhone)),
+      expect(userAvatarColor(_otherPhone), isNot(userAvatarColor(_mePhone)),
           reason: '不同作者应取到不同底色');
     });
 
@@ -282,6 +287,57 @@ void main() {
       expect(cards.first.post.title, '我刚发布的博客');
       expect(find.text(_meName), findsOneWidget);
       expect(find.text(_otherName), findsOneWidget);
+    });
+  });
+
+  group('信息流卡片头像与「我的」页一致', () {
+    testWidgets('作者已在用户表设置头像时，卡片用同一个头像文件', (tester) async {
+      const avatarPath = '/tmp/someone_avatar.png';
+      await _pumpBlogTab(
+        tester,
+        users: [
+          _userJson(
+              phone: _otherPhone, name: _otherName, avatarPath: avatarPath)
+        ],
+        groupedPosts: {
+          _key(_otherPhone): [
+            _postJson(
+              id: '1',
+              title: '别人的博客',
+              content: '正文',
+              createdAt: 1,
+              authorPhone: _otherPhone,
+              authorName: _otherName,
+            ),
+          ],
+        },
+      );
+
+      // 卡片头像使用的就是用户表里的头像路径（与「我的」页同一来源、同一组件）
+      final avatar = tester.widget<UserAvatar>(find.byType(UserAvatar));
+      expect(avatar.avatarPath, avatarPath);
+      expect(avatar.seed, _otherPhone);
+      expect(find.byType(Image), findsOneWidget, reason: '应显示已设置的头像图片');
+    });
+
+    testWidgets('作者未设置头像时回落首字头像（无图片）', (tester) async {
+      await _pumpBlogTab(tester, groupedPosts: {
+        _key(_otherPhone): [
+          _postJson(
+            id: '1',
+            title: '别人的博客',
+            content: '正文',
+            createdAt: 1,
+            authorPhone: _otherPhone,
+            authorName: _otherName,
+          ),
+        ],
+      });
+
+      final avatar = tester.widget<UserAvatar>(find.byType(UserAvatar));
+      expect(avatar.avatarPath, '');
+      expect(find.byType(Image), findsNothing);
+      expect(find.text('李'), findsOneWidget, reason: '回落显示昵称首字');
     });
   });
 

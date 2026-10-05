@@ -211,8 +211,8 @@ class _BusinessAgentPageState extends State<BusinessAgentPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.folder_outlined,
-                  color: Color(0xFF5B7FD4)),
+              leading:
+                  const Icon(Icons.folder_outlined, color: Color(0xFF5B7FD4)),
               title: const Text('选择文件夹（自动解析里面所有文档）'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -406,7 +406,9 @@ class _BusinessAgentPageState extends State<BusinessAgentPage> {
   Future<void> _send() async {
     final text = _controller.text.trim();
     final attachment = _pendingAttachment;
-    if ((text.isEmpty && attachment == null) || _isLoading || _currentSession == null) return;
+    if ((text.isEmpty && attachment == null) ||
+        _isLoading ||
+        _currentSession == null) return;
     final sessionId = _currentSession!.id;
 
     final userMsg = ChatMessage(
@@ -437,7 +439,8 @@ class _BusinessAgentPageState extends State<BusinessAgentPage> {
     try {
       final reply = await widget.chatService.sendMessage(
         _messages
-            .map((m) => ChatMessage(role: m.role, content: m.content, attachment: m.attachment))
+            .map((m) => ChatMessage(
+                role: m.role, content: m.content, attachment: m.attachment))
             .toList(),
         model: _selectedModel.id,
         systemExtra: _businessContext,
@@ -462,8 +465,8 @@ class _BusinessAgentPageState extends State<BusinessAgentPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _messages.add(
-              ChatMessage(role: 'assistant', content: '请求失败，请稍后重试（$e）'));
+          _messages
+              .add(ChatMessage(role: 'assistant', content: '请求失败，请稍后重试（$e）'));
           _isLoading = false;
         });
         _scrollToBottom();
@@ -537,7 +540,8 @@ class _BusinessAgentPageState extends State<BusinessAgentPage> {
             child: _sessions.isEmpty
                 ? const Center(
                     child: Text('暂无历史对话',
-                        style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)))
+                        style:
+                            TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)))
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: _sessions.length,
@@ -648,8 +652,8 @@ class _BusinessAgentPageState extends State<BusinessAgentPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, size: 16,
-                    color: Color(0xFF1B3A5C)),
+                icon: const Icon(Icons.arrow_back_ios_new,
+                    size: 16, color: Color(0xFF1B3A5C)),
                 onPressed: () => Navigator.of(context).maybePop(),
                 tooltip: '返回',
               ),
@@ -797,8 +801,7 @@ class _Bubble extends StatelessWidget {
               isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (att != null)
-              _AttachmentView(attachment: att, isUser: isUser),
+            if (att != null) _AttachmentView(attachment: att, isUser: isUser),
             if (message.content.isNotEmpty)
               Padding(
                 padding: EdgeInsets.only(top: att != null ? 8 : 0),
@@ -853,8 +856,7 @@ class _AttachmentView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.insert_drive_file,
-              size: 18,
-              color: isUser ? Colors.white : const Color(0xFF5B7FD4)),
+              size: 18, color: isUser ? Colors.white : const Color(0xFF5B7FD4)),
           const SizedBox(width: 6),
           Flexible(
             child: Text(

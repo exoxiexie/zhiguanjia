@@ -76,7 +76,8 @@ class HomeTabState extends State<HomeTab> {
         final birth = DateTime.tryParse(auth.birthday);
         if (birth != null) {
           final now = DateTime.now();
-          age = now.year - birth.year -
+          age = now.year -
+              birth.year -
               ((now.month < birth.month ||
                       (now.month == birth.month && now.day < birth.day))
                   ? 1
@@ -295,7 +296,8 @@ class HomeTabState extends State<HomeTab> {
     setState(() {
       _messages.add(userMsg);
       // 如果是对话的第一条消息，用前15个字作为对话标题
-      if (_sessionService.currentConversation.title == '新对话' && text.isNotEmpty) {
+      if (_sessionService.currentConversation.title == '新对话' &&
+          text.isNotEmpty) {
         newTitle = text.length > 15 ? '${text.substring(0, 15)}…' : text;
         _sessionService.currentConversation.title = newTitle!;
       }
@@ -303,8 +305,7 @@ class HomeTabState extends State<HomeTab> {
       _pendingAttachment = null;
       _parsingDoc = false;
       _isLoading = true;
-      _thinkingText =
-          RegExp(r'https?://').hasMatch(text) ? '正在读取网页…' : '正在思考…';
+      _thinkingText = RegExp(r'https?://').hasMatch(text) ? '正在读取网页…' : '正在思考…';
       _streamingReasoning = true;
       _streamBuffer.clear();
     });
@@ -346,7 +347,10 @@ class HomeTabState extends State<HomeTab> {
       if (agent != null) {
         // ── Agent 模式：自动判断是否需要搜索，工具循环 + 流式最终回复 ──
         final agentService = agent as HttpAgentService;
-        final tools = [buildWebSearchTool(agentService), buildWebFetchTool(agentService)];
+        final tools = [
+          buildWebSearchTool(agentService),
+          buildWebFetchTool(agentService)
+        ];
         final result = await agent.run(
           history: List.of(_messages),
           tools: tools,
@@ -468,8 +472,8 @@ class HomeTabState extends State<HomeTab> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.folder_outlined,
-                  color: Color(0xFF5B7FD4)),
+              leading:
+                  const Icon(Icons.folder_outlined, color: Color(0xFF5B7FD4)),
               title: const Text('选择文件夹（自动解析里面所有文档）'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -709,16 +713,14 @@ class HomeTabState extends State<HomeTab> {
           color: const Color(0x0F000000),
           borderRadius: BorderRadius.circular(16),
         ),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 14, color: const Color(0xCC1A1B1C)),
             const SizedBox(width: 4),
             Text(label,
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xCC1A1B1C))),
+                style: const TextStyle(fontSize: 12, color: Color(0xCC1A1B1C))),
           ],
         ),
       ),
@@ -1002,8 +1004,7 @@ class _MessageBubble extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     height: 1.4,
-                    color:
-                        isUser ? Colors.white : const Color(0xFF1A1B1C),
+                    color: isUser ? Colors.white : const Color(0xFF1A1B1C),
                   ),
                 ),
               ),

@@ -11,7 +11,10 @@ class FilesTab extends StatelessWidget {
     return const Center(
       child: Text(
         '洞察',
-        style: TextStyle(fontSize: 40, fontWeight: FontWeight.w300, color: Color(0x1A1A1B1C)),
+        style: TextStyle(
+            fontSize: 40,
+            fontWeight: FontWeight.w300,
+            color: Color(0x1A1A1B1C)),
       ),
     );
   }

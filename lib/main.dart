@@ -81,7 +81,8 @@ class _AuthGateState extends State<AuthGate> {
         final loggedIn = snapshot.data ?? false;
         return loggedIn
             ? ShellPage(chatService: _chatService, agentService: _agentService)
-            : PersonalLoginPage(chatService: _chatService, agentService: _agentService);
+            : PersonalLoginPage(
+                chatService: _chatService, agentService: _agentService);
       },
     );
   }

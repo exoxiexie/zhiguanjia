@@ -123,7 +123,8 @@ class _LocalDataConfirmPageState extends State<LocalDataConfirmPage> {
 
     setState(() => _uploading = true);
     try {
-      final selectedFiles = widget.files.where((f) => _selected[f.path] == true).toList();
+      final selectedFiles =
+          widget.files.where((f) => _selected[f.path] == true).toList();
       await LocalFileStore.createSession(
         tenantId: widget.tenantId,
         source: widget.source,
@@ -164,12 +165,14 @@ class _LocalDataConfirmPageState extends State<LocalDataConfirmPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.warning_amber, size: 18, color: Color(0xFFD97706)),
+                  const Icon(Icons.warning_amber,
+                      size: 18, color: Color(0xFFD97706)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '以下 ${_overLimitFiles.length} 个文件超过 20MB 限制，已自动取消选择：\n${_overLimitFiles.take(3).join("、")}${_overLimitFiles.length > 3 ? "等" : ""}',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF92400E), height: 1.4),
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF92400E), height: 1.4),
                     ),
                   ),
                 ],
@@ -187,7 +190,8 @@ class _LocalDataConfirmPageState extends State<LocalDataConfirmPage> {
               children: [
                 Text(
                   '共 ${widget.files.length} 个文件，已选 $_selectedCount 个',
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                  style:
+                      const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
                 ),
                 const Spacer(),
                 Text(
@@ -250,7 +254,8 @@ class _LocalDataConfirmPageState extends State<LocalDataConfirmPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF059669),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 child: _uploading
                     ? const Row(
@@ -261,7 +266,8 @@ class _LocalDataConfirmPageState extends State<LocalDataConfirmPage> {
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           ),
                           SizedBox(width: 8),
@@ -318,7 +324,8 @@ class _LocalDataConfirmPageState extends State<LocalDataConfirmPage> {
         color: isOverLimit ? const Color(0xFFF9FAFB) : Colors.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isOverLimit ? const Color(0xFFE4E3DD) : const Color(0xFFE4E3DD),
+          color:
+              isOverLimit ? const Color(0xFFE4E3DD) : const Color(0xFFE4E3DD),
         ),
       ),
       child: Row(
@@ -357,7 +364,9 @@ class _LocalDataConfirmPageState extends State<LocalDataConfirmPage> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: isOverLimit ? const Color(0xFF9CA3AF) : const Color(0xFF1A1B1C),
+                    color: isOverLimit
+                        ? const Color(0xFF9CA3AF)
+                        : const Color(0xFF1A1B1C),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -365,13 +374,15 @@ class _LocalDataConfirmPageState extends State<LocalDataConfirmPage> {
                   children: [
                     Text(
                       _formatSize(fileSize),
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFF9CA3AF)),
                     ),
                     if (isOverLimit) ...[
                       const SizedBox(width: 8),
                       const Text(
                         '超过20MB',
-                        style: TextStyle(fontSize: 11, color: Color(0xFFDC2626)),
+                        style:
+                            TextStyle(fontSize: 11, color: Color(0xFFDC2626)),
                       ),
                     ],
                   ],

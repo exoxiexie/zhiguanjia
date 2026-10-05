@@ -100,7 +100,9 @@ class _SearchDataHistoryPageState extends State<SearchDataHistoryPage> {
                       : '当前权重 < 60，不会进入对话上下文',
                   style: TextStyle(
                     fontSize: 12,
-                    color: currentWeight >= 60 ? const Color(0xFF059669) : const Color(0xFF6B7280),
+                    color: currentWeight >= 60
+                        ? const Color(0xFF059669)
+                        : const Color(0xFF6B7280),
                   ),
                 ),
               ),
@@ -122,7 +124,8 @@ class _SearchDataHistoryPageState extends State<SearchDataHistoryPage> {
 
     if (result != null && result.toInt() != item.weight) {
       try {
-        await SearchDataStore.updateWeight(widget.tenantId, item.id, result.toInt());
+        await SearchDataStore.updateWeight(
+            widget.tenantId, item.id, result.toInt());
         _loadItems();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -159,7 +162,8 @@ class _SearchDataHistoryPageState extends State<SearchDataHistoryPage> {
             child: const Text('取消'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626)),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('删除'),
           ),
@@ -199,7 +203,8 @@ class _SearchDataHistoryPageState extends State<SearchDataHistoryPage> {
             onPressed: () {
               Navigator.of(context)
                   .push(MaterialPageRoute(
-                    builder: (_) => SearchDataEditPage(tenantId: widget.tenantId),
+                    builder: (_) =>
+                        SearchDataEditPage(tenantId: widget.tenantId),
                   ))
                   .then((_) => _loadItems());
             },
@@ -217,7 +222,8 @@ class _SearchDataHistoryPageState extends State<SearchDataHistoryPage> {
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: _items.length,
-                    itemBuilder: (context, index) => _buildItemCard(_items[index]),
+                    itemBuilder: (context, index) =>
+                        _buildItemCard(_items[index]),
                   ),
       ),
     );
@@ -279,7 +285,8 @@ class _SearchDataHistoryPageState extends State<SearchDataHistoryPage> {
                 GestureDetector(
                   onTap: () => _showWeightDialog(item),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: color.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(4),
@@ -306,7 +313,8 @@ class _SearchDataHistoryPageState extends State<SearchDataHistoryPage> {
                 // 是否进上下文标记
                 if (item.inContext)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: const Color(0xFFECFDF5),
                       borderRadius: BorderRadius.circular(4),
@@ -319,7 +327,8 @@ class _SearchDataHistoryPageState extends State<SearchDataHistoryPage> {
                 const Spacer(),
                 // 删除按钮
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFC0C4CC)),
+                  icon: const Icon(Icons.delete_outline,
+                      size: 18, color: Color(0xFFC0C4CC)),
                   onPressed: () => _confirmDelete(item),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -350,7 +359,8 @@ class _SearchDataHistoryPageState extends State<SearchDataHistoryPage> {
                       item.searchQuery,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF6B7280)),
                     ),
                   ),
                 ],
@@ -361,21 +371,24 @@ class _SearchDataHistoryPageState extends State<SearchDataHistoryPage> {
               item.content.replaceAll(RegExp(r'[#*\-\n]'), ' ').trim(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF), height: 1.4),
+              style: const TextStyle(
+                  fontSize: 12, color: Color(0xFF9CA3AF), height: 1.4),
             ),
             const SizedBox(height: 10),
             // 标签 + 时间
             Row(
               children: [
                 if (item.tags.isNotEmpty) ...[
-                  Icon(Icons.label_outline, size: 12, color: Colors.grey.shade400),
+                  Icon(Icons.label_outline,
+                      size: 12, color: Colors.grey.shade400),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       item.tags.take(3).join(' · '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade500),
                     ),
                   ),
                 ] else

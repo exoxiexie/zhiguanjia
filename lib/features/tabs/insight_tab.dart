@@ -40,7 +40,9 @@ class _InsightTabState extends State<InsightTab> {
     }
     if (mounted) {
       setState(() {
-        _enabled..clear()..addAll(map);
+        _enabled
+          ..clear()
+          ..addAll(map);
       });
     }
   }
@@ -50,8 +52,7 @@ class _InsightTabState extends State<InsightTab> {
   /// 按偏好过滤后的可见智能体
   List<_AgentDef> get _visibleAgents => [
         for (final d in kBusinessDomains)
-          if (_isEnabled(d.tag))
-            _AgentDef(d.icon, d.color, d.tag, d.subtitle),
+          if (_isEnabled(d.tag)) _AgentDef(d.icon, d.color, d.tag, d.subtitle),
       ];
 
   /// 全部智能体（管理面板用）
@@ -115,8 +116,7 @@ class _InsightTabState extends State<InsightTab> {
                           )
                         : ListView.builder(
                             shrinkWrap: true,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
                             itemCount: _allAgents.length,
                             itemBuilder: (context, i) {
                               final a = _allAgents[i];
@@ -146,8 +146,7 @@ class _InsightTabState extends State<InsightTab> {
                                   value: enabled,
                                   activeColor: const Color(0xFF5B7FD4),
                                   onChanged: (v) {
-                                    setSheetState(
-                                        () => _enabled[a.title] = v);
+                                    setSheetState(() => _enabled[a.title] = v);
                                     _setEnabled(a.title, v);
                                   },
                                 ),

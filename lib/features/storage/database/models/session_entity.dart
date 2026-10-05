@@ -60,7 +60,8 @@ class SessionEntity {
         createdAt: createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
         messageCount: messageCount ?? this.messageCount,
-        lastExtractedMessageId: lastExtractedMessageId ?? this.lastExtractedMessageId,
+        lastExtractedMessageId:
+            lastExtractedMessageId ?? this.lastExtractedMessageId,
         createdBy: createdBy ?? this.createdBy,
       );
 }

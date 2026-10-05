@@ -4,8 +4,6 @@
 /// 不接触存储 / 网络实现细节；具体实现由外部注入或默认装配。
 library;
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
@@ -16,6 +14,7 @@ import '../personal/personal_auth_service.dart';
 import '../personal/personal_login_page.dart';
 import '../personal/personal_model.dart';
 import '../personal/personal_verify_page.dart';
+import '../personal/user_avatar.dart';
 import '../update/update_service_impl.dart';
 
 /// 头像图片选择回调（可注入，便于测试；默认走 image_picker）
@@ -361,9 +360,12 @@ class ProfileTabState extends State<ProfileTab> {
                       GestureDetector(
                         onTap: _showAvatarSheet,
                         behavior: HitTestBehavior.opaque,
-                        child: _ProfileAvatar(
+                        child: UserAvatar(
                           avatarPath: auth?.avatarPath ?? '',
+                          name: auth?.name ?? '',
+                          seed: auth?.phone ?? '',
                           size: 56,
+                          editable: true,
                         ),
                       ),
                       const SizedBox(width: 14),
@@ -610,72 +612,6 @@ class _ListItem extends StatelessWidget {
                   size: 20, color: Color(0xFFC0C0C0)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// 「我的」页头像（点击外层可更换）
-///
-/// 未设置头像或图片文件已失效时，回落为默认的人形图标；
-/// 右下角小相机角标提示「此处可更换头像」。
-class _ProfileAvatar extends StatelessWidget {
-  final String avatarPath;
-  final double size;
-
-  const _ProfileAvatar({required this.avatarPath, this.size = 56});
-
-  /// 默认（无头像）图标
-  Widget _fallback() => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: const Color(0xFF5B7FD4).withOpacity(0.12),
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(Icons.person, size: 30, color: Color(0xFF5B7FD4)),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        children: [
-          ClipOval(
-            child: SizedBox(
-              width: size,
-              height: size,
-              // 文件缺失/解码失败时回落默认图标，避免裂图
-              child: avatarPath.isEmpty
-                  ? _fallback()
-                  : Image.file(
-                      File(avatarPath),
-                      width: size,
-                      height: size,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _fallback(),
-                    ),
-            ),
-          ),
-          // 右下角相机角标
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: const Color(0xFF5B7FD4),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFF0F5FF), width: 2),
-              ),
-              child:
-                  const Icon(Icons.photo_camera, size: 10, color: Colors.white),
-            ),
-          ),
-        ],
       ),
     );
   }

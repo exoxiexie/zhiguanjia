@@ -45,7 +45,8 @@ class ChatSessionServiceImpl implements ChatSessionService {
   Conversation get currentConversation => _conversations[_currentIndex];
 
   @override
-  List<ChatMessage> get currentMessages => _conversations[_currentIndex].messages;
+  List<ChatMessage> get currentMessages =>
+      _conversations[_currentIndex].messages;
 
   @override
   Future<void> init() async {
@@ -71,10 +72,8 @@ class ChatSessionServiceImpl implements ChatSessionService {
             .map((s) => Conversation(
                   id: s.id,
                   title: s.title,
-                  createdAt:
-                      DateTime.fromMillisecondsSinceEpoch(s.createdAt),
-                  updatedAt:
-                      DateTime.fromMillisecondsSinceEpoch(s.updatedAt),
+                  createdAt: DateTime.fromMillisecondsSinceEpoch(s.createdAt),
+                  updatedAt: DateTime.fromMillisecondsSinceEpoch(s.updatedAt),
                 ))
             .toList();
 

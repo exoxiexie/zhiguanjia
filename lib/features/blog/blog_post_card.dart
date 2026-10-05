@@ -14,7 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-import 'blog_author_avatar.dart';
+import '../personal/user_avatar.dart';
 import 'blog_store.dart';
 
 /// 卡片文字色（与全站保持一致）
@@ -66,7 +66,8 @@ class BlogPostCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              BlogAuthorAvatar(
+              UserAvatar(
+                avatarPath: post.authorAvatarPath,
                 name: post.displayAuthor,
                 seed: post.avatarSeed,
                 size: avatarSize,

@@ -51,14 +51,16 @@ class _LocalDataHistoryPageState extends State<LocalDataHistoryPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('删除沉淀记录'),
-        content: Text('确定删除 ${_formatDate(session.createdAt)} 的沉淀记录吗？\n\n该次沉淀的 ${session.fileCount} 个文件将一并删除，无法恢复。'),
+        content: Text(
+            '确定删除 ${_formatDate(session.createdAt)} 的沉淀记录吗？\n\n该次沉淀的 ${session.fileCount} 个文件将一并删除，无法恢复。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('取消'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626)),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('删除'),
           ),
@@ -170,12 +172,14 @@ class _LocalDataHistoryPageState extends State<LocalDataHistoryPage> {
                 const SizedBox(width: 6),
                 Text(
                   session.sourceLabel,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                 ),
                 const Spacer(),
                 // 删除按钮
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFC0C4CC)),
+                  icon: const Icon(Icons.delete_outline,
+                      size: 18, color: Color(0xFFC0C4CC)),
                   onPressed: () => _confirmDelete(session),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -209,19 +213,22 @@ class _LocalDataHistoryPageState extends State<LocalDataHistoryPage> {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
                       children: [
-                        Icon(Icons.insert_drive_file, size: 14, color: Colors.grey.shade400),
+                        Icon(Icons.insert_drive_file,
+                            size: 14, color: Colors.grey.shade400),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             f.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                            style: const TextStyle(
+                                fontSize: 12, color: Color(0xFF6B7280)),
                           ),
                         ),
                         Text(
                           f.sizeFormatted,
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade400),
                         ),
                       ],
                     ),

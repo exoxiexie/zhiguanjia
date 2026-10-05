@@ -42,6 +42,9 @@ class BlogPost {
   /// 作者昵称（发布时快照；为空时回落到用户表，仍为空则显示「匿名用户」）
   final String authorName;
 
+  /// 作者头像本地文件路径（发布时快照；读取时以用户表为准，保证换头像后即时一致）
+  final String authorAvatarPath;
+
   const BlogPost({
     required this.id,
     required this.title,
@@ -49,6 +52,7 @@ class BlogPost {
     required this.createdAt,
     this.authorPhone = '',
     this.authorName = '',
+    this.authorAvatarPath = '',
   });
 
   /// 是否应展示标题。
@@ -79,6 +83,7 @@ class BlogPost {
         createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
         authorPhone: json['authorPhone']?.toString() ?? '',
         authorName: json['authorName']?.toString() ?? '',
+        authorAvatarPath: json['authorAvatarPath']?.toString() ?? '',
       );
 
   Map<String, dynamic> toJson() => {
@@ -88,6 +93,7 @@ class BlogPost {
         'createdAt': createdAt,
         'authorPhone': authorPhone,
         'authorName': authorName,
+        'authorAvatarPath': authorAvatarPath,
       };
 
   BlogPost copyWith({
@@ -97,6 +103,7 @@ class BlogPost {
     int? createdAt,
     String? authorPhone,
     String? authorName,
+    String? authorAvatarPath,
   }) =>
       BlogPost(
         id: id ?? this.id,
@@ -105,6 +112,7 @@ class BlogPost {
         createdAt: createdAt ?? this.createdAt,
         authorPhone: authorPhone ?? this.authorPhone,
         authorName: authorName ?? this.authorName,
+        authorAvatarPath: authorAvatarPath ?? this.authorAvatarPath,
       );
 }
 
@@ -130,7 +138,7 @@ class BlogStore {
   /// 先以全量时间线解决内容过少的问题。
   static Future<List<BlogPost>> loadFeed() async {
     final prefs = await SharedPreferences.getInstance();
-    final names = await _authorNames();
+    final names = await _authorRegistry();
     final all = <BlogPost>[];
     for (final key in prefs.getKeys()) {
       if (!key.startsWith(_keyPrefix)) continue;
@@ -145,7 +153,7 @@ class BlogStore {
   static Future<List<BlogPost>> loadMyPosts() async {
     final prefs = await SharedPreferences.getInstance();
     final phone = await _currentPhone();
-    final names = await _authorNames();
+    final names = await _authorRegistry();
     final list =
         _decode(prefs.getStringList(_keyFor(phone)) ?? const [], phone, names);
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -173,11 +181,17 @@ class BlogStore {
     await prefs.setStringList(key, list);
   }
 
-  /// 用户表：手机号 → 姓名（用于补齐历史博客缺失的作者昵称）
-  static Future<Map<String, String>> _authorNames() async {
+  /// 用户表：手机号 → 作者资料（昵称 + 头像路径）
+  ///
+  /// 作者头像以用户表为准（而不是只用发布时的快照），
+  /// 这样用户换了头像后，他此前发布的博客在信息流里也会同步显示新头像。
+  static Future<Map<String, ({String name, String avatarPath})>>
+      _authorRegistry() async {
     try {
       final users = await PersonalAuthService.getUsers();
-      return {for (final u in users) u.phone: u.name};
+      return {
+        for (final u in users) u.phone: (name: u.name, avatarPath: u.avatarPath)
+      };
     } catch (_) {
       return const {};
     }
@@ -189,22 +203,24 @@ class BlogStore {
   static List<BlogPost> _decode(
     List<String> raw,
     String fallbackPhone,
-    Map<String, String> names,
+    Map<String, ({String name, String avatarPath})> registry,
   ) {
     final out = <BlogPost>[];
     for (final e in raw) {
       try {
         var post = BlogPost.fromJson(jsonDecode(e) as Map<String, dynamic>);
-        if (post.authorPhone.isEmpty || post.authorName.isEmpty) {
-          final phone =
-              post.authorPhone.isEmpty ? fallbackPhone : post.authorPhone;
-          post = post.copyWith(
-            authorPhone: phone,
-            authorName: post.authorName.isEmpty
-                ? (names[phone] ?? '')
-                : post.authorName,
-          );
-        }
+        final phone =
+            post.authorPhone.isEmpty ? fallbackPhone : post.authorPhone;
+        final profile = registry[phone];
+        post = post.copyWith(
+          authorPhone: phone,
+          authorName:
+              post.authorName.isEmpty ? (profile?.name ?? '') : post.authorName,
+          // 头像始终以用户表为准，其次才用发布时的快照
+          authorAvatarPath: (profile != null && profile.avatarPath.isNotEmpty)
+              ? profile.avatarPath
+              : post.authorAvatarPath,
+        );
         out.add(post);
       } catch (_) {
         // 跳过损坏条目

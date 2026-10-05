@@ -14,7 +14,8 @@ class TenantStorage {
   /// 获取租户根目录
   static Future<Directory> getTenantDir(String creditCode) async {
     final base = await getApplicationDocumentsDirectory();
-    final dir = Directory(p.join(base.path, 'tenants', _safeDirName(creditCode)));
+    final dir =
+        Directory(p.join(base.path, 'tenants', _safeDirName(creditCode)));
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }

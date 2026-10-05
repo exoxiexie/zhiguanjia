@@ -89,8 +89,9 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    // 默认无头像：显示默认图标与可更换角标
-    expect(find.byIcon(Icons.person), findsOneWidget);
+    // 默认无头像：回落「昵称首字 + 稳定底色」头像，并显示可更换角标
+    expect(find.text('张'), findsOneWidget);
+    expect(find.byIcon(Icons.photo_camera), findsOneWidget);
     expect(find.byType(Image), findsNothing);
 
     // 点头像 → 弹出更换面板

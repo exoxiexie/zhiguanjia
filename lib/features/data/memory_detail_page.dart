@@ -98,7 +98,8 @@ class _MemoryDetailPageState extends State<MemoryDetailPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.auto_stories_outlined, size: 56, color: Colors.grey.shade300),
+          Icon(Icons.auto_stories_outlined,
+              size: 56, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           const Text(
             '还没有对话记忆',
@@ -118,7 +119,8 @@ class _MemoryDetailPageState extends State<MemoryDetailPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF7C3AED),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
           ),
         ],
@@ -148,7 +150,8 @@ class _MemoryDetailPageState extends State<MemoryDetailPage> {
               children: [
                 // 权重标签
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -175,7 +178,8 @@ class _MemoryDetailPageState extends State<MemoryDetailPage> {
                     ),
                   ),
                 ),
-                const Icon(Icons.chevron_right, size: 18, color: Color(0xFFC0C4CC)),
+                const Icon(Icons.chevron_right,
+                    size: 18, color: Color(0xFFC0C4CC)),
               ],
             ),
             const SizedBox(height: 10),
@@ -196,14 +200,16 @@ class _MemoryDetailPageState extends State<MemoryDetailPage> {
               children: [
                 // 标签
                 if (m.tags.isNotEmpty) ...[
-                  Icon(Icons.label_outline, size: 12, color: Colors.grey.shade400),
+                  Icon(Icons.label_outline,
+                      size: 12, color: Colors.grey.shade400),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       m.tags.take(3).join(' · '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade500),
                     ),
                   ),
                 ] else
@@ -211,7 +217,8 @@ class _MemoryDetailPageState extends State<MemoryDetailPage> {
                 // 来源标记
                 if (m.source == '会话提炼') ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: const Color(0xFFEEF2FF),
                       borderRadius: BorderRadius.circular(4),
@@ -225,7 +232,8 @@ class _MemoryDetailPageState extends State<MemoryDetailPage> {
                 ],
                 if (m.source == '手动提炼') ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: const Color(0xFFECFDF5),
                       borderRadius: BorderRadius.circular(4),
@@ -256,8 +264,8 @@ class _MemoryDetailPageState extends State<MemoryDetailPage> {
   void _openNewMemory() {
     Navigator.of(context)
         .push(MaterialPageRoute(
-          builder: (_) => MemoryEditPage(tenantId: widget.tenantId),
-        ))
+      builder: (_) => MemoryEditPage(tenantId: widget.tenantId),
+    ))
         .then((saved) {
       if (saved == true) _loadMemories();
     });
@@ -267,11 +275,11 @@ class _MemoryDetailPageState extends State<MemoryDetailPage> {
   void _openMemoryDetail(MemoryItem item) {
     Navigator.of(context)
         .push(MaterialPageRoute(
-          builder: (_) => MemoryEditPage(
-            tenantId: widget.tenantId,
-            memory: item,
-          ),
-        ))
+      builder: (_) => MemoryEditPage(
+        tenantId: widget.tenantId,
+        memory: item,
+      ),
+    ))
         .then((saved) {
       if (saved == true) _loadMemories();
     });
