@@ -1,8 +1,9 @@
 /// 数据 Tab（职管家 · 个人职业版）
 ///
 /// 顶部：实名认证信息卡片（已认证显示姓名/年龄/性别，未认证引导去认证）
-/// 下方：职业数据卡片（教育 / 工作 / 培训 / 对话记忆），点开进入各自详情页；
-/// 卡片右侧显示已填条数，空则留白。
+/// 下方（自上而下）：自我评价 → 学历教育 / 工作经历 / 技能培训 →
+/// 自主学习 → 对话记忆，点开进入各自详情页；
+/// 卡片右侧显示已填条数 / 填写状态，空则留白。
 ///
 /// **宽度口径**：本页滚动容器不带左右内边距，所有卡片（含顶部认证卡）
 /// 一律使用 [kCardMargin]，与发现页、首页保持同一宽度。
@@ -18,6 +19,10 @@ import '../data/experience_list_page.dart';
 import '../data/experience_models.dart';
 import '../data/experience_store.dart';
 import '../data/memory_detail_page.dart';
+import '../data/self_evaluation_page.dart';
+import '../data/self_evaluation_store.dart';
+import '../data/study_output_list_page.dart';
+import '../data/study_output_store.dart';
 import '../personal/personal_auth_service.dart';
 import '../personal/personal_model.dart';
 import '../personal/personal_verify_page.dart';
@@ -41,6 +46,12 @@ class DatabaseTabState extends State<DatabaseTab> {
   /// 三类经历的条数（通栏卡片右侧显示「N 条」，为 0 时留白）
   Map<String, int> _counts = const {};
 
+  /// 自我评价文本（为空表示未填写，卡片右侧显示「已填写」）
+  String _selfEvaluation = '';
+
+  /// 自主学习成果条数（同经历规则，为 0 时留白）
+  int _studyCount = 0;
+
   /// 对话记忆条数（同规则，为 0 时留白）
   int _memoryCount = 0;
 
@@ -53,10 +64,14 @@ class DatabaseTabState extends State<DatabaseTab> {
   Future<void> _load() async {
     final auth = await PersonalAuthService.getAuth();
     final counts = await ExperienceStore.counts();
+    final selfEvaluation = await SelfEvaluationStore.load();
+    final studyCount = await StudyOutputStore.count();
     if (mounted) {
       setState(() {
         _auth = auth;
         _counts = counts;
+        _selfEvaluation = selfEvaluation;
+        _studyCount = studyCount;
         _loading = false;
       });
     }
@@ -84,6 +99,22 @@ class DatabaseTabState extends State<DatabaseTab> {
   Future<void> _openExperience(ExperienceKind kind) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (_) => ExperienceListPage(kind: kind)),
+    );
+    await _load();
+  }
+
+  /// 进入自我评价页，返回后刷新填写状态
+  Future<void> _openSelfEvaluation() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => const SelfEvaluationPage()),
+    );
+    await _load();
+  }
+
+  /// 进入自主学习成果页，返回后刷新条数
+  Future<void> _openStudyOutputs() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => const StudyOutputListPage()),
     );
     await _load();
   }
@@ -134,12 +165,46 @@ class DatabaseTabState extends State<DatabaseTab> {
           children: [
             if (_loading) const SizedBox(height: 92) else _buildIdentityCard(),
             const SizedBox(height: 16),
+            _buildSelfEvaluationGroup(),
+            const SizedBox(height: 12),
             _buildExperienceGroups(),
+            const SizedBox(height: 12),
+            _buildStudyOutputGroup(),
             const SizedBox(height: 12),
             _buildMemoryGroup(),
           ],
         ),
       ),
+    );
+  }
+
+  /// 自我评价卡片（实名认证卡下方，独立成卡）
+  Widget _buildSelfEvaluationGroup() {
+    return PlainGroup(
+      entries: [
+        PlainGroupEntry(
+          icon: Icons.rate_review_outlined,
+          color: const Color(0xFFF59E0B),
+          label: '自我评价',
+          trailingText: _selfEvaluation.isEmpty ? '' : '已填写',
+          onTap: _openSelfEvaluation,
+        ),
+      ],
+    );
+  }
+
+  /// 自主学习成果卡片（技能培训卡下方，独立成卡）
+  Widget _buildStudyOutputGroup() {
+    return PlainGroup(
+      entries: [
+        PlainGroupEntry(
+          icon: Icons.science_outlined,
+          color: const Color(0xFF0EA5E9),
+          label: '自主学习',
+          trailingText: _studyCount > 0 ? '$_studyCount 条' : '',
+          onTap: _openStudyOutputs,
+        ),
+      ],
     );
   }
 

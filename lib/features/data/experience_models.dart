@@ -116,10 +116,10 @@ class ExperienceKind {
 
   // ── 三类经历 ───────────────────────────────────────────────
 
-  /// 教育经历：学校 / 专业 / 学历 / 起止
+  /// 学历教育：学校 / 专业 / 学历 / 起止
   static const ExperienceKind education = ExperienceKind(
     id: 'education',
-    label: '教育经历',
+    label: '学历教育',
     icon: Icons.school_outlined,
     color: Color(0xFF3B7CF6),
     subtitle: '就读院校、专业与学历，按时间倒序排列',
@@ -188,10 +188,10 @@ class ExperienceKind {
     ],
   );
 
-  /// 培训经历：机构 / 课程 / 起止 / 培训内容
+  /// 技能培训：机构 / 课程 / 起止 / 培训内容
   static const ExperienceKind training = ExperienceKind(
     id: 'training',
-    label: '培训经历',
+    label: '技能培训',
     icon: Icons.menu_book_outlined,
     color: Color(0xFFFD5C13),
     subtitle: '参加过的培训课程与认证，按时间倒序排列',

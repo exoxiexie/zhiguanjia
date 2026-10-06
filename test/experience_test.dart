@@ -1,12 +1,15 @@
-/// 职业经历模块测试（职管家 · 个人职业版）
+/// 职业数据模块测试（职管家 · 个人职业版）
 ///
 /// 覆盖点：
-/// 1. 数据层：新增 / 更新 / 删除 / 按类型过滤 / 条数统计 / JSON 往返；
+/// 1. 经历数据层：新增 / 更新 / 删除 / 按类型过滤 / 条数统计 / JSON 往返；
 /// 2. 排序：按起始时间倒序（由近及远），未填起始时间的排最后；
-/// 3. 详情页：空态引导、已有经历平铺展示（含起止时间「至今」规则）；
-/// 4. 编辑页：必填校验拦住空提交；填完后保存并回到列表；
-/// 5. 数据页：职业数据卡片（三类经历 + 对话记忆）、卡片宽度一致性；
-/// 6. 回归：通栏卡片抽成公共组件后，发现页三行仍然照常渲染。
+/// 3. 经历详情页：空态引导、已有经历平铺展示（含起止时间「至今」规则）；
+/// 4. 经历编辑页：必填校验拦住空提交；填完后保存并回到列表；
+/// 5. 自我评价：单段文本的保存 / 读回 / 清空 / 账号隔离；
+/// 6. 自主学习成果：增删改查、JSON 往返（含图片与 PDF 附件）、列表页链路；
+/// 7. 数据页：六张通栏卡片（自我评价 / 学历教育 / 工作经历 / 技能培训 /
+///    自主学习 / 对话记忆）与卡片宽度一致性；
+/// 8. 回归：通栏卡片抽成公共组件后，发现页三行仍然照常渲染。
 library;
 
 import 'dart:convert';
@@ -19,6 +22,12 @@ import 'package:zhiguanjia/features/data/experience_edit_page.dart';
 import 'package:zhiguanjia/features/data/experience_list_page.dart';
 import 'package:zhiguanjia/features/data/experience_models.dart';
 import 'package:zhiguanjia/features/data/experience_store.dart';
+import 'package:zhiguanjia/features/data/self_evaluation_page.dart';
+import 'package:zhiguanjia/features/data/self_evaluation_store.dart';
+import 'package:zhiguanjia/features/data/study_file_store.dart';
+import 'package:zhiguanjia/features/data/study_output_edit_page.dart';
+import 'package:zhiguanjia/features/data/study_output_list_page.dart';
+import 'package:zhiguanjia/features/data/study_output_store.dart';
 import 'package:zhiguanjia/features/discover/discover_tab.dart';
 import 'package:zhiguanjia/features/tabs/database_tab.dart';
 
@@ -219,7 +228,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('还没有教育经历'), findsOneWidget);
+      expect(find.text('还没有学历教育'), findsOneWidget);
       expect(find.byType(FloatingActionButton), findsOneWidget);
     });
 
@@ -252,7 +261,7 @@ void main() {
       expect(find.text('腾讯科技'), findsOneWidget);
       expect(find.text('产品经理'), findsOneWidget);
       expect(find.text('2024.07 - 至今'), findsOneWidget);
-      expect(find.text('北京大学'), findsNothing, reason: '教育经历不应出现在工作经历页');
+      expect(find.text('北京大学'), findsNothing, reason: '学历教育不应出现在工作经历页');
     });
 
     testWidgets('必填校验拦住空提交；填写后可保存并回到列表', (tester) async {
@@ -283,7 +292,7 @@ void main() {
   });
 
   group('数据页接入与通栏组件回归', () {
-    testWidgets('数据页出现职业数据卡片（三类经历 + 对话记忆），并显示已填条数', (tester) async {
+    testWidgets('数据页出现六张职业数据卡片，并显示已填条数', (tester) async {
       SharedPreferences.setMockInitialValues({
         _authKey: _authJson(),
         _key(): [
@@ -297,13 +306,15 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: DatabaseTab()));
       await tester.pumpAndSettle();
 
-      // 教育 / 工作 / 培训 / 对话记忆，各自独立成卡
-      expect(find.byType(PlainGroup), findsNWidgets(4));
-      expect(find.text('教育经历'), findsOneWidget);
+      // 自我评价 / 学历教育 / 工作经历 / 技能培训 / 自主学习 / 对话记忆
+      expect(find.byType(PlainGroup), findsNWidgets(6));
+      expect(find.text('自我评价'), findsOneWidget);
+      expect(find.text('学历教育'), findsOneWidget);
       expect(find.text('工作经历'), findsOneWidget);
-      expect(find.text('培训经历'), findsOneWidget);
+      expect(find.text('技能培训'), findsOneWidget);
+      expect(find.text('自主学习'), findsOneWidget);
       expect(find.text('对话记忆'), findsOneWidget);
-      // 只给教育经历录了 1 条 → 只有它显示条数
+      // 只给学历教育录了 1 条 → 只有它显示条数
       expect(find.text('1 条'), findsOneWidget);
     });
 
@@ -338,7 +349,7 @@ void main() {
       expect(widths.first, 400 - 2 * kCardSideMargin);
     });
 
-    testWidgets('数据页点「教育经历」进入其详情页', (tester) async {
+    testWidgets('数据页点「学历教育」进入其详情页', (tester) async {
       SharedPreferences.setMockInitialValues({_authKey: _authJson()});
       await tester.binding.setSurfaceSize(const Size(400, 2400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -346,11 +357,11 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: DatabaseTab()));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('教育经历'));
+      await tester.tap(find.text('学历教育'));
       await tester.pumpAndSettle();
 
       expect(find.byType(ExperienceListPage), findsOneWidget);
-      expect(find.text('还没有教育经历'), findsOneWidget);
+      expect(find.text('还没有学历教育'), findsOneWidget);
     });
 
     testWidgets('通栏组件抽取后，发现页三行照常渲染', (tester) async {
@@ -358,9 +369,177 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(PlainGroup), findsNWidgets(3));
-      expect(find.text('说说'), findsOneWidget);
+      expect(find.text('职说'), findsOneWidget);
       expect(find.text('学习'), findsOneWidget);
       expect(find.text('招聘'), findsOneWidget);
+    });
+  });
+
+  group('自我评价', () {
+    test('保存后可读回并去除首尾空白，且按账号隔离', () async {
+      SharedPreferences.setMockInitialValues({_authKey: _authJson()});
+      expect(await SelfEvaluationStore.load(), '');
+
+      await SelfEvaluationStore.save('  8 年 ToB 产品经验  ');
+      expect(await SelfEvaluationStore.load(), '8 年 ToB 产品经验');
+
+      // 换账号：读不到别人的自我评价
+      SharedPreferences.setMockInitialValues({
+        _authKey: jsonEncode({
+          'token': 'mock-token',
+          'phone': '13900139000',
+          'name': '李四',
+        }),
+      });
+      expect(await SelfEvaluationStore.load(), '');
+    });
+
+    test('保存空串即清空', () async {
+      SharedPreferences.setMockInitialValues({_authKey: _authJson()});
+      await SelfEvaluationStore.save('内容');
+      await SelfEvaluationStore.save('   ');
+      expect(await SelfEvaluationStore.load(), '');
+    });
+
+    testWidgets('数据页点「自我评价」可编辑保存，返回后卡片显示「已填写」', (tester) async {
+      SharedPreferences.setMockInitialValues({_authKey: _authJson()});
+      await tester.binding.setSurfaceSize(const Size(400, 2400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(const MaterialApp(home: DatabaseTab()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('自我评价'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SelfEvaluationPage), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '结构化思考，擅长复杂系统拆解');
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SelfEvaluationPage), findsNothing);
+      expect(await SelfEvaluationStore.load(), '结构化思考，擅长复杂系统拆解');
+      expect(find.text('已填写'), findsOneWidget);
+    });
+  });
+
+  group('自主学习成果', () {
+    StudyOutput make(String id, String title, {int updatedAt = 1}) =>
+        StudyOutput(
+          id: id,
+          title: title,
+          content: '内容$id',
+          createdAt: 1,
+          updatedAt: updatedAt,
+        );
+
+    test('保存 / 读回 / 更新 / 删除，按最近更新倒序', () async {
+      SharedPreferences.setMockInitialValues({_authKey: _authJson()});
+      await StudyOutputStore.save(make('a', '论文A', updatedAt: 10));
+      await StudyOutputStore.save(make('b', '报告B', updatedAt: 20));
+
+      var list = await StudyOutputStore.loadAll();
+      expect(list.map((e) => e.id).toList(), ['b', 'a']);
+
+      // 同 id 再次保存 = 更新，不产生重复
+      await StudyOutputStore.save(make('a', '论文A（改）', updatedAt: 30));
+      list = await StudyOutputStore.loadAll();
+      expect(list.length, 2);
+      expect(list.first.title, '论文A（改）');
+
+      await StudyOutputStore.delete('b');
+      expect((await StudyOutputStore.loadAll()).length, 1);
+      expect(await StudyOutputStore.count(), 1);
+    });
+
+    test('成果数据按账号隔离', () async {
+      SharedPreferences.setMockInitialValues({
+        _authKey: jsonEncode({
+          'token': 'mock-token',
+          'phone': '13900139000',
+          'name': '李四',
+        }),
+        'study_output_$_mePhone': [jsonEncode(make('x', '别人的成果').toJson())],
+      });
+      expect(await StudyOutputStore.loadAll(), isEmpty);
+    });
+
+    test('JSON 往返保留图片与 PDF 附件', () {
+      const o = StudyOutput(
+        id: 'x',
+        title: '基于大模型的研究',
+        content: '说明',
+        images: ['/tmp/a.png'],
+        files: [
+          StudyAttachment(path: '/tmp/p.pdf', name: '论文.pdf', size: 2048),
+        ],
+        createdAt: 1,
+        updatedAt: 2,
+      );
+      final back = StudyOutput.fromJson(jsonDecode(jsonEncode(o.toJson())));
+      expect(back.images, ['/tmp/a.png']);
+      expect(back.files.length, 1);
+      expect(back.files.first.name, '论文.pdf');
+      expect(back.files.first.size, 2048);
+      expect(back.updatedAt, 2);
+    });
+
+    test('历史数据缺字段时兼容为空列表', () {
+      final back = StudyOutput.fromJson({'id': 'y', 'title': 't'});
+      expect(back.images, isEmpty);
+      expect(back.files, isEmpty);
+      expect(back.content, '');
+      expect(back.displayTitle, 't');
+    });
+
+    test('附件体积文案', () {
+      expect(StudyFileStore.formatSize(0), '');
+      expect(StudyFileStore.formatSize(900), '900 B');
+      expect(StudyFileStore.formatSize(2048), '2 KB');
+      expect(StudyFileStore.formatSize(3 * 1024 * 1024), '3.0 MB');
+    });
+
+    testWidgets('列表空态 → 新增成果（标题必填）→ 保存后回到列表', (tester) async {
+      SharedPreferences.setMockInitialValues({_authKey: _authJson()});
+      await tester.pumpWidget(const MaterialApp(home: StudyOutputListPage()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('还没有学习成果'), findsOneWidget);
+
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(StudyOutputEditPage), findsOneWidget);
+
+      // 标题为空 → 被拦下
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+      expect(find.text('请填写「标题」'), findsOneWidget);
+      expect(find.byType(StudyOutputEditPage), findsOneWidget,
+          reason: '校验失败不应离开编辑页');
+
+      // 填标题后保存 → 回到列表并出现该成果
+      await tester.enterText(find.byType(TextField).first, '基于大模型的求职研究');
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(StudyOutputEditPage), findsNothing);
+      expect(find.text('基于大模型的求职研究'), findsOneWidget);
+      expect(await StudyOutputStore.count(), 1);
+    });
+
+    testWidgets('数据页点「自主学习」进入成果页', (tester) async {
+      SharedPreferences.setMockInitialValues({_authKey: _authJson()});
+      await tester.binding.setSurfaceSize(const Size(400, 2400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(const MaterialApp(home: DatabaseTab()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('自主学习'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(StudyOutputListPage), findsOneWidget);
+      expect(find.text('还没有学习成果'), findsOneWidget);
     });
   });
 }
