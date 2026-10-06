@@ -2,6 +2,10 @@
 ///
 /// 所有 AI 回复气泡底部统一挂这一条 —— 通用对话与专业智能体两处对话页
 /// 共用同一实现，避免出现两套行为（本项目「避免第二套实现」的既有约定）。
+///
+/// 尺寸（v1.0.25 放大一档，与正文 15px 拉近距离）：
+/// 图标 18 / 文字 14 / 图标-文字间距 4 / 按钮内边距 上下 6·左右 8 / 按钮间距 8。
+/// 行内小按钮本体是 [MessageActionButton]，收藏列表页与详情页复用同一实现。
 library;
 
 import 'package:flutter/material.dart';
@@ -91,13 +95,17 @@ class _MessageActionBarState extends State<MessageActionBar> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: 8),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _action(icon: Icons.copy_rounded, label: '复制', onTap: _copy),
-          const SizedBox(width: 4),
-          _action(
+          MessageActionButton(
+            icon: Icons.copy_rounded,
+            label: '复制',
+            onTap: _copy,
+          ),
+          const SizedBox(width: 8),
+          MessageActionButton(
             icon: _fav ? Icons.star_rounded : Icons.star_border_rounded,
             label: _fav ? '已收藏' : '收藏',
             color: _fav ? const Color(0xFFF59E0B) : null,
@@ -107,25 +115,42 @@ class _MessageActionBarState extends State<MessageActionBar> {
       ),
     );
   }
+}
 
-  Widget _action({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Color? color,
-  }) {
+/// 行内小按钮：图标 + 文字（如「复制」「收藏」）
+///
+/// 全站同类小按钮的**唯一实现**——气泡操作条、收藏列表页、收藏详情页共用，
+/// 避免三处各写一份尺寸、改一处漏两处。
+class MessageActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  /// 不传则用默认中灰（`#6B7280`）
+  final Color? color;
+
+  const MessageActionButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final c = color ?? const Color(0xFF6B7280);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: c),
-            const SizedBox(width: 3),
-            Text(label, style: TextStyle(fontSize: 12, color: c)),
+            Icon(icon, size: 18, color: c),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(fontSize: 14, color: c)),
           ],
         ),
       ),

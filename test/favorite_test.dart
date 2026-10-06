@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zhiguanjia/features/chat/message_action_bar.dart';
+import 'package:zhiguanjia/features/data/favorite_detail_page.dart';
 import 'package:zhiguanjia/features/data/favorite_store.dart';
 import 'package:zhiguanjia/features/data/favorites_page.dart';
 import 'package:zhiguanjia/features/tabs/profile_tab.dart';
@@ -214,6 +215,98 @@ void main() {
 
       expect(find.text('已收藏的回答'), findsOneWidget);
       expect(find.text('学习'), findsOneWidget);
+    });
+  });
+
+  group('收藏详情页', () {
+    const String longText =
+        '第一行内容\n第二行内容\n第三行内容\n第四行内容\n第五行内容\n第六行内容';
+
+    setUp(() {
+      SharedPreferences.setMockInitialValues({_authKey: _authJson()});
+      // 详情页复制走剪贴板，测试环境需 mock 平台通道
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    testWidgets('列表页卡片正文最多 3 行且超出截断', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        _authKey: _authJson(),
+        _key(): [_favJson('1', longText)],
+      });
+      await tester.pumpWidget(const MaterialApp(home: FavoritesPage()));
+      await tester.pumpAndSettle();
+
+      final text = tester.widget<Text>(find.text(longText));
+      expect(text.maxLines, 3, reason: '卡片正文限 3 行');
+      expect(text.overflow, TextOverflow.ellipsis, reason: '超出部分截断');
+      expect(find.text('查看全文'), findsOneWidget);
+    });
+
+    testWidgets('点卡片进入详情页，全文与来源可见', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        _authKey: _authJson(),
+        _key(): [_favJson('1', longText, source: '学习')],
+      });
+      await tester.pumpWidget(const MaterialApp(home: FavoritesPage()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(longText));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FavoriteDetailPage), findsOneWidget);
+      expect(find.text('收藏详情'), findsOneWidget);
+      expect(
+        find.descendant(
+            of: find.byType(FavoriteDetailPage), matching: find.text(longText)),
+        findsOneWidget,
+        reason: '详情页显示全量正文',
+      );
+      expect(
+        find.descendant(
+            of: find.byType(FavoriteDetailPage), matching: find.text('学习')),
+        findsOneWidget,
+      );
+      expect(find.text('复制全文'), findsOneWidget);
+    });
+
+    testWidgets('详情页删除后回列表并移除该条', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        _authKey: _authJson(),
+        _key(): [_favJson('1', '要删掉的')],
+      });
+      await tester.pumpWidget(const MaterialApp(home: FavoritesPage()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('要删掉的'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FavoriteDetailPage), findsOneWidget);
+
+      await tester.tap(find.byTooltip('删除'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FavoriteDetailPage), findsNothing, reason: '删除后自动返回列表');
+      expect(find.text('还没有收藏'), findsOneWidget);
+      expect(await FavoriteStore.count(), 0);
+    });
+
+    testWidgets('详情页点「复制全文」提示已复制', (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: FavoriteDetailPage(
+          item: FavoriteItem(
+              id: '1', content: '复制我', source: '学习', createdAt: 1),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('复制全文'));
+      await tester.pumpAndSettle();
+      expect(find.text('已复制'), findsOneWidget);
     });
   });
 }
