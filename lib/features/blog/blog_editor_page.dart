@@ -6,6 +6,10 @@
 /// **内容形态**：一条说说可以是「纯文字」「纯图片」或「文字 + 图片」，
 /// 因此校验条件是三者不能同时为空；标题始终可选。
 ///
+/// **版面**（自上而下）：标题 → 分隔线 → 正文（固定 5 行高）→ 配图区。
+/// 配图区紧跟正文下方，由「已选图片方块 + 一个等大的＋方块」组成，
+/// 点「＋」进入选图；图片多了由 [Wrap] 自动换行向下铺开，整页可滚动。
+///
 /// **配图落盘**：选中的图片由 [PostImageStore] 复制进应用私有目录后，
 /// 再以绝对路径写入说说数据（不能直接存系统临时路径，会被清理成裂图）。
 /// 若用户中途放弃（未点发布就退出），dispose 时清理本次已落盘的文件，不留孤儿图片。
@@ -25,6 +29,12 @@ const Color _kBrandOrange = Color(0xFFFD5C13);
 
 /// 配图数量上限（与主流信息流一致：最多 9 张）
 const int _kMaxImages = 9;
+
+/// 配图方块边长：图片方块与「＋」方块**等大**，视觉上成一组
+const double _kTileSize = 88;
+
+/// 正文输入区行数：固定 5 行高，不撑满整屏，把下半屏留给配图
+const int _kContentLines = 5;
 
 class BlogEditorPage extends StatefulWidget {
   const BlogEditorPage({super.key});
@@ -219,7 +229,8 @@ class _BlogEditorPageState extends State<BlogEditorPage> {
           const SizedBox(width: 6),
         ],
       ),
-      body: Padding(
+      // 正文固定约 5 行高，配图区紧随正文之后；配图较多时整页可滚动
+      body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -239,101 +250,106 @@ class _BlogEditorPageState extends State<BlogEditorPage> {
             ),
             const Divider(height: 1, color: Color(0xFFEEEEEE)),
             const SizedBox(height: 8),
-            Expanded(
-              child: TextField(
-                controller: _contentCtrl,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                style: const TextStyle(fontSize: 15, height: 1.6),
-                decoration: const InputDecoration(
-                  hintText: '分享你的职业见解、经验或思考…',
-                  hintStyle: TextStyle(fontSize: 15, color: Color(0xFFB5B9C0)),
-                  border: InputBorder.none,
-                ),
+
+            // ── 正文：固定 5 行高（不撑满整屏，把下半屏留给配图）──
+            TextField(
+              controller: _contentCtrl,
+              minLines: _kContentLines,
+              maxLines: _kContentLines,
+              textAlignVertical: TextAlignVertical.top,
+              style: const TextStyle(fontSize: 15, height: 1.6),
+              decoration: const InputDecoration(
+                hintText: '分享你的职业见解、经验或思考…',
+                hintStyle: TextStyle(fontSize: 15, color: Color(0xFFB5B9C0)),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
               ),
             ),
+            const SizedBox(height: 6),
 
-            // ── 配图：已选缩略图（横向滚动）+ 「添加图片」入口 ──
-            if (_images.isNotEmpty) _buildImageStrip(),
-            _buildAddImageButton(),
+            // ── 配图：紧跟正文下方，图片方块 + 「＋」方块 ──
+            _buildImageGrid(),
           ],
         ),
       ),
     );
   }
 
-  /// 已选配图缩略图条（每张右上角可移除）
-  Widget _buildImageStrip() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: SizedBox(
-        height: 92,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: _images.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (_, i) => Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.file(
-                  File(_images[i]),
-                  width: 88,
-                  height: 88,
-                  fit: BoxFit.cover,
-                  // 文件被清理/解码失败时回落占位，避免裂图
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 88,
-                    height: 88,
-                    color: const Color(0xFFF3F4F6),
-                    child: const Icon(Icons.broken_image_outlined,
-                        color: Color(0xFFB5B9C0)),
-                  ),
-                ),
+  /// 配图区：已选图片方块 + 「＋」方块（参考主流信息流的发布器形态）
+  ///
+  /// 用 [Wrap] 而不是横向滚动条：图片多了自动换行向下铺开，
+  /// 与正文连成一片，而不是被压在页面底部的一条横向带里。
+  Widget _buildImageGrid() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (int i = 0; i < _images.length; i++) _buildImageTile(i),
+        // 达上限后隐藏「＋」，避免误以为还能继续加
+        if (_images.length < _kMaxImages) _buildAddTile(),
+      ],
+    );
+  }
+
+  /// 已选图片方块（右上角可移除）
+  Widget _buildImageTile(int index) {
+    return SizedBox(
+      width: _kTileSize,
+      height: _kTileSize,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              File(_images[index]),
+              width: _kTileSize,
+              height: _kTileSize,
+              fit: BoxFit.cover,
+              // 文件被清理/解码失败时回落占位，避免裂图
+              errorBuilder: (_, __, ___) => Container(
+                width: _kTileSize,
+                height: _kTileSize,
+                color: const Color(0xFFF3F4F6),
+                child: const Icon(Icons.broken_image_outlined,
+                    color: Color(0xFFB5B9C0)),
               ),
-              Positioned(
-                right: 2,
-                top: 2,
-                child: GestureDetector(
-                  onTap: () => _removeImage(i),
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.55),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.close,
-                        size: 14, color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          Positioned(
+            right: 2,
+            top: 2,
+            child: GestureDetector(
+              onTap: () => _removeImage(index),
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.55),
+                  shape: BoxShape.circle,
+                ),
+                child:
+                    const Icon(Icons.close, size: 14, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  /// 添加图片入口（达上限后禁用并提示）
-  Widget _buildAddImageButton() {
-    final full = _images.length >= _kMaxImages;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: TextButton.icon(
-        onPressed: full ? null : _showImageSheet,
-        icon: const Icon(Icons.add_photo_alternate_outlined, size: 20),
-        label: Text(full
-            ? '已达 $_kMaxImages 张上限'
-            : '添加图片${_images.isEmpty ? '' : '（${_images.length}/$_kMaxImages）'}'),
-        style: TextButton.styleFrom(
-          foregroundColor: _kBrandOrange,
-          disabledForegroundColor: const Color(0xFFB5B9C0),
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          minimumSize: const Size(0, 40),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  /// 「＋」方块：与图片方块**等大**，点一下即进入选图
+  Widget _buildAddTile() {
+    return GestureDetector(
+      onTap: _showImageSheet,
+      child: Container(
+        width: _kTileSize,
+        height: _kTileSize,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF2F3F5),
+          borderRadius: BorderRadius.circular(8),
         ),
+        child: const Icon(Icons.add, size: 34, color: Color(0xFF8A8F98)),
       ),
     );
   }
