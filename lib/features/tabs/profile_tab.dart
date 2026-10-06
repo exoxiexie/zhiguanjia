@@ -4,12 +4,16 @@
 /// 不接触存储 / 网络实现细节；具体实现由外部注入或默认装配。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../contracts/update_service.dart';
 import '../common/plain_group.dart';
+import '../data/favorite_store.dart';
+import '../data/favorites_page.dart';
 import '../personal/avatar_store.dart';
 import '../personal/personal_auth_service.dart';
 import '../personal/personal_login_page.dart';
@@ -54,6 +58,9 @@ class ProfileTab extends StatefulWidget {
 class ProfileTabState extends State<ProfileTab> {
   late Future<PersonalAuth?> _authFuture;
   bool _checking = false;
+
+  /// 收藏条数（我的页「收藏」卡右侧显示；异步加载，不阻塞首屏）
+  int? _favCount;
   bool _downloading = false;
   double _progress = 0;
   StateSetter? _setDialogState; // 用于更新下载进度对话框内部状态
@@ -65,6 +72,7 @@ class ProfileTabState extends State<ProfileTab> {
   void initState() {
     super.initState();
     _authFuture = PersonalAuthService.getAuth();
+    unawaited(_loadFavCount());
   }
 
   /// 重新加载登录态（实名认证返回后刷新卡片）
@@ -81,6 +89,20 @@ class ProfileTabState extends State<ProfileTab> {
   /// 否则会出现「已认证但我的页仍显示未认证」。
   void refresh() {
     if (mounted) _refreshAuth();
+  }
+
+  /// 加载收藏条数（异步，不阻塞首屏）
+  Future<void> _loadFavCount() async {
+    final n = await FavoriteStore.count();
+    if (mounted) setState(() => _favCount = n);
+  }
+
+  /// 打开收藏列表页；返回后刷新收藏条数
+  Future<void> _openFavorites() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const FavoritesPage()),
+    );
+    unawaited(_loadFavCount());
   }
 
   /// 头像选择实现（默认 image_picker）
@@ -435,6 +457,20 @@ class ProfileTabState extends State<ProfileTab> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // === 收藏（收拢所有收藏的 AI 输出） ===
+                _buildGroup([
+                  _ListItem(
+                    icon: Icons.star_outline_rounded,
+                    iconColor: const Color(0xFFF59E0B),
+                    title: '收藏',
+                    subtitle: _favCount == null
+                        ? '收拢你收藏的 AI 输出'
+                        : '$_favCount 条收藏',
+                    onTap: _openFavorites,
+                  ),
+                ]),
+                const SizedBox(height: 12),
 
                 // === 功能列表（仅登录后显示） ===
                 if (auth != null) ...[

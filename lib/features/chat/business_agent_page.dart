@@ -25,6 +25,7 @@ import '../storage/database/models/message_entity.dart';
 import '../storage/database/models/session_entity.dart';
 import 'attachment_parser.dart';
 import 'chat_input_bar.dart';
+import 'message_action_bar.dart';
 
 /// 业务智能体详情页
 class BusinessAgentPage extends StatefulWidget {
@@ -751,7 +752,7 @@ class _BusinessAgentPageState extends State<BusinessAgentPage> {
         if (index == _messages.length) {
           return const _ThinkingBubble();
         }
-        return _Bubble(message: _messages[index]);
+        return _Bubble(message: _messages[index], source: widget.title);
       },
     );
   }
@@ -773,7 +774,10 @@ class _BusinessAgentPageState extends State<BusinessAgentPage> {
 class _Bubble extends StatelessWidget {
   final ChatMessage message;
 
-  const _Bubble({required this.message});
+  /// 来源标签（收藏时记录来源，如 '学习' / '招聘'）
+  final String source;
+
+  const _Bubble({required this.message, required this.source});
 
   @override
   Widget build(BuildContext context) {
@@ -805,7 +809,7 @@ class _Bubble extends StatelessWidget {
             if (message.content.isNotEmpty)
               Padding(
                 padding: EdgeInsets.only(top: att != null ? 8 : 0),
-                child: Text(
+                child: SelectableText(
                   message.content,
                   style: TextStyle(
                     fontSize: 15,
@@ -813,6 +817,11 @@ class _Bubble extends StatelessWidget {
                     color: isUser ? Colors.white : const Color(0xFF1A1B1C),
                   ),
                 ),
+              ),
+            if (!isUser && message.content.isNotEmpty)
+              MessageActionBar(
+                content: message.content,
+                source: source,
               ),
           ],
         ),

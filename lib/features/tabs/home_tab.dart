@@ -19,6 +19,7 @@ import '../agent/agent_service_impl.dart';
 import '../chat/attachment_parser.dart';
 import '../chat/chat_input_bar.dart';
 import '../chat/identity_question.dart';
+import '../chat/message_action_bar.dart';
 import '../chat/preset_commands_page.dart';
 import '../memory/memory_distiller.dart';
 import '../personal/personal_auth_service.dart';
@@ -999,7 +1000,7 @@ class _MessageBubble extends StatelessWidget {
                 padding: EdgeInsets.only(
                   top: message.attachment != null ? 8 : 0,
                 ),
-                child: Text(
+                child: SelectableText(
                   message.content,
                   style: TextStyle(
                     fontSize: 15,
@@ -1007,6 +1008,11 @@ class _MessageBubble extends StatelessWidget {
                     color: isUser ? Colors.white : const Color(0xFF1A1B1C),
                   ),
                 ),
+              ),
+            if (!isUser && message.content.isNotEmpty)
+              MessageActionBar(
+                content: message.content,
+                source: '通用对话',
               ),
           ],
         ),
