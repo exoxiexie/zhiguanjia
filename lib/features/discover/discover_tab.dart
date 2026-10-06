@@ -4,8 +4,8 @@
 /// 通栏样式统一由 [PlainGroup] 提供（数据页的模块入口用的是同一个组件）。
 /// 第一批通栏模块三张卡片（**各自独立成卡**，互不同组），自上而下：
 /// - 职说：原底栏「说说」Tab 的内容，折叠进本页；
-/// - 学习：占位模块，功能后续开发；
-/// - 招聘：原「发现」页的职位推荐流，折叠进本页。
+/// - 学习与成长：占位模块，功能后续开发；
+/// - 找工作：原「发现」页的职位推荐流，折叠进本页。
 library;
 
 import 'package:flutter/material.dart';
@@ -63,7 +63,7 @@ class DiscoverTab extends StatelessWidget {
               PlainGroupEntry(
                 icon: Icons.menu_book_outlined,
                 color: const Color(0xFF3B7CF6),
-                label: '学习',
+                label: '学习与成长',
                 onTap: () => _open(context, const LearningPage()),
               ),
             ],
@@ -74,7 +74,7 @@ class DiscoverTab extends StatelessWidget {
               PlainGroupEntry(
                 icon: Icons.work_outline,
                 color: const Color(0xFF16B89C),
-                label: '招聘',
+                label: '找工作',
                 onTap: () => _open(context, const RecruitPage()),
               ),
             ],

@@ -1,6 +1,6 @@
 /// 学习页（职管家 · 个人职业版）
 ///
-/// 由「发现」页的「学习」通栏卡片进入。
+/// 由「发现」页的「学习与成长」通栏卡片进入。
 /// 当前为占位页，功能后续开发。
 library;
 
@@ -15,7 +15,7 @@ class LearningPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('学习'),
+        title: const Text('学习与成长'),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,

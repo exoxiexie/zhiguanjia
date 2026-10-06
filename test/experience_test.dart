@@ -371,8 +371,8 @@ void main() {
 
       expect(find.byType(PlainGroup), findsNWidgets(3));
       expect(find.text('职说'), findsOneWidget);
-      expect(find.text('学习'), findsOneWidget);
-      expect(find.text('招聘'), findsOneWidget);
+      expect(find.text('学习与成长'), findsOneWidget);
+      expect(find.text('找工作'), findsOneWidget);
     });
   });
 

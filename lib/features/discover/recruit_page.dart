@@ -1,6 +1,6 @@
 /// 招聘页（职管家 · 个人职业版）
 ///
-/// 由「发现」页的「招聘」通栏卡片进入。
+/// 由「发现」页的「找工作」通栏卡片进入。
 /// 内容与原「发现」页的职位推荐流完全一致（职位卡片列表），未做改动。
 /// 当前版本：职位卡片按设计稿静态展示（mock 数据，可点 × 本地移除）；
 /// 顶部搜索 / 新增 / 城市 / 筛选 / 推荐流切换等仅为占位 UI，交互与数据后续开发。
@@ -131,7 +131,7 @@ class _RecruitPageState extends State<RecruitPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('招聘'),
+        title: const Text('找工作'),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,
