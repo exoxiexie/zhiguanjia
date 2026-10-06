@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../contracts/update_service.dart';
+import '../common/plain_group.dart';
 import '../personal/avatar_store.dart';
 import '../personal/personal_auth_service.dart';
 import '../personal/personal_login_page.dart';
@@ -348,7 +349,7 @@ class ProfileTabState extends State<ProfileTab> {
               children: [
                 // === 顶部个人信息卡片（浅色） ===
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  margin: kCardMargin,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF0F5FF),
@@ -533,7 +534,7 @@ class ProfileTabState extends State<ProfileTab> {
   /// 构建一个白色圆角分组卡片
   Widget _buildGroup(List<Widget> items) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
+      margin: kCardMargin,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),

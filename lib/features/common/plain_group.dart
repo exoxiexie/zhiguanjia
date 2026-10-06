@@ -9,6 +9,17 @@ library;
 
 import 'package:flutter/material.dart';
 
+/// 全站卡片的左右外边距 —— **唯一事实来源**。
+///
+/// 约定：页面滚动容器**不自带左右内边距**，所有卡片一律带这个外边距。
+/// 这样发现页 / 数据页 / 首页的卡片左右宽度天然一致，
+/// 不会出现「页面加了 12、卡片又加 12，结果卡片比同页其它卡片窄一圈」。
+const double kCardSideMargin = 12;
+
+/// 卡片统一外边距（左右各 [kCardSideMargin]，上下由页面自行控制）
+const EdgeInsets kCardMargin =
+    EdgeInsets.symmetric(horizontal: kCardSideMargin);
+
 /// 行间分割线
 const Color kPlainGroupDivider = Color(0xFFEDEEF0);
 
@@ -45,13 +56,13 @@ class PlainGroupEntry {
 class PlainGroup extends StatelessWidget {
   final List<PlainGroupEntry> entries;
 
-  /// 卡片外边距（默认左右 12，与全站卡片对齐）
+  /// 卡片外边距（默认取全站统一的 [kCardMargin]）
   final EdgeInsetsGeometry margin;
 
   const PlainGroup({
     super.key,
     required this.entries,
-    this.margin = const EdgeInsets.symmetric(horizontal: 12),
+    this.margin = kCardMargin,
   });
 
   @override

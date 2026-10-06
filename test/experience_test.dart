@@ -5,7 +5,8 @@
 /// 2. 排序：按起始时间倒序（由近及远），未填起始时间的排最后；
 /// 3. 详情页：空态引导、已有经历平铺展示（含起止时间「至今」规则）；
 /// 4. 编辑页：必填校验拦住空提交；填完后保存并回到列表；
-/// 5. 回归：通栏卡片抽成公共组件后，发现页三行仍然照常渲染。
+/// 5. 数据页：职业数据卡片（三类经历 + 对话记忆）、卡片宽度一致性；
+/// 6. 回归：通栏卡片抽成公共组件后，发现页三行仍然照常渲染。
 library;
 
 import 'dart:convert';
@@ -282,7 +283,7 @@ void main() {
   });
 
   group('数据页接入与通栏组件回归', () {
-    testWidgets('数据页出现三张经历通栏卡片，并显示已填条数', (tester) async {
+    testWidgets('数据页出现职业数据卡片（三类经历 + 对话记忆），并显示已填条数', (tester) async {
       SharedPreferences.setMockInitialValues({
         _authKey: _authJson(),
         _key(): [
@@ -290,23 +291,56 @@ void main() {
         ],
       });
       // 放大画布，让页面底部的卡片也被布局出来
-      await tester.binding.setSurfaceSize(const Size(400, 2200));
+      await tester.binding.setSurfaceSize(const Size(400, 2400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(const MaterialApp(home: DatabaseTab()));
       await tester.pumpAndSettle();
 
-      expect(find.byType(PlainGroup), findsNWidgets(3));
+      // 教育 / 工作 / 培训 / 对话记忆，各自独立成卡
+      expect(find.byType(PlainGroup), findsNWidgets(4));
       expect(find.text('教育经历'), findsOneWidget);
       expect(find.text('工作经历'), findsOneWidget);
       expect(find.text('培训经历'), findsOneWidget);
+      expect(find.text('对话记忆'), findsOneWidget);
       // 只给教育经历录了 1 条 → 只有它显示条数
       expect(find.text('1 条'), findsOneWidget);
     });
 
+    testWidgets('数据页所有卡片左右内缩一致（顶部认证卡与通栏卡同宽）', (tester) async {
+      SharedPreferences.setMockInitialValues({_authKey: _authJson()});
+      await tester.binding.setSurfaceSize(const Size(400, 2400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(const MaterialApp(home: DatabaseTab()));
+      await tester.pumpAndSettle();
+
+      // 所有使用全站统一边距的卡片，卡片本体（不含外边距）宽度必须完全一致。
+      // 曾经这里出过 bug：页面自带左右内边距 + 卡片又带一遍，卡片窄一圈。
+      final cards = find.byWidgetPredicate(
+        (w) => w is Container && w.margin == kCardMargin,
+      );
+      expect(cards, findsWidgets);
+
+      final widths = <double>{};
+      for (final e in cards.evaluate()) {
+        // Container 的渲染盒含外边距，取内层 DecoratedBox（即卡片本体）来量
+        final body = find
+            .descendant(
+              of: find.byWidget(e.widget),
+              matching: find.byType(DecoratedBox),
+            )
+            .first;
+        widths.add(tester.getSize(body).width);
+      }
+
+      expect(widths.length, 1, reason: '同页卡片宽度不一致：$widths');
+      expect(widths.first, 400 - 2 * kCardSideMargin);
+    });
+
     testWidgets('数据页点「教育经历」进入其详情页', (tester) async {
       SharedPreferences.setMockInitialValues({_authKey: _authJson()});
-      await tester.binding.setSurfaceSize(const Size(400, 2200));
+      await tester.binding.setSurfaceSize(const Size(400, 2400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(const MaterialApp(home: DatabaseTab()));

@@ -7,6 +7,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../common/plain_group.dart';
 import '../data/business_domain.dart';
 
 class InsightTab extends StatefulWidget {
@@ -234,7 +235,7 @@ class _InsightTabState extends State<InsightTab> {
   /// 任务智能体为空时的占位提示
   Widget _buildEmptyHint() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
+      margin: kCardMargin,
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -252,7 +253,7 @@ class _InsightTabState extends State<InsightTab> {
   /// 顶部大卡片：对话 | 洞察 上下两个板块（整体浅蓝渐变撑满，无白边）
   Widget _buildTopCard(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
+      margin: kCardMargin,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.centerLeft,
@@ -387,7 +388,7 @@ class _InsightTabState extends State<InsightTab> {
 
   Widget _buildSection(List<Widget> items) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
+      margin: kCardMargin,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
