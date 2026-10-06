@@ -3,6 +3,10 @@
 /// 样式与对话页输入栏完全一致：
 /// - 顶部工具行：模型选择 + 连接电脑 + 技能选择
 /// - 输入框（2~5行自适应）+ 附件按钮 + 发送按钮
+///
+/// **发送即收键盘**：点发送按钮或按键盘「发送」键，统一走内部 [_handleSend] ——
+/// 先收起键盘（输入栏落回屏幕底部），再回调 [onSend] 交给宿主发送。
+/// 以前不收键盘，键盘 + 输入栏会长占约 2/3 屏，用户得手动收键盘才能看到回复。
 library;
 
 import 'package:flutter/material.dart';
@@ -44,6 +48,15 @@ class ChatInputBar extends StatelessWidget {
     this.showTopBar = true,
     this.hintText = '输入你的问题…',
   });
+
+  /// 统一的发送入口：先收起键盘（输入栏落回底部），再交给宿主发送。
+  ///
+  /// 键盘收起放在这里而不是各宿主页，是为了让两个调用方（对话页 / 智能体页）
+  /// 行为天然一致，且今后新增对话页无需再各自实现一遍。
+  void _handleSend() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    onSend?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +141,7 @@ class ChatInputBar extends StatelessWidget {
                     minLines: 2,
                     maxLines: 5,
                     textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => onSend?.call(),
+                    onSubmitted: (_) => _handleSend(),
                     style: const TextStyle(fontSize: 15),
                     decoration: InputDecoration(
                       hintText: hintText,
@@ -159,7 +172,7 @@ class ChatInputBar extends StatelessWidget {
                           final canSend =
                               !isLoading && value.text.trim().isNotEmpty;
                           return IconButton.filled(
-                            onPressed: canSend ? onSend : null,
+                            onPressed: canSend ? _handleSend : null,
                             icon: const Icon(Icons.arrow_upward, size: 22),
                             style: IconButton.styleFrom(
                               backgroundColor: canSend
