@@ -1,12 +1,18 @@
 /// 数据 Tab（职管家 · 个人职业版）
 ///
 /// 顶部：实名认证信息卡片（已认证显示姓名/年龄/性别，未认证引导去认证）
-/// 下方：个人职业数据宇宙占位（对话记忆 / 简历 / 证书 / 作品等多源数据沉淀）。
+/// 中部：个人职业数据宇宙占位（对话记忆 / 简历 / 证书 / 作品等多源数据沉淀）。
+/// 下方：三张职业经历通栏卡片（教育 / 工作 / 培训），点开进入各自的详情页；
+/// 卡片右侧显示已填条数，空则留白。
 /// 注意：本页不自带 AppBar，顶栏「数据」标题由 ShellPage 统一提供，避免重复。
 library;
 
 import 'package:flutter/material.dart';
 
+import '../common/plain_group.dart';
+import '../data/experience_list_page.dart';
+import '../data/experience_models.dart';
+import '../data/experience_store.dart';
 import '../personal/personal_auth_service.dart';
 import '../personal/personal_model.dart';
 import '../personal/personal_verify_page.dart';
@@ -26,6 +32,9 @@ class DatabaseTabState extends State<DatabaseTab> {
   PersonalAuth? _auth;
   bool _loading = true;
 
+  /// 三类经历的条数（通栏卡片右侧显示「N 条」，为 0 时留白）
+  Map<String, int> _counts = const {};
+
   @override
   void initState() {
     super.initState();
@@ -34,9 +43,11 @@ class DatabaseTabState extends State<DatabaseTab> {
 
   Future<void> _load() async {
     final auth = await PersonalAuthService.getAuth();
+    final counts = await ExperienceStore.counts();
     if (mounted) {
       setState(() {
         _auth = auth;
+        _counts = counts;
         _loading = false;
       });
     }
@@ -44,6 +55,14 @@ class DatabaseTabState extends State<DatabaseTab> {
 
   /// 供主框架在切到本页时调用刷新（认证返回后也能立即更新）
   void refresh() => _load();
+
+  /// 进入某类经历的详情页，返回后刷新条数
+  Future<void> _openExperience(ExperienceKind kind) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => ExperienceListPage(kind: kind)),
+    );
+    await _load();
+  }
 
   /// 由出生日期（yyyy-MM-dd）计算周岁
   int _ageOf(String birthday) {
@@ -81,10 +100,40 @@ class DatabaseTabState extends State<DatabaseTab> {
             if (_loading) const SizedBox(height: 92) else _buildIdentityCard(),
             const SizedBox(height: 16),
             _buildDataPlaceholder(),
+            const SizedBox(height: 16),
+            _buildExperienceGroups(),
           ],
         ),
       ),
     );
+  }
+
+  /// 三张职业经历通栏卡片（各自独立成卡，与发现页同一套通栏样式）
+  Widget _buildExperienceGroups() {
+    return Column(
+      children: [
+        for (var i = 0; i < ExperienceKind.all.length; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          PlainGroup(
+            entries: [
+              PlainGroupEntry(
+                icon: ExperienceKind.all[i].icon,
+                color: ExperienceKind.all[i].color,
+                label: ExperienceKind.all[i].label,
+                trailingText: _countText(ExperienceKind.all[i]),
+                onTap: () => _openExperience(ExperienceKind.all[i]),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 条数文案：为 0 时留白（避免满屏「0 条」噪音）
+  String _countText(ExperienceKind kind) {
+    final n = _counts[kind.id] ?? 0;
+    return n > 0 ? '$n 条' : '';
   }
 
   /// 顶部实名信息卡片
