@@ -7,8 +7,8 @@
 /// 4. 经历编辑页：必填校验拦住空提交；填完后保存并回到列表；
 /// 5. 自我评价：单段文本的保存 / 读回 / 清空 / 账号隔离；
 /// 6. 自主学习成果：增删改查、JSON 往返（含图片与 PDF 附件）、列表页链路；
-/// 7. 数据页：六张通栏卡片（自我评价 / 学历教育 / 工作经历 / 技能培训 /
-///    自主学习 / 对话记忆）与卡片宽度一致性；
+/// 7. 数据页：七张通栏卡片（基础信息 / 自我评价 / 学历教育 / 工作经历 /
+///    技能培训 / 自主学习 / 对话记忆）与卡片宽度一致性；
 /// 8. 回归：通栏卡片抽成公共组件后，发现页三行仍然照常渲染。
 library;
 
@@ -292,7 +292,7 @@ void main() {
   });
 
   group('数据页接入与通栏组件回归', () {
-    testWidgets('数据页出现六张职业数据卡片，并显示已填条数', (tester) async {
+    testWidgets('数据页出现七张职业数据卡片，并显示已填条数', (tester) async {
       SharedPreferences.setMockInitialValues({
         _authKey: _authJson(),
         _key(): [
@@ -306,8 +306,9 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: DatabaseTab()));
       await tester.pumpAndSettle();
 
-      // 自我评价 / 学历教育 / 工作经历 / 技能培训 / 自主学习 / 对话记忆
-      expect(find.byType(PlainGroup), findsNWidgets(6));
+      // 基础信息 / 自我评价 / 学历教育 / 工作经历 / 技能培训 / 自主学习 / 对话记忆
+      expect(find.byType(PlainGroup), findsNWidgets(7));
+      expect(find.text('基础信息'), findsOneWidget);
       expect(find.text('自我评价'), findsOneWidget);
       expect(find.text('学历教育'), findsOneWidget);
       expect(find.text('工作经历'), findsOneWidget);

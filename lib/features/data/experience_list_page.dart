@@ -11,6 +11,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../common/app_fab.dart';
 import 'experience_edit_page.dart';
 import 'experience_models.dart';
 import 'experience_store.dart';
@@ -88,13 +89,9 @@ class _ExperienceListPageState extends State<ExperienceListPage> {
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
                   children: [for (final e in _items) _buildCard(e)],
                 ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: AppFab(
         onPressed: () => _openEditor(),
-        backgroundColor: _kBrandOrange,
-        foregroundColor: Colors.white,
-        elevation: 4,
         tooltip: '添加${widget.kind.label}',
-        child: const Icon(Icons.add, size: 30),
       ),
     );
   }

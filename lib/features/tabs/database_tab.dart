@@ -1,7 +1,7 @@
 /// 数据 Tab（职管家 · 个人职业版）
 ///
 /// 顶部：实名认证信息卡片（已认证显示姓名/年龄/性别，未认证引导去认证）
-/// 下方（自上而下）：自我评价 → 学历教育 / 工作经历 / 技能培训 →
+/// 下方（自上而下）：基础信息 → 自我评价 → 学历教育 / 工作经历 / 技能培训 →
 /// 自主学习 → 对话记忆，点开进入各自详情页；
 /// 卡片右侧显示已填条数 / 填写状态，空则留白。
 ///
@@ -15,6 +15,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../common/plain_group.dart';
+import '../data/basic_info_page.dart';
+import '../data/basic_info_store.dart';
 import '../data/experience_list_page.dart';
 import '../data/experience_models.dart';
 import '../data/experience_store.dart';
@@ -46,6 +48,9 @@ class DatabaseTabState extends State<DatabaseTab> {
   /// 三类经历的条数（通栏卡片右侧显示「N 条」，为 0 时留白）
   Map<String, int> _counts = const {};
 
+  /// 基础信息是否已填写（卡片右侧显示「已填写」）
+  bool _basicInfoFilled = false;
+
   /// 自我评价文本（为空表示未填写，卡片右侧显示「已填写」）
   String _selfEvaluation = '';
 
@@ -66,12 +71,14 @@ class DatabaseTabState extends State<DatabaseTab> {
     final counts = await ExperienceStore.counts();
     final selfEvaluation = await SelfEvaluationStore.load();
     final studyCount = await StudyOutputStore.count();
+    final basicInfoFilled = await BasicInfoStore.hasAny();
     if (mounted) {
       setState(() {
         _auth = auth;
         _counts = counts;
         _selfEvaluation = selfEvaluation;
         _studyCount = studyCount;
+        _basicInfoFilled = basicInfoFilled;
         _loading = false;
       });
     }
@@ -99,6 +106,14 @@ class DatabaseTabState extends State<DatabaseTab> {
   Future<void> _openExperience(ExperienceKind kind) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (_) => ExperienceListPage(kind: kind)),
+    );
+    await _load();
+  }
+
+  /// 进入基础信息页，返回后刷新填写状态
+  Future<void> _openBasicInfo() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => const BasicInfoPage()),
     );
     await _load();
   }
@@ -165,6 +180,8 @@ class DatabaseTabState extends State<DatabaseTab> {
           children: [
             if (_loading) const SizedBox(height: 92) else _buildIdentityCard(),
             const SizedBox(height: 16),
+            _buildBasicInfoGroup(),
+            const SizedBox(height: 12),
             _buildSelfEvaluationGroup(),
             const SizedBox(height: 12),
             _buildExperienceGroups(),
@@ -178,7 +195,22 @@ class DatabaseTabState extends State<DatabaseTab> {
     );
   }
 
-  /// 自我评价卡片（实名认证卡下方，独立成卡）
+  /// 基础信息卡片（实名认证卡下方、自我评价上方，独立成卡）
+  Widget _buildBasicInfoGroup() {
+    return PlainGroup(
+      entries: [
+        PlainGroupEntry(
+          icon: Icons.badge_outlined,
+          color: const Color(0xFF10B981),
+          label: '基础信息',
+          trailingText: _basicInfoFilled ? '已填写' : '',
+          onTap: _openBasicInfo,
+        ),
+      ],
+    );
+  }
+
+  /// 自我评价卡片（基础信息卡下方，独立成卡）
   Widget _buildSelfEvaluationGroup() {
     return PlainGroup(
       entries: [

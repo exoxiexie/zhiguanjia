@@ -22,6 +22,7 @@ import '../blog/blog_post_card.dart';
 import '../blog/blog_store.dart';
 import '../blog/follow_store.dart';
 import '../blog/user_profile_page.dart';
+import '../common/app_fab.dart';
 
 /// 品牌活力橙（与 App 图标主色一致）
 const Color _kBrandOrange = Color(0xFFFD5C13);
@@ -185,13 +186,9 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: AppFab(
         onPressed: _openEditor,
-        backgroundColor: _kBrandOrange,
-        foregroundColor: Colors.white,
-        elevation: 4,
         tooltip: '写说说',
-        child: const Icon(Icons.add, size: 30),
       ),
     );
   }

@@ -17,6 +17,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 
+import '../common/app_fab.dart';
 import 'study_file_store.dart';
 import 'study_output_edit_page.dart';
 import 'study_output_store.dart';
@@ -121,13 +122,9 @@ class _StudyOutputListPageState extends State<StudyOutputListPage> {
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
                   children: [for (final o in _items) _buildCard(o)],
                 ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: AppFab(
         onPressed: () => _openEditor(),
-        backgroundColor: _kBrandOrange,
-        foregroundColor: Colors.white,
-        elevation: 4,
         tooltip: '添加学习成果',
-        child: const Icon(Icons.add, size: 30),
       ),
     );
   }
