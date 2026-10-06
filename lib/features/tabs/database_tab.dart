@@ -1,7 +1,6 @@
 /// 数据 Tab（职管家 · 个人职业版）
 ///
 /// 顶部：实名认证信息卡片（已认证显示姓名/年龄/性别，未认证引导去认证）
-/// 中部：个人职业数据宇宙占位（对话记忆 / 简历 / 证书 / 作品等多源数据沉淀）。
 /// 下方：三张职业经历通栏卡片（教育 / 工作 / 培训），点开进入各自的详情页；
 /// 卡片右侧显示已填条数，空则留白。
 /// 注意：本页不自带 AppBar，顶栏「数据」标题由 ShellPage 统一提供，避免重复。
@@ -98,8 +97,6 @@ class DatabaseTabState extends State<DatabaseTab> {
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
           children: [
             if (_loading) const SizedBox(height: 92) else _buildIdentityCard(),
-            const SizedBox(height: 16),
-            _buildDataPlaceholder(),
             const SizedBox(height: 16),
             _buildExperienceGroups(),
           ],
@@ -288,60 +285,6 @@ class DatabaseTabState extends State<DatabaseTab> {
                   color: _kBrandOrange,
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 数据宇宙占位（品牌橙）
-  Widget _buildDataPlaceholder() {
-    return Container(
-      height: 300,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: _kBrandOrange.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.dataset_outlined,
-                size: 36, color: _kBrandOrange),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            '职业数据宇宙',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1A1B1C),
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '对话记忆、简历、证书、作品与职业资料\n将在这里按标签结构化沉淀',
-            textAlign: TextAlign.center,
-            style:
-                TextStyle(fontSize: 13, color: Color(0xFF9CA3AF), height: 1.6),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: _kBrandOrange.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              '即将上线',
-              style: TextStyle(fontSize: 12, color: _kBrandOrange),
             ),
           ),
         ],
