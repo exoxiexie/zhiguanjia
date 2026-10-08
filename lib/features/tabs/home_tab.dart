@@ -370,6 +370,11 @@ class HomeTabState extends State<HomeTab> {
           onToolStart: (toolName) {
             if (!mounted) return;
             setState(() {
+              // 工具开始执行 → 回到「思考中」态：
+              // 真流式下，模型可能在决定调工具前先吐过一小段过渡文字，
+              // 这里把它清掉，避免工具执行期间还挂着半截话。
+              _streamingReasoning = true;
+              _streamBuffer.clear();
               if (toolName == 'web_search') {
                 _thinkingText = '正在联网搜索…';
               } else if (toolName == 'web_fetch') {

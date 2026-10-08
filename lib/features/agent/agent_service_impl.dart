@@ -1,9 +1,20 @@
 /// Agent Harness 实现 · 基于 DeepSeek function calling 的轻量循环调度器
 ///
 /// 核心循环（tool-call loop）：
-///   模型调用(带 tools, 非流式) → 有 tool_calls? → 执行工具 → 结果回填 → 回到模型调用
-///   无 tool_calls → 最终回复(流式 SSE)
+///   模型调用(带 tools，**真流式**) → 有 tool_calls? → 执行工具 → 结果回填 → 回到模型调用
+///   无 tool_calls → 本轮正文即最终回复（已在流式中逐步上屏）
 /// 终止条件：maxSteps / timeout / 模型明确结束。
+///
+/// **每一轮都是真流式**（v1.0.33 核心修复）：
+/// 请求带 `stream: true`，正文片段到达即通过 `onDelta` 上屏，用户立刻看到字在冒；
+/// 工具调用的分片（index / id / name / arguments）在同一条流里同步累积，
+/// 流结束后若有 tool_calls 才进入工具循环。
+///
+/// 此前是「非流式请求 + 拿到整段后按 3 字符回放」的**假流式**：
+/// 用户必须等整段回答生成完才看到第一个字，主观上明显比官方 App 慢。
+/// 注意这与「走不走 Agent、要不要组装上下文」无关 —— 上下文组装（_buildMessages）、
+/// 工具循环、搜索沉淀全部保留，改动仅在于模型请求的调用姿势。
+///
 /// 目录隔离：本模块只属于 agent 域，不依赖其他业务模块。
 library;
 
@@ -82,79 +93,32 @@ class HttpAgentService implements AgentService {
       if (overall.elapsed > timeout) break;
       final stepTimer = Stopwatch()..start();
 
-      // 判断是否为最后一步（无工具可用或达到步数上限时直接流式出最终回复）
+      // 判断是否为最后一步：无工具可用或已达步数上限时，
+      // 不再带工具、直接产出最终回复（避免陷入无尽工具循环）
       final isFinalStep = (step == maxSteps) || tools.isEmpty;
 
-      if (isFinalStep) {
-        // ── 最终回复：流式 SSE ──
-        final streamReply = await _streamFinalReply(
-          messages: messages,
-          model: model,
-          onDelta: onDelta,
-        );
-        reply = mdToCnText(streamReply);
-        finished = true;
-        stepLogs.add(AgentStepLog(
-          step: step,
-          toolCalls: const [],
-          finished: true,
-          elapsed: stepTimer.elapsed,
-          promptTokens: 0,
-          completionTokens: 0,
-        ));
-        break;
-      }
-
-      // ── 模型调用（带工具 schema，非流式，需要判断 tool_calls）──
-      final resp = await _dio.post(
-        ApiConfig.chatCompletionsUrl,
-        data: {
-          'model': model,
-          'messages': messages,
-          if (tools.isNotEmpty) 'tools': tools.map(_toToolSchema).toList(),
-          if (tools.isNotEmpty) 'tool_choice': 'auto',
-          'max_tokens': 24576,
-        },
-        options: Options(headers: {
-          'X-Proxy-Token': ApiConfig.proxyToken,
-          'Content-Type': 'application/json',
-        }),
+      // ── 每一轮都是「真流式」调用 ──
+      // 正文片段到达即上屏（用户立刻看到字往外冒）；工具调用分片同步累积。
+      final round = await _streamModelRound(
+        messages: messages,
+        model: model,
+        tools: isFinalStep ? const <ToolDefinition>[] : tools,
+        onDelta: onDelta,
       );
 
-      final data = resp.data as Map<String, dynamic>;
-      final usage = (data['usage'] as Map?) ?? const {};
-      final promptTokens = (usage['prompt_tokens'] as num?)?.toInt() ?? 0;
-      final completionTokens =
-          (usage['completion_tokens'] as num?)?.toInt() ?? 0;
-
-      final choices = (data['choices'] as List?) ?? [];
-      final msg =
-          (choices.isEmpty ? null : (choices[0] as Map)['message'] as Map?) ??
-              const {};
-      final content = msg['content']?.toString() ?? '';
-      final rawToolCalls = (msg['tool_calls'] as List?) ?? [];
-
-      // ── 无工具调用 → 这就是最终回复，用流式重新输出给用户 ──
-      if (rawToolCalls.isEmpty) {
-        // 非流式已经拿到了完整内容，但为了用户体验，用流式逐字输出
-        if (onDelta != null) {
-          // 把已拿到的内容按字符逐段回调（模拟流式，避免用户等太久）
-          final processed = mdToCnText(content);
-          for (var i = 0; i < processed.length; i += 3) {
-            final chunk = processed.substring(
-                i, (i + 3 < processed.length) ? i + 3 : processed.length);
-            onDelta(chunk, reasoning: false);
-          }
-        }
-        reply = mdToCnText(content);
+      // ── 本轮没有工具调用 → 这就是最终回复（正文已在流式中显示完毕）──
+      if (round.toolCalls.isEmpty) {
+        final text =
+            round.content.isNotEmpty ? round.content : round.reasoning;
+        reply = mdToCnText(text);
         finished = true;
         stepLogs.add(AgentStepLog(
           step: step,
           toolCalls: const [],
           finished: true,
           elapsed: stepTimer.elapsed,
-          promptTokens: promptTokens,
-          completionTokens: completionTokens,
+          promptTokens: round.promptTokens,
+          completionTokens: round.completionTokens,
         ));
         break;
       }
@@ -162,13 +126,12 @@ class HttpAgentService implements AgentService {
       // ── 有工具调用：assistant 消息入历史，逐个执行工具并回填 ──
       messages.add({
         'role': 'assistant',
-        'content': content,
-        'tool_calls': rawToolCalls,
+        'content': round.content,
+        'tool_calls': round.toolCalls,
       });
 
       final records = <ToolCallRecord>[];
-      for (final raw in rawToolCalls) {
-        final tc = raw as Map;
+      for (final tc in round.toolCalls) {
         final fn = (tc['function'] as Map?) ?? const {};
         final name = fn['name']?.toString() ?? '';
         final arguments = fn['arguments']?.toString() ?? '{}';
@@ -217,8 +180,8 @@ class HttpAgentService implements AgentService {
         toolCalls: records,
         finished: false,
         elapsed: stepTimer.elapsed,
-        promptTokens: promptTokens,
-        completionTokens: completionTokens,
+        promptTokens: round.promptTokens,
+        completionTokens: round.completionTokens,
       ));
     }
 
@@ -275,12 +238,21 @@ class HttpAgentService implements AgentService {
   }
 
   // ────────────────────────────────────────────────────────────
-  //  最终回复：流式 SSE
+  //  一轮真流式模型调用（正文边到边回调，工具调用分片同步累积）
   // ────────────────────────────────────────────────────────────
 
-  Future<String> _streamFinalReply({
+  /// 发起一轮带 `stream: true` 的模型调用。
+  ///
+  /// - 正文（`content`）与思考（`reasoning_content`）片段**到达即**通过
+  ///   [onDelta] 回调给 UI —— 这是「首字立刻可见」的关键；
+  /// - 同时按 `index` 累积 `tool_calls` 分片：`id` 只在首片出现，
+  ///   `function.name` 通常首片给全，`function.arguments` 为逐片增量，需拼接。
+  ///
+  /// 返回本轮完整结果，由调用方判断「继续工具循环」还是「这就是最终回复」。
+  Future<_StreamRound> _streamModelRound({
     required List<Map<String, dynamic>> messages,
     required String model,
+    required List<ToolDefinition> tools,
     AgentStreamCallback? onDelta,
   }) async {
     final resp = await _dio.post<ResponseBody>(
@@ -288,8 +260,12 @@ class HttpAgentService implements AgentService {
       data: {
         'model': model,
         'messages': messages,
+        if (tools.isNotEmpty) 'tools': tools.map(_toToolSchema).toList(),
+        if (tools.isNotEmpty) 'tool_choice': 'auto',
         'max_tokens': 24576,
         'stream': true,
+        // 让流式响应末包带上 usage，保留 token 统计（实测代理支持）
+        'stream_options': const {'include_usage': true},
       },
       options: Options(
         responseType: ResponseType.stream,
@@ -304,6 +280,11 @@ class HttpAgentService implements AgentService {
 
     final reasoningBuf = StringBuffer();
     final contentBuf = StringBuffer();
+    // 工具调用分片累积：index -> {id, type, function:{name, arguments}}
+    final toolAcc = <int, Map<String, dynamic>>{};
+    var promptTokens = 0;
+    var completionTokens = 0;
+
     await for (final raw
         in utf8.decoder.bind(body.stream).transform(const LineSplitter())) {
       final line = raw.trim();
@@ -316,10 +297,20 @@ class HttpAgentService implements AgentService {
       } catch (_) {
         continue;
       }
+
+      // usage 常在最后一个 chunk 单独下发
+      final usage = json['usage'] as Map?;
+      if (usage != null) {
+        promptTokens = (usage['prompt_tokens'] as num?)?.toInt() ?? promptTokens;
+        completionTokens =
+            (usage['completion_tokens'] as num?)?.toInt() ?? completionTokens;
+      }
+
       final choices = json['choices'] as List?;
       if (choices == null || choices.isEmpty) continue;
       final delta = (choices[0] as Map)['delta'] as Map?;
       if (delta == null) continue;
+
       final reasoning = delta['reasoning_content']?.toString() ?? '';
       final content = delta['content']?.toString() ?? '';
       if (reasoning.isNotEmpty) {
@@ -328,13 +319,49 @@ class HttpAgentService implements AgentService {
       }
       if (content.isNotEmpty) {
         contentBuf.write(content);
+        // ★ 真流式：正文片段一到就上屏，不再等整段生成完
         onDelta?.call(content, reasoning: false);
       }
+
+      // ── 工具调用分片累积（流式下 tool_calls 是逐步下发的）──
+      final tcList = delta['tool_calls'] as List?;
+      if (tcList != null) {
+        for (final rawTc in tcList) {
+          if (rawTc is! Map) continue;
+          final idx = (rawTc['index'] as num?)?.toInt() ?? 0;
+          final acc = toolAcc.putIfAbsent(
+            idx,
+            () => <String, dynamic>{
+              'id': '',
+              'type': 'function',
+              'function': <String, dynamic>{'name': '', 'arguments': ''},
+            },
+          );
+          if (rawTc['id'] != null) acc['id'] = rawTc['id'].toString();
+          if (rawTc['type'] != null) acc['type'] = rawTc['type'].toString();
+          final fn = rawTc['function'] as Map?;
+          if (fn != null) {
+            final accFn = acc['function'] as Map<String, dynamic>;
+            if (fn['name'] != null) accFn['name'] = fn['name'].toString();
+            if (fn['arguments'] != null) {
+              // arguments 是增量片段，必须拼接
+              accFn['arguments'] = '${accFn['arguments']}${fn['arguments']}';
+            }
+          }
+        }
+      }
     }
-    final reply =
-        contentBuf.isNotEmpty ? contentBuf.toString() : reasoningBuf.toString();
-    if (reply.trim().isEmpty) throw Exception('模型未返回内容');
-    return reply;
+
+    final indices = toolAcc.keys.toList()..sort();
+    return _StreamRound(
+      content: contentBuf.toString(),
+      reasoning: reasoningBuf.toString(),
+      toolCalls: <Map<String, dynamic>>[
+        for (final i in indices) toolAcc[i]!,
+      ],
+      promptTokens: promptTokens,
+      completionTokens: completionTokens,
+    );
   }
 
   // ────────────────────────────────────────────────────────────
@@ -585,6 +612,27 @@ class HttpAgentService implements AgentService {
       return '网页读取失败：$e';
     }
   }
+}
+
+/// 一轮流式模型调用的完整结果（v1.0.33）
+///
+/// [content] / [reasoning] 为本轮累积到的正文与思考文本；
+/// [toolCalls] 为按 `index` 拼装好的完整工具调用（OpenAI 格式，可直接回填进 messages），
+/// 为空表示本轮即最终回复。
+class _StreamRound {
+  final String content;
+  final String reasoning;
+  final List<Map<String, dynamic>> toolCalls;
+  final int promptTokens;
+  final int completionTokens;
+
+  const _StreamRound({
+    required this.content,
+    required this.reasoning,
+    required this.toolCalls,
+    required this.promptTokens,
+    required this.completionTokens,
+  });
 }
 
 /// 内置联网搜索工具定义（供 AgentService.run 注册使用）

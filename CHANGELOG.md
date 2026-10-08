@@ -30,6 +30,46 @@
 
 ---
 
+## [1.0.33] - 2026-10-08
+
+对话改为真流式：回答边生成边显示，不再等整段写完才一次性弹出。
+
+### 问题
+用户反馈「用职管家对话，感觉比直接用 DeepSeek 官方 App 慢很多」。排查后定位到：
+懂你页的对话走 Agent 分支，而 Agent 的模型请求**没有开流式**
+（`agent_service_impl.dart` 中不带 `stream: true`），必须等**整段回答生成完**才返回；
+拿到后再把文本按 3 字符一块**飞快回放**给界面。即"假流式"——
+等待期间界面只有一个「正在思考…」，一个字都看不到，全部生成完才「唰」地喷出。
+主观上就比官方 App（真流式、首字 1~2 秒即出）慢很多。
+
+### 变更
+- **Agent 每一轮都改用真流式**（`lib/features/agent/agent_service_impl.dart`）：
+  - 模型请求统一带 `stream: true` 与 `stream_options.include_usage`（实测代理支持）；
+  - 正文（`content`）与思考（`reasoning_content`）片段**到达即**通过 `onDelta` 上屏；
+  - 工具调用在同一流里以分片下发（`index` / `id` / `function.name` /
+    `function.arguments` 为增量），按 `index` 累积拼装回完整 `tool_calls`；
+  - 流结束后：有 `tool_calls` → 照旧执行工具、回填、进入下一轮；无 → 本轮正文即最终回复。
+  - 原 `_streamFinalReply` 升级为支持工具累积的 `_streamModelRound`，并新增私有
+    `_StreamRound` 承载一轮结果（正文 / 思考 / 工具调用 / token 用量）。
+- **上下文组装与工具循环完全保留**：`_buildMessages()`（个人档案 + 系统提示词 + 历史）、
+  工具注册与执行、工具结果回填、搜索数据自动沉淀、步数与 token 日志，均未改动。
+  本次只改「模型请求的调用姿势」，与「走不走 Agent」无关。
+- `lib/features/tabs/home_tab.dart`：`onToolStart` 额外重置流式状态
+  （`_streamingReasoning = true` + 清空 `_streamBuffer`），避免工具执行期间
+  还挂着模型决定调工具前吐出的半截过渡文字。
+- 新增 `test/agent_stream_test.dart`（7 例，用注入 `HttpClientAdapter` 的内存 SSE 流）：
+  正文逐片回调（非一次性）、字节流打碎每 7 字节仍可解析、请求确实带 `stream`、
+  思考片段不混入正文、工具分片拼装 + 工具执行 + 结果回填 + 第二轮出正文、
+  最后一步不带 tools、流式 usage 可读。
+
+### 说明
+本版只解决「看得见」的问题（体验）。另有「真的快」的问题待办：
+服务端代理部署在新加坡（`api_config.dart` 的 `ap-southeast-1`），
+实测单次建连 + TLS 握手耗时 0.2~3.4 秒（直连 DeepSeek 官方仅 0.03 秒），
+换到国内区域可再省 0.7~3.4 秒，需在云控制台操作。
+
+---
+
 ## [1.0.32] - 2026-10-08
 
 底栏：去掉选中「药丸」，选中改为图标实心深色；图标与文字间距由 8dp 收到 4dp。

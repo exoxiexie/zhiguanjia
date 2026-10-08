@@ -110,6 +110,62 @@
 - 回归测试 `test/app_nav_bar_test.dart`（10 例）：无 `NavigationIndicator` / 无 `NavigationDestination` / 间隙=4（选中与未选中）/ 选中实心近黑 / 切换互换 / 点击回调 index / 顺序与图标配置自检。
   `test/shell_tabs_test.dart` 的 `_labels()` 已改为读 `AppNavDestination.item.label`（原读 `NavigationDestination.label`）。
 
+## 六之四、对话链路：走 Agent，且**必须真流式**（v1.0.33 修复）
+
+- **懂你页发消息走的是 Agent 分支**：`home_tab.dart` 里只要 `agentService != null` 就走它（它永不为空），
+  即 `HttpAgentService.run()`（`features/agent/agent_service_impl.dart`）。
+  `HttpChatService.sendMessage()`（`features/chat/chat_service_impl.dart`）**在实际聊天中不会被调用**。
+- **Agent 的每一轮都是真流式**（v1.0.33 起）：请求带 `stream: true` + `stream_options.include_usage`，
+  正文/思考片段到达即 `onDelta` 上屏；工具调用以**分片**下发（`index` / `id` / `function.name` /
+  `function.arguments` 增量），由 `_streamModelRound` 按 `index` 拼装回完整 `tool_calls`。
+  私有类 `_StreamRound` 承载一轮结果（content / reasoning / toolCalls / tokens）。
+- ⚠️ **历史坑（v1.0.33 前）**：Agent 的模型请求**没开流式**，等整段生成完再按 3 字符「回放」
+  —— 即"假流式"，用户等待期一个字都看不到，主观上比官方 App 慢很多。
+  **绝不能退回那种写法**：`test/agent_stream_test.dart` 已锁住"正文必须逐片回调（不是一次给完）"。
+- **改动边界**：上下文组装（`_buildMessages`：个人档案 + system prompt + 历史）、工具注册与执行、
+  工具结果回填、搜索数据沉淀、stepLogs 全部保留。**改流式 ≠ 绕开 Agent**。
+- `home_tab.dart` 的 `onToolStart` 会重置流式状态（`_streamingReasoning = true` + `_streamBuffer.clear()`），
+  避免工具执行期间还挂着"决定调工具前吐出的半截过渡文字"。
+
+### 网络链路：代理在新加坡（已知性能瓶颈，**未解决**）
+
+- `contracts/api_config.dart` 的 `proxyBaseUrl` 是阿里云 FC **新加坡**（`ap-southeast-1`）。
+- **实测（2026-10-08，本机）**：走代理 建连 0.22s / TLS 0.69~3.38s / 首字节 1.28~1.54s（小请求）；
+  直连 `api.deepseek.com` 建连 0.017s / TLS 0.030s / 首字节 0.085s。→ **单次多花 0.7~3.4 秒**。
+  另有 FC 冷启动（闲置后首请求再慢 1~3s）。
+- 优化方向（用户 2026-10-08 已知晓，待其决定）：代理换国内区域，或改直连。需云控制台操作。
+
+### 测试技巧：如何在单测里 mock 网络（dio）
+
+- **`Dio` 只有工厂构造、无法 `extends`**（会报 `no_generative_constructors_in_superclass`
+  与一堆 `Missing concrete implementations`）。正确做法是注入 `HttpClientAdapter`：
+
+  ```dart
+  final dio = Dio();
+  dio.httpClientAdapter = _ScriptedAdapter(...);   // implements HttpClientAdapter
+  // fetch(RequestOptions, Stream<Uint8List>?, Future<void>?) → Future<ResponseBody>
+  ```
+
+- `ResponseBody(stream, 200, headers: {...})`；用 `Stream<Uint8List>` 喂 SSE 文本，
+  **故意按 7 字节打碎**以验证"不被分片边界影响"。适配器里 `await for (chunk in requestStream)`
+  可读到请求体，用来断言 `stream: true` / `tools` 是否存在。范本见 `test/agent_stream_test.dart`。
+
+- **为什么自绘**：官方 M3 `NavigationDestination` 把三件事写死在私有代码里，外部改不了 ——
+  ① 选中"药丸"（`NavigationIndicator`，`64×32` 圆角底，尺寸是源码常量）；
+  ② 图标-文字 8dp 间隙（= 图标盒内空隙 4 + 文字写死上边距 4）；
+  ③ 两者相对位置由私有 `MultiChildLayoutDelegate` 计算。
+- **做法**：仍用官方 `NavigationBar` 当**外壳**（高度 56 / 背景 / 底部安全区 / 横向均分全白拿），
+  只把 `destinations` 换成自绘的 `AppNavDestination`。官方对该参数只断言 `length >= 2`，不限元素类型（已核实 `navigation_bar.dart:102`）。
+- **文件** `lib/features/common/app_nav_bar.dart`：
+  - `AppNavItem(icon, selectedIcon, label)`；常量 `kNavIconLabelGap = 4` / `kNavIconSize = 24` / `kNavSelectedIconColor = Color(0xFF1A1B1C)`；
+  - `AppNavDestination`（`InkWell` + `SizedBox(height: double.infinity)` + `Column(center)`，图标 + gap + 文字；文字用 `MediaQuery.withClampedTextScaling(maxScaleFactor: 1.0)` 防系统字号撑破）；
+  - `buildAppNavDestinations({items, selectedIndex, onSelected})` 一键铺满。
+  - 选中：图标切实心 + 近黑，文字 `onSurface`；未选中：`onSurfaceVariant`（与官方默认一致）。
+- **五格定义 = `shell_page.dart` 的 `kShellNavItems`**（顺序：对话/数据/懂你/发现/我的）。改底栏内容只改这一处。
+- **实测几何（56dp 底栏，自绘后）**：图标 550..574、文字 578..594、间隙 **4dp**（原 8dp）。
+- 回归测试 `test/app_nav_bar_test.dart`（10 例）：无 `NavigationIndicator` / 无 `NavigationDestination` / 间隙=4（选中与未选中）/ 选中实心近黑 / 切换互换 / 点击回调 index / 顺序与图标配置自检。
+  `test/shell_tabs_test.dart` 的 `_labels()` 已改为读 `AppNavDestination.item.label`（原读 `NavigationDestination.label`）。
+
 ## 六之三、对话输入栏尺寸（`lib/features/chat/chat_input_bar.dart`）
 
 - **行数规则（v1.0.30 起）**：未聚焦 `minLines = 1` / 聚焦 `minLines = 2` / `maxLines = 5`（超过在框内滚动）。常量 `_kMinLinesIdle` / `_kMinLinesFocused` / `_kMaxLines` 在文件顶部。
