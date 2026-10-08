@@ -14,7 +14,7 @@
    - analyze：`0 error / 0 warning`
    - 测试：`N/N 通过` + 新增用例名
    - APK：体积 + 实测 `versionCode / versionName / native-code`
-   - 本次构建时间：并与上版对比
+   - **构建时间（必填，用户 2026-10-08 再次强调）**：写本次打包实测耗时（取 `build_apk.sh` 输出的「=== 构建完成（耗时 X）===」），并**与上版对比**（例："11 分 20 秒（上版 11 分 23 秒）"）。⚠️ **v1.0.28 / v1.0.29 连续两版漏了这一行，用户已指出 —— 此后每版必须出现在清单表格里，不得省略**。
    - 签名：`SHA-256 …与历次一致，可直接覆盖升级`
    - 双端 push：Gitee master、GitHub main + commit hash
    - Gitee Release：版本已建 + apk 已上传 + 字节数
@@ -83,6 +83,17 @@
 - **术语**：用户口中的「首页」＝现在的「对话」Tab（v1.0.29 之前叫「懂你」）；「懂你」现在是独立的占位 Tab，别再混用。
 - 图标分配：对话＝`chat_bubble_outline/chat_bubble`，懂你＝`lightbulb_outline/lightbulb`（灯泡由原 Tab 挪来）。
 - 回归测试 `test/shell_tabs_test.dart`：断言 5 格标签顺序、默认 selectedIndex、点懂你切到 index 2。**改底栏务必先看它**。
+
+## 六之三、对话输入栏尺寸（`lib/features/chat/chat_input_bar.dart`）
+
+- **行数规则（v1.0.30 起）**：未聚焦 `minLines = 1` / 聚焦 `minLines = 2` / `maxLines = 5`（超过在框内滚动）。常量 `_kMinLinesIdle` / `_kMinLinesFocused` / `_kMaxLines` 在文件顶部。
+  - 动因：原先 `minLines` 写死 2，输入栏平时一直顶着 2 行、显得太高。
+  - 实现：组件为 `StatefulWidget` + 内部 `FocusNode`，焦点变化 `setState` 切换最小行数。**对外参数与调用方零改动**。
+- **实测高度（文本缩放默认、dp）**：整条输入栏 —— 1 行 **≈142**、2 行 **165**（实测）、5 行 **≈234**。
+  圆角框 1 行 91 / 2 行 114 / 5 行 183；文字区每行 ≈23，2 行即 54。
+  组成：外上 8 + 工具行 ≈29 + 间距 6 + 圆角框 + 外下 8。
+- **高度是活的**，没有写死像素；`showTopBar: false` 可省掉工具行（约 −35dp）。
+- 量高度的办法：写个临时 widget 测试用 `tester.getSize(find.byType(TextField))` / `find.byType(ChatInputBar)` 打印即可（**不要只看代码推算**，圆角框与按钮行会带来误差）。
 
 ## 七、职业经历模块：字段描述表（新增经历类型只改一处）
 

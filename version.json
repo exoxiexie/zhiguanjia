@@ -1,1 +1,1 @@
-{"versionName":"1.0.29","versionCode":30,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.29/zhiguanjia-v1.0.29.apk","changelog":"底栏新增「懂你」Tab（占位），原首页 Tab 更名「对话」，底栏由 4 格变为 5 格。"}
+{"versionName":"1.0.30","versionCode":31,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.30/zhiguanjia-v1.0.30.apk","changelog":"对话输入框未聚焦时只占 1 行（平时更矮），点开聚焦后撑到 2 行，上限 5 行。"}
