@@ -143,6 +143,7 @@
 
 1. **`Container` 的 `tester.getSize` 含 margin**：`Container(margin: …)` 的渲染盒含外边距，直接量永远得到整屏宽（400），量不出「卡片比别的窄」。要量卡片本体必须取内层 `DecoratedBox`（`find.descendant(...).first`）。
 2. **页面 `_load()` 里不要 `await` 真实磁盘 I/O**：`AutomatedTestWidgetsFlutterBinding` 跑在 fake-async 区，`dart:io`（如 `MemoryStore.listAll` 读 MD 文件）的 future **不会完成**，会把 `await` 卡死 → `setState` 永不执行 → `_loading` 一直 true、页面降级成空卡、用例莫名失败且不报异常。解法：磁盘 I/O 用 `unawaited(...)` 单独异步刷新，首屏只等 SharedPreferences。
+3. **量尺寸的临时测试文件跑完必须删**（v1.0.32 踩过）：想量真实尺寸时，写 `test/_measure_xxx_tmp_test.dart` 用 `tester.getSize(...)` 打印最准（**别只读代码推算**）。但**极易漏删** —— 漏了会被 `flutter test` 全量跑进去，导致用例总数虚高（曾误报 185，删后 184）。收尾时务必 `ls test/_*.dart` 确认清空。
 
 ## 十、数据页结构（v1.0.22 起）
 
