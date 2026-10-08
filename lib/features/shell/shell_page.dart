@@ -1,7 +1,8 @@
-/// 主框架模块 · 登录后的五栏导航壳
+/// 主框架模块 · 登录后的四栏导航壳
 ///
 /// 底部四个 Tab：懂你 / 数据 / 发现 / 我的。
-/// 对话页不再占用 Tab，改为独立页面（从首页"对话"卡片进入）。
+/// 「懂你」即对话首页（Agent 模式）：进入即对话，与 AI 对话完成各类任务，
+/// 顶栏与历史会话抽屉由对话页自身管理，因此本壳不再为其提供标题栏。
 /// 「说说」已折叠进「发现」页的通栏卡片，不再占用底栏。
 library;
 
@@ -9,12 +10,9 @@ import 'package:flutter/material.dart';
 
 import '../../contracts/agent_service.dart';
 import '../../contracts/chat_service.dart';
-import '../chat/business_agent_page.dart';
 import '../chat/chat_page.dart';
 import '../discover/discover_tab.dart';
-import '../personal/personal_auth_service.dart';
 import '../tabs/database_tab.dart';
-import '../tabs/insight_tab.dart';
 import '../tabs/profile_tab.dart';
 
 /// 登录后的主框架
@@ -29,66 +27,23 @@ class ShellPage extends StatefulWidget {
 }
 
 class _ShellPageState extends State<ShellPage> {
-  /// Tab 索引：0 懂你（首页）、1 数据、2 发现、3 我的
+  /// Tab 索引：0 懂你（对话首页）、1 数据、2 发现、3 我的
   int _index = 0;
   final GlobalKey<DatabaseTabState> _databaseTabKey =
       GlobalKey<DatabaseTabState>();
   final GlobalKey<ProfileTabState> _profileTabKey =
       GlobalKey<ProfileTabState>();
 
-  /// 当前个人租户ID（个人版以手机号作为数据隔离租户ID，注册即有、永不变）
-  String _currentTenantId = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadTenant();
-  }
-
-  /// 加载当前登录个人的租户ID（手机号）
-  Future<void> _loadTenant() async {
-    try {
-      final auth = await PersonalAuthService.getAuth();
-      if (auth != null && mounted) {
-        setState(() => _currentTenantId = auth.phone);
-      }
-    } catch (_) {
-      // 加载失败不影响主框架使用
-    }
-  }
-
   static const _titles = ['懂你', '数据', '发现', '我的'];
-
-  /// 打开对话页（不带指令）
-  void openChat() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ChatPage(
-          chatService: widget.chatService!,
-          agentService: widget.agentService,
-        ),
-      ),
-    );
-  }
-
-  /// 打开任务智能体详情页（上下文按当前个人租户加载）
-  void openAgent(String title) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BusinessAgentPage(
-          title: title,
-          tenantId: _currentTenantId,
-          chatService: widget.chatService!,
-          agentService: widget.agentService,
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      InsightTab(onOpenChat: openChat, onOpenAgent: openAgent),
+      // 懂你 = 对话首页：自带顶栏（历史会话抽屉 + 提炼为记忆 / 新建对话）
+      ChatPage(
+        chatService: widget.chatService!,
+        agentService: widget.agentService,
+      ),
       DatabaseTab(key: _databaseTabKey),
       DiscoverTab(
           chatService: widget.chatService, agentService: widget.agentService),
@@ -96,8 +51,9 @@ class _ShellPageState extends State<ShellPage> {
     ];
 
     return Scaffold(
-      // 懂你(0)、数据(1) 用外层统一标题栏；发现(2)/我的(3) 各自管理顶栏
-      appBar: (_index == 0 || _index == 1)
+      // 懂你(0) 顶栏由对话页自身提供；数据(1) 用外层统一标题栏；
+      // 发现(2)/我的(3) 各自管理顶栏。
+      appBar: _index == 1
           ? AppBar(
               title: Text(_titles[_index]),
               centerTitle: true,

@@ -62,20 +62,23 @@
 - 凭证只经 `/tmp` 临时文件传递，用完立即 `rm`，任何输出都要 `sed` 脱敏。
 - **网络坑（2026-10-06 实测）**：本机对 GitHub 的 HTTP/2 链路不稳，`git push github` 与 `curl` 取 `raw.githubusercontent.com` 均可能报 `Error in the HTTP2 framing layer`。解法：git 加 `-c http.version=HTTP/1.1`，curl 加 `--http1.1`。Gitee 侧不受影响。
 
-## 六、专业智能体扩展点：三位一体注册表（新增智能体只改这两处）
+## 六、职业任务域注册表（仅剩底层，界面层已于 v1.0.28 删除）
 
-- 首页「专业智能体」区域（原「任务智能体」，v1.0.15 更名）由 `lib/features/data/business_domain.dart` 的 `kBusinessDomains` 驱动：注册一条即自动派生 **智能体卡片 + 角色提示词 + 上下文注入 + 数据表**，无需改 UI。
-- 新增一个智能体 = 两步：
-  1. `business_domain.dart` 的 `kBusinessDomains` 加一条 `BusinessDomain(id / tag / table / subtitle / icon / color / scope / need)`；
-  2. `lib/features/data/data_tags.dart` 的 `DataBusinessTag` 补对应常量、`all` 列表、`_keywordRules`（零成本自动打标关键词）。
-- **tag 用短名**（如 `学习` / `招聘`），不要写「学习智能体」——tag 会拼进角色提示词"你是…的【$name】专业智能体"，且它就是卡片标题、`BusinessAgentPage` 的 businessTag、`BusinessDomain.byTag()` 的键。
-- 建表：`lib/features/storage/database/app_database.dart` 遍历注册表建表；**新增智能体时必须把 `version` 加 1 并在 `_onUpgrade` 加 `if (oldVersion < N) await _createBusinessDomainTables(db);`**，否则老用户不会补建新表（表缺失被 try/catch 吞掉，表现为该智能体永远没有沉淀数据）。
-- 已注册（v1.0.15）：`学习`（id `skill_learning`，表 `skill_learning_data`）、`招聘`（id `recruit`，表 `recruit_data`）。
-- 术语统一：用户可见一律叫「**专业智能体**」（含栏目、管理面板、空态、AI 自称）。
-- **对话入口只有两种（用户 2026-10-06 亲自校正，禁止再用「首页对话页 / 智能体页」等模糊叫法）**：
-  1. **通用对话智能体** = 懂你页最上面那个大对话卡片 → `openChat()` → `ChatPage`（AppBar 标题「对话」，body 为 `HomeTab`）。**真流式**（`home_tab.dart:359/:403` 传了 `onDelta`，逐字写入 `_streamBuffer`）。
-  2. **专业智能体** = 懂你页下方那一排职业智能体卡片 → `openAgent(title)` → `BusinessAgentPage`（标题「{X}对话」）。**目前非流式**（`business_agent_page.dart:440` 调 `sendMessage` 未传 `onDelta` → 等整段返回后一次 `setState`，全文瞬现）。根因/修法见当日日志。
-- 注意：发现页的「学习」「招聘」两张卡片与此处的专业智能体**目前互不相通**（前者是占位页 / 职位流，后者是对话智能体），是否打通待用户决定。
+- ⚠️ **v1.0.28 起「专业智能体」整个界面层已删除**：首页（懂你）不再有智能体卡片、齿轮管理面板、也不再有 `BusinessAgentPage` 详情页。同期删掉的文件：`tabs/insight_tab.dart`（原首页）、`chat/business_agent_page.dart`、`data/business_agent_role.dart`、`data/business_context_service.dart`、`storage/business_domain_store.dart`、`tabs/files_tab.dart`（死代码）。
+- **保留的只有底层注册表** `lib/features/data/business_domain.dart` 的 `kBusinessDomains`——它仍被两处引用，不可随手删：
+  1. `storage/database/app_database.dart` 遍历它**建表**（改注册表要同步加 version 并在 `_onUpgrade` 补建）；
+  2. `memory/memory_distiller.dart` 用它的 tag 集合做**记忆提炼的合法性校验**。
+- 已注册两条（v1.0.15）：`学习`（id `skill_learning`，表 `skill_learning_data`）、`招聘`（id `recruit`，表 `recruit_data`）。tag 用短名，与 `data_tags.dart` 的 `DataBusinessTag` 一致。
+- 若将来要**重新**做智能体界面，先想清楚：卡片入口放哪、是否复用 `BusinessAgentPage`（已删，需从 git 历史取回）。当前产品方向是「对话即首页」，不再走「多智能体卡片」路线。
+
+## 六之二、懂你首页 = 对话首页（v1.0.28 起，用户核心决策）
+
+- **「懂你」Tab 本身就是对话界面（Agent 模式）**：打开 App 点懂你即对话，不再有「对话卡片 → 二级页」这一步。
+- 实现：`shell/shell_page.dart` 的 0 号页直接是 `ChatPage`，且**壳不再为它提供 AppBar**（`appBar` 仅 index==1 数据页时给）。
+- `chat/chat_page.dart` 改造为**首页形态**：`showBackButton = false`（默认）、`title = '职管家'`。顶栏＝左侧双横杠菜单（划出历史会话抽屉）＋ 中间标题 ＋ 右上「提炼为记忆 / 新建对话」。旧参数 `initialCommand` 已删。
+- 主体仍是 `tabs/home_tab.dart`（`HomeTab`，真流式：`onDelta` → `_streamBuffer` 逐字上屏）。
+- 底栏四 Tab 不变：懂你（小灯泡）/ 数据 / 发现 / 我的。
+- **术语**：用户口中的「首页」＝「懂你」页；现在它就是对话首页，不要再叫「首页对话页 vs 智能体页」——那是 v1.0.28 之前的旧结构。
 
 ## 七、职业经历模块：字段描述表（新增经历类型只改一处）
 

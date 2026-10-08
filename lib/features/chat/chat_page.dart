@@ -1,8 +1,9 @@
-/// 对话页 · 独立页面（从首页"对话"卡片进入）
+/// 懂你 · 对话首页（Agent 模式）
 ///
-/// 左上角：返回箭头 + 双横杠菜单图标（向右偏移，与箭头保持合适间距）
+/// 直接作为「懂你」Tab 的首页，不再是从卡片进入的二级页面：
+/// 进入即对话，与职管家 AI 对话完成各类任务。
+/// 左上角：双横杠菜单（划出历史会话抽屉）
 /// 右上角：提炼为记忆 + 新建对话
-/// 左侧抽屉：历史会话列表
 /// 主体：HomeTab（对话内容 + 输入栏）
 library;
 
@@ -12,19 +13,23 @@ import '../../contracts/agent_service.dart';
 import '../../contracts/chat_service.dart';
 import '../tabs/home_tab.dart';
 
-/// 对话页
+/// 懂你 · 对话首页
 class ChatPage extends StatefulWidget {
   final ChatService chatService;
   final AgentService? agentService;
 
-  /// 进入页面后自动填入的指令（快捷指令跳转用）
-  final String? initialCommand;
+  /// 是否显示左上角返回箭头（作为首页嵌入 Tab 时为 false）
+  final bool showBackButton;
+
+  /// 顶栏标题
+  final String title;
 
   const ChatPage({
     super.key,
     required this.chatService,
     this.agentService,
-    this.initialCommand,
+    this.showBackButton = false,
+    this.title = '职管家',
   });
 
   @override
@@ -34,17 +39,6 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey<HomeTabState> _homeTabKey = GlobalKey<HomeTabState>();
-
-  @override
-  void initState() {
-    super.initState();
-    // 等对话页构建完成后，填入初始指令（如果有）
-    if (widget.initialCommand != null && widget.initialCommand!.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _homeTabKey.currentState?.setInputText(widget.initialCommand!);
-      });
-    }
-  }
 
   /// 双杠菜单图标（上面长、下面短，经典 AI 产品风格）
   Widget _buildMenuIcon() {
@@ -174,26 +168,26 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
-        title: const Text('对话'),
+        title: Text(widget.title),
         centerTitle: true,
         elevation: 0,
         automaticallyImplyLeading: false,
         // leading 区域较宽（返回箭头+双横杠），必须显式设置宽度，否则被裁剪导致点击错位
-        leadingWidth: 122,
-        // 左上角：返回箭头 + 双横杠菜单（向右偏移，与箭头保持合适间距）
+        leadingWidth: widget.showBackButton ? 122 : 64,
+        // 左上角：双横杠菜单（作为首页时不再有返回箭头）
         leading: Padding(
           padding: const EdgeInsets.only(left: 4),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 返回箭头
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                onPressed: () => Navigator.of(context).maybePop(),
-                tooltip: '返回',
-              ),
-              const SizedBox(width: 6),
-              // 双横杠菜单图标
+              if (widget.showBackButton) ...[
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  tooltip: '返回',
+                ),
+                const SizedBox(width: 6),
+              ],
               _buildMenuIcon(),
             ],
           ),

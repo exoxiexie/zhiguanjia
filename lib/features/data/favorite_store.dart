@@ -24,7 +24,7 @@ class FavoriteItem {
   /// 正文（AI 回复全文）
   final String content;
 
-  /// 来源：'通用对话' 或 具体专业智能体名称（如 '学习' / '招聘'）
+  /// 来源（对话首页的 AI 回复统一记为 '通用对话'）
   final String source;
 
   /// 收藏时间（毫秒时间戳，时间线排序依据）
