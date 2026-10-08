@@ -1,1 +1,1 @@
-{"versionName":"1.0.33","versionCode":34,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.33/zhiguanjia-v1.0.33.apk","changelog":"对话改为真流式：模型回答边生成边显示，不再等整段写完才一次性弹出，首字明显更快。"}
+{"versionName":"1.0.34","versionCode":35,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.34/zhiguanjia-v1.0.34.apk","changelog":"后端代理由新加坡迁至成都，连接更快、首字更早出现。"}

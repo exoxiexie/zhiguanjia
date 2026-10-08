@@ -7,9 +7,12 @@ library;
 
 /// 服务端代理统一配置。
 class ApiConfig {
-  /// 服务端代理地址（阿里云函数计算 FC，新加坡区域）
+  /// 服务端代理地址（阿里云函数计算 FC，成都区域）
+  ///
+  /// v1.0.34 起由新加坡（`ap-southeast-1`）迁至成都（`cn-chengdu`）：
+  /// 实测握手环节 TLS 0.736s → 0.040s，建立连接明显更快。
   static const String proxyBaseUrl =
-      'https://zhidongek-proxy-ocspgrobnt.ap-southeast-1.fcapp.run';
+      'https://zhidongk-api-cd-nknkhdghnt.cn-chengdu.fcapp.run';
 
   /// 代理调用令牌（App 端内置，服务端校验；泄露可在服务端轮换）
   static const String proxyToken =

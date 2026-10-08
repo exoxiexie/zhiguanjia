@@ -30,6 +30,43 @@
 
 ---
 
+## [1.0.34] - 2026-10-09
+
+后端代理由新加坡迁至成都，网络握手大幅加快，首字更早出现。
+
+### 问题
+v1.0.33 把对话改成了真流式，但用户仍可能感觉首字偏慢 —— 因为服务端代理部署在
+阿里云函数计算**新加坡**区域，App 每次请求都要绕道海外：
+
+| 环节 | 旧（新加坡） | 直连 DeepSeek 官方 |
+| --- | --- | --- |
+| 建连 | 0.22 s | 0.017 s |
+| TLS 握手 | 0.69 ~ 3.38 s | 0.030 s |
+
+单次请求光网络就多花 0.7~3.4 秒，而 DeepSeek 的服务端本身在国内，绕新加坡属于纯损耗。
+
+### 改动
+- `lib/contracts/api_config.dart` 的 `proxyBaseUrl` 由
+  `ap-southeast-1`（新加坡）改为 `cn-chengdu`（成都）：
+  `https://zhidongk-api-cd-nknkhdghnt.cn-chengdu.fcapp.run`
+- 派生地址 `chatCompletionsUrl` / `anthropicMessagesUrl` 自动跟随，其余代码零改动。
+- 上线前对新旧两端做了完整实测（见下），确认新端功能等价后才切换。
+
+### 实测（2026-10-09）
+| 项目 | 旧（新加坡） | 新（成都） |
+| --- | --- | --- |
+| TLS 握手 | 0.736 s | **0.040 s** |
+| `/ping` 健康检查 | — | 200 ✅ `configured:true` |
+| 非流式 `/chat/completions` | 200 ✅ | 200 ✅ |
+| 流式 SSE（含 usage） | ✅ | 200 ✅ |
+| 流式 + tools 分片（`finish_reason:tool_calls`） | ✅ | ✅ 13 个分片 |
+| Anthropic `/anthropic/v1/messages` | ✅ | 200 ✅ |
+
+### 部署侧同步（非代码）
+- 新函数需配环境变量 `PROXY_TOKEN`（与 App 内置令牌一致）与 `DEEPSEEK_API_KEY`。
+- 首次部署曾因 zip 包**多套一层目录**（`zhidongni-api/app.py`）导致启动命令找不到
+  `/code/app.py`、函数报 `CAExited`；改为「`app.py` 位于包根目录」后正常。
+
 ## [1.0.33] - 2026-10-08
 
 对话改为真流式：回答边生成边显示，不再等整段写完才一次性弹出。

@@ -127,13 +127,32 @@
 - `home_tab.dart` 的 `onToolStart` 会重置流式状态（`_streamingReasoning = true` + `_streamBuffer.clear()`），
   避免工具执行期间还挂着"决定调工具前吐出的半截过渡文字"。
 
-### 网络链路：代理在新加坡（已知性能瓶颈，**未解决**）
+### 网络链路：代理已迁至成都（v1.0.34 完成）
 
-- `contracts/api_config.dart` 的 `proxyBaseUrl` 是阿里云 FC **新加坡**（`ap-southeast-1`）。
-- **实测（2026-10-08，本机）**：走代理 建连 0.22s / TLS 0.69~3.38s / 首字节 1.28~1.54s（小请求）；
-  直连 `api.deepseek.com` 建连 0.017s / TLS 0.030s / 首字节 0.085s。→ **单次多花 0.7~3.4 秒**。
-  另有 FC 冷启动（闲置后首请求再慢 1~3s）。
-- 优化方向（用户 2026-10-08 已知晓，待其决定）：代理换国内区域，或改直连。需云控制台操作。
+- **当前地址（成都，v1.0.34 起）**：`https://zhidongk-api-cd-nknkhdghnt.cn-chengdu.fcapp.run`
+  （旧新加坡 `https://zhidongek-proxy-ocspgrobnt.ap-southeast-1.fcapp.run` 已停用，勿再引用）
+- **唯一配置点**：`contracts/api_config.dart` 的 `proxyBaseUrl`。全项目只有它引用域名，
+  派生 `chatCompletionsUrl` = `$proxyBaseUrl/chat/completions`、
+  `anthropicMessagesUrl` = `$proxyBaseUrl/anthropic/v1/messages`。
+- **实测对比（2026-10-09，本机）**：TLS 握手 **0.736s → 0.040s**，建连 0.269s → 0.056s。
+  这是 B 方案的核心收益（A 方案 = 真流式，见上一节）。
+- **成都端完整验收（2026-10-09，全部 200）**：`/ping`（`configured:true`）、非流式、流式 SSE
+  （含 `stream_options.include_usage`）、流式 + tools 分片（`finish_reason:tool_calls`，13 片）、
+  Anthropic `/anthropic/v1/messages` —— **功能与旧端完全等价**。
+- **服务端源码三份同源**（sha256 `ede96a19449e`）：`桌面/zhidongni-api/app.py` ==
+  `智懂你/tools/deepseek_proxy/app.py` == `职管家/tools/deepseek_proxy/app.py`。
+  零依赖（仅标准库 http.server + urllib），读 `FC_SERVER_PORT`、`DEEPSEEK_API_KEY`、`PROXY_TOKEN`。
+- **部署两个坑（已解决，记住即可）**：
+  1. **zip 多套一层目录** → FC 解压成 `/code/zhidongni-api/app.py`，而启动命令是 `python app.py`
+     → `CAExited: can't open file '/code/app.py'`。正解：`cd 目录 && zip -X -j out.zip app.py`
+     （`-j` 压平、`-X` 去 macOS 扩展属性），使 `app.py` 位于包根。
+  2. **新函数不继承环境变量** → 必须重新配 `PROXY_TOKEN`（须与 App 内置一致）与 `DEEPSEEK_API_KEY`。
+- **自检端点**：`GET /ping` 免令牌，返回 `{"ok":true,"service":"zhidongni-deepseek-proxy","configured":<bool>}`。
+  `configured = bool(DEEPSEEK_API_KEY) && bool(PROXY_TOKEN)` —— 改完环境变量先看它。
+  鉴权顺序：先判 `PROXY_TOKEN`（错了返 **401**），再判 `DEEPSEEK_API_KEY`（缺了返 **500**）；
+  **据此可区分是哪个变量没配**。
+- ⚠️ **DeepSeek 思考模式不支持 `tool_choice:"required"`**（报
+  `Thinking mode does not support this tool_choice`）。项目用的是 `auto`，测工具时别用 required。
 
 ### 测试技巧：如何在单测里 mock 网络（dio）
 
@@ -214,5 +233,4 @@
 
 ## 四、待办 / 风险
 
-- 仓库凭证明文暴露待处理：`git remote` 内嵌 Gitee 口令 + GitHub PAT；`lib/contracts/api_config.dart` 硬编码代理令牌；`dsh/README.md` 含真实 DeepSeek Key。建议尽快轮换，且与智懂你共用同一令牌。
-- KNOWN_ISSUES 台账已过期（基线 v1.0.7），其中 P0-3 / P1-3 / P1-4 已随 v1.0.8 修复，需回填校准。
+- 仓库凭证明文暴露待处理：`git remote` 内嵌 Gitee 口令 + GitHub PAT；`lib/contracts/api_config.dart` 硬编码代理令牌；`dsh/README.md` 含真实 DeepSeek Key。建议尽快轮换，且与智懂你共用同一令牌。- KNOWN_ISSUES 台账已过期（基线 v1.0.7），其中 P0-3 / P1-3 / P1-4 已随 v1.0.8 修复，需回填校准。
