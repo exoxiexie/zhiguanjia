@@ -30,6 +30,29 @@
 
 ---
 
+## [1.0.32] - 2026-10-08
+
+底栏：去掉选中「药丸」，选中改为图标实心深色；图标与文字间距由 8dp 收到 4dp。
+
+### 变更
+- **去掉选中「药丸」**：官方 M3 会在选中项图标背后画一个 `64×32` 的圆角底
+  （`NavigationIndicator`），现已彻底移除；选中态改为**图标切实心 + 近黑**
+  （`#1A1B1C`，未选中仍为 `onSurfaceVariant` 线性图标）。
+- **图标与文字收紧**：间距由官方写死的 **8dp** 收到 **4dp**。
+  官方那 8dp = 图标盒内下方空隙 4 + 文字上边距 4，两处都在私有代码里，外部改不了。
+- **实现**：新增 `lib/features/common/app_nav_bar.dart` ——
+  - `AppNavItem`（图标 / 实心选中图标 / 文字）与常量 `kNavIconLabelGap = 4`、`kNavIconSize = 24`、`kNavSelectedIconColor`；
+  - `AppNavDestination`（自绘格子）+ `buildAppNavDestinations()`（一键铺满一 rank）。
+  - 仍由官方 `NavigationBar` 提供外壳（**沿用主题里的 56dp 高度**、背景、底部安全区、横向均分），
+    只把每格内容换成自绘 —— 因此高度、间距、配色三者的既有约定都不受影响。
+- `ShellPage`：五格定义抽成常量 `kShellNavItems`，`destinations` 改用 `buildAppNavDestinations`；
+  Tab 切换回调抽成 `_onDestinationSelected`（刷新钩子 index 不变：数据 1 / 我的 4）。
+- 新增 `test/app_nav_bar_test.dart`（10 例）：无药丸 / 无官方 destination / 间距 4dp（含未选中项）/
+  选中实心近黑 / 切换后实心与线性互换 / 点击回调 index / 五项顺序与图标配置自检。
+  `test/shell_tabs_test.dart` 与 `test/nav_bar_height_test.dart` 同步改用自绘项。
+
+---
+
 ## [1.0.31] - 2026-10-08
 
 底栏高度由 80dp 压到 56dp，与业界主流对齐。

@@ -13,6 +13,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zhiguanjia/features/common/app_nav_bar.dart';
+import 'package:zhiguanjia/features/shell/shell_page.dart';
 import 'package:zhiguanjia/main.dart';
 
 /// 构造底栏（与 ShellPage 同款五项），可模拟底部系统安全区
@@ -32,19 +34,12 @@ Future<void> _pumpNavBar(
           child: Scaffold(
             bottomNavigationBar: NavigationBar(
               selectedIndex: 0,
-              onDestinationSelected: (_) {},
-              destinations: const [
-                NavigationDestination(
-                    icon: Icon(Icons.chat_bubble_outline), label: '对话'),
-                NavigationDestination(
-                    icon: Icon(Icons.dataset_outlined), label: '数据'),
-                NavigationDestination(
-                    icon: Icon(Icons.lightbulb_outline), label: '懂你'),
-                NavigationDestination(
-                    icon: Icon(Icons.explore_outlined), label: '发现'),
-                NavigationDestination(
-                    icon: Icon(Icons.person_outline), label: '我的'),
-              ],
+              // 用与真机一致的自绘项（v1.0.32 起）
+              destinations: buildAppNavDestinations(
+                items: kShellNavItems,
+                selectedIndex: 0,
+                onSelected: (_) {},
+              ),
             ),
           ),
         ),

@@ -92,6 +92,24 @@
 - `buildAppTheme()` 是抽出来的**主题函数**（原为 main.dart 内联），目的：让测试能吃**同一份**配置做回归断言，避免"测试另写一套主题、改坏了测不出来"。**以后新增主题项都写进 `buildAppTheme()`**。
 - 回归测试 `test/nav_bar_height_test.dart`（4 例）：常量=56 且 ≥48、实测高度=56（≠80）、总高=56+安全区、压矮后不溢出。
 
+### 底栏项 = 自绘（v1.0.32）
+
+- **为什么自绘**：官方 M3 `NavigationDestination` 把三件事写死在私有代码里，外部改不了 ——
+  ① 选中"药丸"（`NavigationIndicator`，`64×32` 圆角底，尺寸是源码常量）；
+  ② 图标-文字 8dp 间隙（= 图标盒内空隙 4 + 文字写死上边距 4）；
+  ③ 两者相对位置由私有 `MultiChildLayoutDelegate` 计算。
+- **做法**：仍用官方 `NavigationBar` 当**外壳**（高度 56 / 背景 / 底部安全区 / 横向均分全白拿），
+  只把 `destinations` 换成自绘的 `AppNavDestination`。官方对该参数只断言 `length >= 2`，不限元素类型（已核实 `navigation_bar.dart:102`）。
+- **文件** `lib/features/common/app_nav_bar.dart`：
+  - `AppNavItem(icon, selectedIcon, label)`；常量 `kNavIconLabelGap = 4` / `kNavIconSize = 24` / `kNavSelectedIconColor = Color(0xFF1A1B1C)`；
+  - `AppNavDestination`（`InkWell` + `SizedBox(height: double.infinity)` + `Column(center)`，图标 + gap + 文字；文字用 `MediaQuery.withClampedTextScaling(maxScaleFactor: 1.0)` 防系统字号撑破）；
+  - `buildAppNavDestinations({items, selectedIndex, onSelected})` 一键铺满。
+  - 选中：图标切实心 + 近黑，文字 `onSurface`；未选中：`onSurfaceVariant`（与官方默认一致）。
+- **五格定义 = `shell_page.dart` 的 `kShellNavItems`**（顺序：对话/数据/懂你/发现/我的）。改底栏内容只改这一处。
+- **实测几何（56dp 底栏，自绘后）**：图标 550..574、文字 578..594、间隙 **4dp**（原 8dp）。
+- 回归测试 `test/app_nav_bar_test.dart`（10 例）：无 `NavigationIndicator` / 无 `NavigationDestination` / 间隙=4（选中与未选中）/ 选中实心近黑 / 切换互换 / 点击回调 index / 顺序与图标配置自检。
+  `test/shell_tabs_test.dart` 的 `_labels()` 已改为读 `AppNavDestination.item.label`（原读 `NavigationDestination.label`）。
+
 ## 六之三、对话输入栏尺寸（`lib/features/chat/chat_input_bar.dart`）
 
 - **行数规则（v1.0.30 起）**：未聚焦 `minLines = 1` / 聚焦 `minLines = 2` / `maxLines = 5`（超过在框内滚动）。常量 `_kMinLinesIdle` / `_kMinLinesFocused` / `_kMaxLines` 在文件顶部。

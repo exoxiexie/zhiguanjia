@@ -13,10 +13,42 @@ import 'package:flutter/material.dart';
 import '../../contracts/agent_service.dart';
 import '../../contracts/chat_service.dart';
 import '../chat/chat_page.dart';
+import '../common/app_nav_bar.dart';
 import '../discover/discover_tab.dart';
 import '../tabs/database_tab.dart';
 import '../tabs/insight_tab.dart';
 import '../tabs/profile_tab.dart';
+
+/// 底栏五个 Tab 的定义（图标 / 选中图标 / 文字，v1.0.32 起自绘）
+///
+/// 顺序即展示顺序：对话 / 数据 / 懂你 / 发现 / 我的（index 0..4）。
+const List<AppNavItem> kShellNavItems = [
+  AppNavItem(
+    icon: Icons.chat_bubble_outline,
+    selectedIcon: Icons.chat_bubble,
+    label: '对话',
+  ),
+  AppNavItem(
+    icon: Icons.dataset_outlined,
+    selectedIcon: Icons.dataset,
+    label: '数据',
+  ),
+  AppNavItem(
+    icon: Icons.lightbulb_outline,
+    selectedIcon: Icons.lightbulb,
+    label: '懂你',
+  ),
+  AppNavItem(
+    icon: Icons.explore_outlined,
+    selectedIcon: Icons.explore,
+    label: '发现',
+  ),
+  AppNavItem(
+    icon: Icons.person_outline,
+    selectedIcon: Icons.person,
+    label: '我的',
+  ),
+];
 
 /// 登录后的主框架
 class ShellPage extends StatefulWidget {
@@ -69,45 +101,27 @@ class _ShellPageState extends State<ShellPage> {
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) {
-          setState(() => _index = i);
-          // 常驻页面按需刷新，避免显示上次的旧数据：
-          // 「数据」页是第 2 格（index 1）—— 切回时刷新记忆列表；
-          // 「我的」页是第 5 格（index 4）—— 在数据页完成实名认证后刷新认证状态。
-          if (i == 1) {
-            _databaseTabKey.currentState?.refresh();
-          } else if (i == 4) {
-            _profileTabKey.currentState?.refresh();
-          }
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: '对话',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.dataset_outlined),
-            selectedIcon: Icon(Icons.dataset),
-            label: '数据',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.lightbulb_outline),
-            selectedIcon: Icon(Icons.lightbulb),
-            label: '懂你',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.explore_outlined),
-            selectedIcon: Icon(Icons.explore),
-            label: '发现',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: '我的',
-          ),
-        ],
+        // 官方 NavigationBar 只当"外壳"用（高度 / 背景 / 底部安全区 / 横向均分），
+        // 每格的内容换成自绘的 AppNavDestination —— 不再有选中"药丸"，
+        // 图标与文字间距由 kNavIconLabelGap 控制（见 common/app_nav_bar.dart）。
+        destinations: buildAppNavDestinations(
+          items: kShellNavItems,
+          selectedIndex: _index,
+          onSelected: _onDestinationSelected,
+        ),
       ),
     );
+  }
+
+  /// 切换 Tab；常驻页面按需刷新，避免显示上次的旧数据：
+  /// 「数据」页是第 2 格（index 1）—— 切回时刷新记忆列表；
+  /// 「我的」页是第 5 格（index 4）—— 在数据页完成实名认证后刷新认证状态。
+  void _onDestinationSelected(int i) {
+    setState(() => _index = i);
+    if (i == 1) {
+      _databaseTabKey.currentState?.refresh();
+    } else if (i == 4) {
+      _profileTabKey.currentState?.refresh();
+    }
   }
 }

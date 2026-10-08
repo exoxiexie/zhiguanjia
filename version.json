@@ -1,1 +1,1 @@
-{"versionName":"1.0.31","versionCode":32,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.31/zhiguanjia-v1.0.31.apk","changelog":"底栏高度由 80dp 压到 56dp，对齐 iOS / 微信等主流 App 的观感。"}
+{"versionName":"1.0.32","versionCode":33,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.32/zhiguanjia-v1.0.32.apk","changelog":"底栏去掉选中「药丸」，改为图标变实心深色；图标与文字间距由 8dp 收到 4dp。"}

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zhiguanjia/contracts/chat_service.dart';
 import 'package:zhiguanjia/contracts/chat_session_service.dart';
 import 'package:zhiguanjia/core/di/service_locator.dart';
+import 'package:zhiguanjia/features/common/app_nav_bar.dart';
 import 'package:zhiguanjia/features/shell/shell_page.dart';
 import 'package:zhiguanjia/features/tabs/insight_tab.dart';
 
@@ -94,11 +95,14 @@ Future<void> _pumpShell(WidgetTester tester) async {
 }
 
 /// 取底栏各格的文字标签（自 NavigationBar 的 destinations 直接读取，精确不歧义）
+///
+/// v1.0.32 起 destinations 为自绘的 [AppNavDestination]（不再是官方
+/// `NavigationDestination`，因为要摘掉选中"药丸"并收紧图标-文字间距）。
 List<String> _labels(WidgetTester tester) {
   final nav = tester.widget<NavigationBar>(find.byType(NavigationBar));
   return nav.destinations
-      .cast<NavigationDestination>()
-      .map((d) => d.label)
+      .cast<AppNavDestination>()
+      .map((d) => d.item.label)
       .toList();
 }
 
