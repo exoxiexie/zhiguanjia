@@ -1,1 +1,1 @@
-{"versionName":"1.0.30","versionCode":31,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.30/zhiguanjia-v1.0.30.apk","changelog":"对话输入框未聚焦时只占 1 行（平时更矮），点开聚焦后撑到 2 行，上限 5 行。"}
+{"versionName":"1.0.31","versionCode":32,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.31/zhiguanjia-v1.0.31.apk","changelog":"底栏高度由 80dp 压到 56dp，对齐 iOS / 微信等主流 App 的观感。"}

@@ -30,6 +30,25 @@
 
 ---
 
+## [1.0.31] - 2026-10-08
+
+底栏高度由 80dp 压到 56dp，与业界主流对齐。
+
+### 变更
+- **底栏变矮**：Material 3 的 `NavigationBar` 默认内容高 **80dp**，比业界主流高出一档
+  （M2 `BottomNavigationBar` = 56dp、iOS `UITabBar` = 49pt、国内 App 普遍 49~56dp）。
+  现统一压到 **56dp**，五格底栏观感更"贴地"。
+  - 真机总高 = 56dp + 底部系统安全区（手势导航约 34 / 三键导航 48），
+    即约 **90dp**（原约 114dp），省下 **24dp**。
+  - 56dp 仍高于 Material 规定的 48dp 最小触摸目标，点击手感不受影响。
+- 实现：在 `lib/main.dart` 新增常量 `kNavigationBarHeight = 56` 作为**全站唯一事实来源**，
+  经 `buildAppTheme()` 的 `navigationBarTheme.height` 下发；主题同时抽成
+  `buildAppTheme()` 函数，便于测试复用同一份配置。`ShellPage` 无需改动。
+- 新增 `test/nav_bar_height_test.dart`（4 例）：常量取值 56 且 ≥48、
+  实测内容高为 56（不再是 80）、真机总高 = 56 + 安全区、压矮后内部不溢出。
+
+---
+
 ## [1.0.30] - 2026-10-08
 
 对话输入框默认只占 1 行（未聚焦），点开后撑到 2 行，上限仍为 5 行。

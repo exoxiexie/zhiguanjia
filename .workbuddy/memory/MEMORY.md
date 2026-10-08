@@ -84,6 +84,14 @@
 - 图标分配：对话＝`chat_bubble_outline/chat_bubble`，懂你＝`lightbulb_outline/lightbulb`（灯泡由原 Tab 挪来）。
 - 回归测试 `test/shell_tabs_test.dart`：断言 5 格标签顺序、默认 selectedIndex、点懂你切到 index 2。**改底栏务必先看它**。
 
+### 底栏高度（v1.0.31）
+
+- **唯一事实来源 = `lib/main.dart` 的 `kNavigationBarHeight = 56`**，经 `buildAppTheme()` 的 `navigationBarTheme.height` 下发；`ShellPage` 不自带高度。
+- **为何 56**：M3 `NavigationBar` 默认内容高 **80dp**，明显高于业界主流（M2 = 56、iOS UITabBar = 49pt、国内 App 普遍 49~56），用户实测觉得高。压到 56 后真机总高 114dp → **约 90dp**（省 24dp）。56 仍 ≥ Material 最小触摸目标 48。
+- **安全区不可控**：真机总高 = 56 + 底部系统安全区（手势约 34 / 三键 48）。实测数据：无安全区 80（改前）→ 56（改后）；+34 → 114 → 90；+48 → 128 → 104。
+- `buildAppTheme()` 是抽出来的**主题函数**（原为 main.dart 内联），目的：让测试能吃**同一份**配置做回归断言，避免"测试另写一套主题、改坏了测不出来"。**以后新增主题项都写进 `buildAppTheme()`**。
+- 回归测试 `test/nav_bar_height_test.dart`（4 例）：常量=56 且 ≥48、实测高度=56（≠80）、总高=56+安全区、压矮后不溢出。
+
 ## 六之三、对话输入栏尺寸（`lib/features/chat/chat_input_bar.dart`）
 
 - **行数规则（v1.0.30 起）**：未聚焦 `minLines = 1` / 聚焦 `minLines = 2` / `maxLines = 5`（超过在框内滚动）。常量 `_kMinLinesIdle` / `_kMinLinesFocused` / `_kMaxLines` 在文件顶部。
