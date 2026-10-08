@@ -231,6 +231,29 @@
 - **孤儿文件处理比写说说多一种情况**：编辑已有成果时移出的旧文件只登记、**保存成功后才删**（否则用户中途放弃编辑，原成果引用的文件已没了）；本次新加未保存的在 dispose 回收。
 - 数据页 `_load()` 只 await SharedPreferences（自我评价 / 成果条数），**不 await 磁盘 I/O**（原因见「widget 测试坑」）。
 
+## 十一、构建性能：本机内存是硬约束（2026-10-09 实测定位）
+
+**本机物理内存仅 8 GB**，`android/gradle.properties` 的内存配额必须配合，否则构建会被 swap 拖死。
+
+- **根因**：原 `org.gradle.jvmargs=-Xmx4G` 占去一半物理内存 → 内核大量换页到 swap
+  （实测 swap 8G 用掉 7.26G，累计 `Swapins` 5.6 亿 / `Swapouts` 5.98 亿页）
+  → 构建从 **2 分 23 秒劣化到 10 分 8 秒**。**与代码改动量无关**，纯磁盘换页 I/O。
+- **已修（v1.0.34 后，未发版）**：`-Xmx4G` → `-Xmx2G -XX:MaxMetaspaceSize=512m`，
+  并新增 `kotlin.daemon.jvmargs=-Xmx1G`（Kotlin 守护进程默认另占 1~2G）。
+  **实测 10 分 8 秒 → 2 分 14 秒（约 4.5 倍），无 OOM**；
+  产物 sha256 与改前**逐字节一致**（`610634c8…`）→ **不影响 APK，无需发版**。
+- **排查手法（可复用）**：看 `~/.gradle/daemon/<版本>/daemon-*.out.log`，
+  grep `Executing build with daemon context` 拿到每次构建的起止时刻；
+  再用 `sysctl vm.swapusage` + `vm_stat`（看 `Swapins/Swapouts`）确认是否在换页。
+- **操作纪律（血的教训）**：
+  1. **构建前不要并发跑 `flutter test` / `flutter analyze`** —— 内存峰值叠加。
+     本次 10 分钟那次，就是紧跟在 4 分 23 秒的 `flutter test` 之后 16 秒启动的。
+  2. Gradle daemon 会跨多次构建长期存活（本机连续活了 3 小时跨 4 次构建），
+     **缓存/类加载器持续膨胀、swap 占用单调增加 → 越跑越慢**。
+     感觉慢时先 `cd android && ./gradlew --stop` 停掉再构建。
+  3. 判断是否内存问题：`grep -c OutOfMemory` 为 0 且构建耗时递增 ⇒ 是换页拖慢，不是代码。
+- **根治**：加内存到 16 GB（8 GB 做 Flutter 开发偏紧）。
+
 ## 四、待办 / 风险
 
 - 仓库凭证明文暴露待处理：`git remote` 内嵌 Gitee 口令 + GitHub PAT；`lib/contracts/api_config.dart` 硬编码代理令牌；`dsh/README.md` 含真实 DeepSeek Key。建议尽快轮换，且与智懂你共用同一令牌。- KNOWN_ISSUES 台账已过期（基线 v1.0.7），其中 P0-3 / P1-3 / P1-4 已随 v1.0.8 修复，需回填校准。
