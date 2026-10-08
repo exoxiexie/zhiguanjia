@@ -71,14 +71,18 @@
 - 已注册两条（v1.0.15）：`学习`（id `skill_learning`，表 `skill_learning_data`）、`招聘`（id `recruit`，表 `recruit_data`）。tag 用短名，与 `data_tags.dart` 的 `DataBusinessTag` 一致。
 - 若将来要**重新**做智能体界面，先想清楚：卡片入口放哪、是否复用 `BusinessAgentPage`（已删，需从 git 历史取回）。当前产品方向是「对话即首页」，不再走「多智能体卡片」路线。
 
-## 六之二、懂你首页 = 对话首页（v1.0.28 起，用户核心决策）
+## 六之二、底栏五格 & 懂你首页 = 对话首页（v1.0.28 起改造，v1.0.29 定稿为 5 格）
 
-- **「懂你」Tab 本身就是对话界面（Agent 模式）**：打开 App 点懂你即对话，不再有「对话卡片 → 二级页」这一步。
-- 实现：`shell/shell_page.dart` 的 0 号页直接是 `ChatPage`，且**壳不再为它提供 AppBar**（`appBar` 仅 index==1 数据页时给）。
-- `chat/chat_page.dart` 改造为**首页形态**：`showBackButton = false`（默认）、`title = '职管家'`。顶栏＝左侧双横杠菜单（划出历史会话抽屉）＋ 中间标题 ＋ 右上「提炼为记忆 / 新建对话」。旧参数 `initialCommand` 已删。
-- 主体仍是 `tabs/home_tab.dart`（`HomeTab`，真流式：`onDelta` → `_streamBuffer` 逐字上屏）。
-- 底栏四 Tab 不变：懂你（小灯泡）/ 数据 / 发现 / 我的。
-- **术语**：用户口中的「首页」＝「懂你」页；现在它就是对话首页，不要再叫「首页对话页 vs 智能体页」——那是 v1.0.28 之前的旧结构。
+- **底栏 5 格，顺序固定**：`对话 / 数据 / 懂你 / 发现 / 我的`（index 0..4）。`shell/shell_page.dart` 的 `_titles` 与之对应。
+  - ① **对话** = 对话首页（Agent 模式）：`chat_page.dart`（`showBackButton=false`、`title='职管家'`），body 为 `tabs/home_tab.dart`（真流式，`onDelta` → `_streamBuffer`）。顶栏自带，壳不给。
+  - ② **数据** = `tabs/database_tab.dart`。**唯一由壳提供 AppBar 的页**（`appBar: _index == 1 ? ... : null`）。
+  - ③ **懂你** = `tabs/insight_tab.dart`（`InsightTab`）：v1.0.29 新建的**占位页**（顶栏「懂你」+ 居中淡提示「功能建设中」），自带 AppBar。与「对话」职责分开——一个干活、一个懂你；后续在此做职业画像 / 洞察。
+  - ④ 发现 = `discover/discover_tab.dart`；⑤ 我的 = `tabs/profile_tab.dart`。两者自带 AppBar。
+- **常驻刷新钩子按新位置对齐**（`onDestinationSelected`）：`i == 1` → `_databaseTabKey.refresh()`；`i == 4` → `_profileTabKey.refresh()`。**改动底栏顺序时必须同步这两个下标**，否则会刷错页。
+- 默认落地仍是 index 0（对话）。
+- **术语**：用户口中的「首页」＝现在的「对话」Tab（v1.0.29 之前叫「懂你」）；「懂你」现在是独立的占位 Tab，别再混用。
+- 图标分配：对话＝`chat_bubble_outline/chat_bubble`，懂你＝`lightbulb_outline/lightbulb`（灯泡由原 Tab 挪来）。
+- 回归测试 `test/shell_tabs_test.dart`：断言 5 格标签顺序、默认 selectedIndex、点懂你切到 index 2。**改底栏务必先看它**。
 
 ## 七、职业经历模块：字段描述表（新增经历类型只改一处）
 
