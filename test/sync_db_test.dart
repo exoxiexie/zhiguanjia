@@ -61,6 +61,13 @@ class FakeSyncApi implements SyncApi {
     if (!online) return ApiResult.failure(_offline);
     return ApiResult.success(pullResult);
   }
+
+  @override
+  Future<ApiResult<SyncServerStatus>> status() async {
+    if (!online) return ApiResult.failure(_offline);
+    return const ApiResult.success(SyncServerStatus(
+        seq: 42, conversations: 2, messages: 3, memories: 0, searchItems: 0));
+  }
 }
 
 const String _phone = '13800138000';
@@ -246,5 +253,57 @@ void main() {
 
     expect(api.pushed, isEmpty);
     expect(await OutboxDao().count(), 1, reason: '失败必须保留，不能丢变更');
+  });
+
+  test('并发同步：被挡掉的那次会在当前同步结束后补跑，发件箱不会滞留', () async {
+    // 连续两条变更：第二条很可能撞上"第一次同步在途"而被锁挡回，
+    // 补跑机制必须保证它最终仍被推送出去（这是"新消息不同步"的关键修复）
+    await SyncEngine.enqueueConversation(<String, dynamic>{
+      'id': 'c-race',
+      'tenant_id': _phone,
+      'title': '并发会话',
+      'created_at': 1,
+      'updated_at': 1,
+      'message_count': 1,
+    });
+    await SyncEngine.enqueueMessage(<String, dynamic>{
+      'id': 'm-race',
+      'session_id': 'c-race',
+      'role': 'user',
+      'content': '并发消息',
+      'created_at': 2,
+    });
+
+    await waitUntil(() async => await OutboxDao().count() == 0);
+
+    expect(await OutboxDao().count(), 0, reason: '发件箱必须最终清空');
+    expect(api.pushedConversations, greaterThanOrEqualTo(1));
+    expect(api.pushedMessages, greaterThanOrEqualTo(1));
+  });
+
+  test('诊断：输出本机与会端的数量、待发队列与游标', () async {
+    await seedLocal();
+
+    final d = await SyncEngine.diagnose();
+
+    expect(d['phone'], _phone);
+    expect(d['local_conversations'], 2);
+    expect(d['local_messages'], 3);
+    expect(d['outbox_pending'], 0);
+    expect(d['server_ok'], isTrue);
+    expect(d['server_conversations'], 2);
+    expect(d['server_seq'], 42);
+    expect(d.containsKey('last_error'), isTrue);
+  });
+
+  test('诊断：离线时服务端标记为不可访问但仍能给出本机数据', () async {
+    await seedLocal();
+    api.online = false;
+
+    final d = await SyncEngine.diagnose();
+
+    expect(d['server_ok'], isFalse);
+    expect((d['server_error'] as String).isNotEmpty, isTrue);
+    expect(d['local_conversations'], 2, reason: '服务端不可达也要能报本机数量');
   });
 }

@@ -52,8 +52,18 @@ class SyncEngine {
 
   static bool _syncing = false;
 
+  /// 同步被锁挡回时置位：当前这轮结束后**补跑一次**，
+  /// 否则"一条消息触发的同步"可能被在途同步挡掉，变更要等到下次 App 启动才发出去。
+  static bool _rerunRequested = false;
+
   /// 节流时间按账号记录（换账号后新账号应立即同步，而不是等满 45 秒）
   static final Map<String, DateTime> _lastSyncAt = <String, DateTime>{};
+
+  // ── 诊断信息（同步诊断页展示；排查线上问题时靠它，不再"静默吞异常"）──
+  static DateTime? lastSyncAt;
+  static String lastError = '';
+  static int lastPushedCount = 0;
+  static int lastPulledCount = 0;
 
   // ────────────────────────── 入队 ──────────────────────────
 
@@ -111,7 +121,11 @@ class SyncEngine {
   static Future<bool> sync({bool force = false}) async {
     // 入口**同步**上锁：必须在任何 await 之前置位，否则两个并发调用会同时
     // 通过检查（enqueue 触发的后台同步 + 页面触发的同步），同一批变更被重复推送。
-    if (_syncing) return false;
+    if (_syncing) {
+      // 已有同步在跑：请求补跑，避免本次变更被永远搁置
+      _rerunRequested = true;
+      return false;
+    }
     _syncing = true;
     try {
       final phone = await currentPhone();
@@ -125,18 +139,25 @@ class SyncEngine {
       }
 
       // 1) 补发本地待发变更
-      await _flush();
+      lastPushedCount = await _flush();
       // 2) 首次同步做一次历史回填（老版本升级上来的数据只会补一次）
       await _maybeBackfill(phone);
-      await _flush();
+      lastPushedCount += await _flush();
       // 3) 拉取云端增量
       final pulled = await _pull(phone);
       _lastSyncAt[phone] = DateTime.now();
+      lastSyncAt = DateTime.now();
+      if (pulled) lastError = '';
       return pulled;
-    } catch (_) {
+    } catch (e) {
+      lastError = '同步异常：$e';
       return false;
     } finally {
       _syncing = false;
+      if (_rerunRequested) {
+        _rerunRequested = false;
+        unawaited(sync()); // 补跑：把被挡掉的那次变更补上
+      }
     }
   }
 
@@ -223,21 +244,24 @@ class SyncEngine {
   }
 
   /// 补发 outbox 里的本地变更
-  static Future<void> _flush() async {
+  static Future<int> _flush() async {
     final dao = OutboxDao();
     final rows = await dao.pending();
-    if (rows.isEmpty) return;
+    if (rows.isEmpty) return 0;
 
     final payload = buildPayload(rows);
     if (payload.isEmpty) {
       await dao.removeUpTo(rows.last.seq);
-      return;
+      return rows.length;
     }
     final res = await _api.push(payload).timeout(requestTimeout);
     if (res.ok) {
       await dao.removeUpTo(rows.last.seq);
+      return rows.length;
     }
     // 失败：保留在 outbox，下次同步重试（本地已落库，不会丢数据）
+    lastError = '推送失败：${res.error?.message ?? '未知原因'}（待发 ${rows.length} 条）';
+    return 0;
   }
 
   /// 拉取云端增量并合并进本地库
@@ -249,10 +273,17 @@ class SyncEngine {
     // 循环拉取，直到没有更多（limit=500/次）
     for (var round = 0; round < 20; round++) {
       final res = await _api.pull(since: cursor).timeout(requestTimeout);
-      if (!res.ok || res.data == null) return false;
+      if (!res.ok || res.data == null) {
+        lastError = '拉取失败：${res.error?.message ?? '未知原因'}（游标 $cursor）';
+        return false;
+      }
       final changes = res.data!;
       await applyChanges(changes);
       cursor = changes.seq;
+      lastPulledCount += changes.conversations.length +
+          changes.messages.length +
+          changes.memories.length +
+          changes.searchItems.length;
       await prefs.setInt(key, cursor);
       if (!changes.hasMore || changes.isEmpty) break;
     }
@@ -497,10 +528,69 @@ class SyncEngine {
     };
   }
 
+  /// 同步诊断：把两端数量、待发队列、游标与最近错误汇总成可读报告
+  ///
+  /// 存在的意义：同步失败原本全部静默，线上只能靠猜；有了它，
+  /// 用户复制一段文字就能定位是"推送不出去"还是"拉不下来"。
+  static Future<Map<String, dynamic>> diagnose() async {
+    final phone = await currentPhone() ?? '';
+    final tenant = AppDatabase.instance.tenantId ?? '';
+
+    int localConversations = 0;
+    int localMessages = 0;
+    int outbox = 0;
+    int cursor = 0;
+    try {
+      if (tenant.isNotEmpty) {
+        localConversations = (await SessionDao().findByTenant(tenant)).length;
+        localMessages = await MessageDao().count();
+      }
+    } catch (_) {
+      // 本机库未打开
+    }
+    try {
+      outbox = await OutboxDao().count();
+    } catch (_) {
+      // 忽略
+    }
+    if (phone.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      cursor = prefs.getInt(cursorKeyFor(phone)) ?? 0;
+    }
+
+    final statusRes = await _api.status();
+    final server = statusRes.ok ? statusRes.data : null;
+
+    return <String, dynamic>{
+      'phone': phone,
+      'tenant': tenant,
+      'local_conversations': localConversations,
+      'local_messages': localMessages,
+      'outbox_pending': outbox,
+      'local_cursor': cursor,
+      'server_ok': statusRes.ok,
+      'server_error': statusRes.ok ? '' : (statusRes.error?.message ?? ''),
+      'server_seq': server?.seq ?? -1,
+      'server_conversations': server?.conversations ?? -1,
+      'server_messages': server?.messages ?? -1,
+      'server_memories': server?.memories ?? -1,
+      'server_search_items': server?.searchItems ?? -1,
+      'last_sync_at': lastSyncAt?.toIso8601String() ?? '',
+      'last_error': lastError,
+      'last_pushed': lastPushedCount,
+      'last_pulled': lastPulledCount,
+    };
+  }
+
   /// 仅测试使用：重置节流与进行中标记
   @visibleForTesting
   static void resetForTest() {
     _lastSyncAt.clear();
     _syncing = false;
+    _rerunRequested = false;
+    lastSyncAt = null;
+    lastError = '';
+    lastPushedCount = 0;
+    lastPulledCount = 0;
   }
 }

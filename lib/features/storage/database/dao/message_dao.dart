@@ -28,6 +28,12 @@ class MessageDao {
   }
 
   /// 获取指定会话的所有消息，按创建时间正序
+  /// 消息总数（同步诊断用）
+  Future<int> count() async {
+    final r = await _db.rawQuery('SELECT COUNT(*) AS n FROM messages');
+    return (r.first['n'] as num?)?.toInt() ?? 0;
+  }
+
   Future<List<MessageEntity>> findBySession(String sessionId) async {
     final maps = await _db.query(
       'messages',

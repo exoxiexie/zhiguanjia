@@ -1,1 +1,1 @@
-{"versionName":"1.0.42","versionCode":43,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.42/zhiguanjia-v1.0.42.apk","changelog":"修复老账号的实名认证没有同步到云端：本机已实名而云端为空时自动补推一次（只传脱敏号与哈希）。"}
+{"versionName":"1.0.43","versionCode":44,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.43/zhiguanjia-v1.0.43.apk","changelog":"新增「同步诊断」：一眼看清本机/云端数据量与待发队列，定位多设备不同步；修复并发同步时新消息可能滞留未发的问题。"}

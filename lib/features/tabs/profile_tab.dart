@@ -18,6 +18,7 @@ import '../../contracts/app_api.dart';
 import '../../contracts/update_service.dart';
 import '../api/app_api_impl.dart';
 import '../app/local_data_cleaner.dart';
+import '../app/sync_diagnostics_page.dart';
 import '../chat/session_reset.dart';
 import '../common/plain_group.dart';
 import '../data/favorite_store.dart';
@@ -635,6 +636,19 @@ class ProfileTabState extends State<ProfileTab> {
                       title: '导出我的数据',
                       subtitle: '把账号数据导出为文件留存',
                       onTap: () => _exportData(context),
+                    ),
+                    _ListItem(
+                      icon: Icons.sync_problem_outlined,
+                      iconColor: const Color(0xFF7C3AED),
+                      title: '同步诊断',
+                      subtitle: '多设备数据不一致时，用它定位',
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const SyncDiagnosticsPage()),
+                        );
+                        if (mounted) _refreshAuth();
+                      },
                     ),
                     _ListItem(
                       icon: Icons.no_accounts_outlined,

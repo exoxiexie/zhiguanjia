@@ -95,8 +95,37 @@ class SyncPushPayload {
       };
 }
 
+/// 同步诊断信息（只含统计数字，不含内容）
+class SyncServerStatus {
+  final int seq;
+  final int conversations;
+  final int messages;
+  final int memories;
+  final int searchItems;
+
+  const SyncServerStatus({
+    this.seq = 0,
+    this.conversations = 0,
+    this.messages = 0,
+    this.memories = 0,
+    this.searchItems = 0,
+  });
+
+  factory SyncServerStatus.fromWire(Map<String, dynamic> json) =>
+      SyncServerStatus(
+        seq: (json['seq'] as num?)?.toInt() ?? 0,
+        conversations: (json['conversations'] as num?)?.toInt() ?? 0,
+        messages: (json['messages'] as num?)?.toInt() ?? 0,
+        memories: (json['memories'] as num?)?.toInt() ?? 0,
+        searchItems: (json['search_items'] as num?)?.toInt() ?? 0,
+      );
+}
+
 /// 对话同步接口
 abstract class SyncApi {
+  /// 服务端同步状态（诊断用）
+  Future<ApiResult<SyncServerStatus>> status();
+
   /// 增量拉取：[since] 之后的全部变更
   Future<ApiResult<SyncChanges>> pull({required int since, int limit = 500});
 

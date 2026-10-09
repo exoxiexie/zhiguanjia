@@ -11,6 +11,21 @@ class HttpSyncApi implements SyncApi {
   const HttpSyncApi();
 
   @override
+  Future<ApiResult<SyncServerStatus>> status() async {
+    try {
+      final res = await ApiClient.sendAuthed('GET', '/sync/status');
+      if (_isOk(res.statusCode)) {
+        return ApiResult.success(SyncServerStatus.fromWire(_map(res.data)));
+      }
+      return ApiResult.failure(_errorOf(res));
+    } on DioException catch (e) {
+      return ApiResult.failure(_networkError(e));
+    } catch (_) {
+      return ApiResult.failure(_unknownNetworkError());
+    }
+  }
+
+  @override
   Future<ApiResult<SyncChanges>> pull({required int since, int limit = 500}) async {
     try {
       final res = await ApiClient.sendAuthed('GET', '/sync?since=$since&limit=$limit');

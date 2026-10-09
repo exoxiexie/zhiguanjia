@@ -231,3 +231,26 @@ def push(
 
     db.commit()
     return {"ok": True, "applied": applied, "seq": _current_seq(db, user.id)}
+
+
+@router.get("/status")
+def sync_status(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict:
+    """同步诊断：只回统计数字，不回内容（用于排查"哪一端少数据"）"""
+
+    def count(model) -> int:
+        return int(
+            db.scalar(
+                select(func.count()).select_from(model).where(model.user_id == user.id)
+            )
+            or 0
+        )
+
+    return {
+        "seq": _current_seq(db, user.id),
+        "conversations": count(Conversation),
+        "messages": count(Message),
+        "memories": count(Memory),
+        "search_items": count(SearchItem),
+    }
