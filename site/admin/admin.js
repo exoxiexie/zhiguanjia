@@ -134,7 +134,12 @@ window.ZGJ = (function () {
     try {
       mod.render(box, ctx());
     } catch (e) {
-      box.appendChild(el('div', { class: 'err-box', text: '渲染失败：' + e.message }));
+      // "xxx is not a function" 基本都是**浏览器缓存了旧脚本**（版本错配）：
+      // 资源已加内容指纹，硬刷新一次即可；这里给可执行提示而不是原始报错。
+      var stale = /is not a function/.test(e.message || '');
+      box.appendChild(el('div', { class: 'err-box', text: stale
+        ? '后台脚本版本不一致（多半是浏览器缓存了旧版）。请强制刷新一次：电脑按 Ctrl+Shift+R，手机可清除该站点缓存。'
+        : '渲染失败：' + e.message }));
     }
   }
 
