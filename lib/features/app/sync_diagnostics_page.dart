@@ -8,6 +8,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../common/app_snack_bar.dart';
 import '../sync/sync_engine.dart';
 
 class SyncDiagnosticsPage extends StatefulWidget {
@@ -84,8 +85,7 @@ class _SyncDiagnosticsPageState extends State<SyncDiagnosticsPage> {
                 : () async {
                     await Clipboard.setData(ClipboardData(text: _report()));
                     if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('诊断报告已复制，可粘贴发送')));
+                    showAppSnackBar(context, '诊断报告已复制，可粘贴发送');
                   },
           ),
         ],

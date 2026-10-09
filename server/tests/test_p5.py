@@ -129,6 +129,97 @@ check("导出含会话与消息", len(data["conversations"]) == 1 and len(data["
 check("导出含设备", len(data["devices"]) == 1, data.get("devices"))
 check("导出不含密码哈希", "password_hash" not in str(data), "泄漏风险")
 
+# ════════════════════════════════════════════════════════════
+# 管理后台：快照扩展 + 按天趋势
+# 重点验证：库里存在两种时间列（DateTime 存 UTC / 毫秒时间戳），按中国日历日分桶必须都对
+# ════════════════════════════════════════════════════════════
+import datetime as _dt  # noqa: E402
+
+from app.models import Conversation, Message  # noqa: E402
+
+_db = SessionLocal()
+try:
+    _uid = _db.scalar(select(User.id).where(User.phone == "13800001111"))
+finally:
+    _db.close()
+
+_now_ms = int(_dt.datetime.now(_dt.timezone.utc).timestamp() * 1000)
+_db = SessionLocal()
+try:
+    _db.add(Conversation(
+        id="trend-conv-1", user_id=_uid, title="趋势校验", business_tag="",
+        message_count=1, last_extracted_message_id="", created_at=_now_ms,
+        updated_at=_now_ms, seq=0,
+    ))
+    _db.add(Message(
+        id="trend-msg-1", user_id=_uid, conversation_id="trend-conv-1",
+        role="user", content="趋势校验消息", attachment_type="",
+        attachment_path="", created_at=_now_ms, seq=0,
+    ))
+    _db.commit()
+finally:
+    _db.close()
+
+r = _client.get("/admin/stats", headers=h(A))
+stats = r.json()
+check("快照含活跃窗口 active_7d/active_30d",
+      "active_7d" in stats["devices"] and "active_30d" in stats["devices"],
+      stats.get("devices"))
+check("快照含新增窗口 new_1d/new_7d",
+      "new_1d" in stats["devices"] and "new_7d" in stats["devices"], stats.get("devices"))
+check("实名用户字段存在", "verified" in stats["users"], stats.get("users"))
+check("版本分布带占比 share",
+      all("share" in v for v in stats["versions"]), stats.get("versions"))
+check("使用深度：人均消息 / 对话转化率",
+      "messages_per_conversation" in stats["engagement"]
+      and "conversion" in stats["engagement"], stats.get("engagement"))
+
+r = _client.get("/admin/trend?days=3", headers=h(A))
+check("趋势接口 200", r.status_code == 200, r.text[:200])
+trend = r.json()
+_today = stats["generated_at"][:10]
+check("趋势返回 3 天且最后一天是今天",
+      len(trend["items"]) == 3 and trend["items"][-1]["date"] == _today, trend["items"])
+check("趋势项字段齐全",
+      all(k in trend["items"][0] for k in
+          ("date", "new_devices", "new_users", "messages", "conversations", "posts")),
+      trend["items"][0])
+check("今天有新增装机（DateTime 列分桶正确）",
+      trend["items"][-1]["new_devices"] >= 1, trend["items"][-1])
+check("今天有新增消息（毫秒时间戳列分桶正确）",
+      trend["items"][-1]["messages"] >= 1, trend["items"][-1])
+check("今天有新增会话（毫秒时间戳列分桶正确）",
+      trend["items"][-1]["conversations"] >= 1, trend["items"][-1])
+
+# 反向校验：把这条消息挪到 3 天前，今天应减 1、那天应加 1
+_three_days_ago = _now_ms - 3 * 86400000
+_db = SessionLocal()
+try:
+    _m = _db.scalar(select(Message).where(Message.id == "trend-msg-1"))
+    _m.created_at = _three_days_ago
+    _db.add(_m)
+    _db.commit()
+finally:
+    _db.close()
+
+r = _client.get("/admin/trend?days=5", headers=h(A))
+moved = r.json()
+_by_date = {i["date"]: i for i in moved["items"]}
+_target = (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=8)
+           - _dt.timedelta(days=3)).date().isoformat()
+check("改到 3 天前：这天计到 1 条消息",
+      _by_date.get(_target, {}).get("messages", 0) >= 1, moved["items"])
+check("改到 3 天前：今天不再计这条消息",
+      _by_date.get(_today, {}).get("messages", 0) == trend["items"][-1]["messages"] - 1,
+      _by_date.get(_today))
+
+# ── 权限：非管理员访问管理接口一律 403 ──
+check("非管理员看趋势 → 403",
+      _client.get("/admin/trend", headers=h(B)).status_code == 403)
+check("非管理员看快照 → 403",
+      _client.get("/admin/stats", headers=h(B)).status_code == 403)
+
+
 print("── 5. 账号注销 ──")
 r = _client.delete("/me", headers=h(A))
 check("未二次确认 → 400", r.status_code == 400, r.text)
@@ -154,12 +245,3 @@ with SessionLocal() as db:
 
 r = _client.get("/admin/stats", headers=h(A))
 check("已注销账号的管理员令牌也失效 → 401", r.status_code == 401, r.text)
-
-print()
-print("════════════════════════════════")
-print("  通过 %d 项，失败 %d 项" % (len(PASSED), len(FAILED)))
-for f in FAILED:
-    print("    - " + f)
-print("════════════════════════════════")
-_client.__exit__(None, None, None)
-sys.exit(1 if FAILED else 0)

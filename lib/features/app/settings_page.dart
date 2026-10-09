@@ -16,6 +16,7 @@ import '../../contracts/app_api.dart';
 import '../../contracts/update_service.dart';
 import '../api/app_api_impl.dart';
 import '../chat/session_reset.dart';
+import '../common/app_snack_bar.dart';
 import '../common/plain_group.dart';
 import '../personal/personal_auth_service.dart';
 import '../personal/personal_login_page.dart';
@@ -126,9 +127,7 @@ class _SettingsPageState extends State<SettingsPage> {
         await _downloadAndInstall(context, info);
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message ?? '已是最新版本')),
-      );
+      showAppSnackBar(context, result.message ?? '已是最新版本');
     }
   }
 
@@ -185,12 +184,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
       final result = await OpenFilex.open(path);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.type == ResultType.done
-              ? '下载完成，请在系统安装界面确认安装'
-              : '下载完成，但打开安装器失败（${result.message}）'),
-        ),
+      showAppSnackBar(
+        context,
+        result.type == ResultType.done
+            ? '下载完成，请在系统安装界面确认安装'
+            : '下载完成，但打开安装器失败（${result.message}）',
       );
     } catch (e) {
       if (!mounted) return;
@@ -198,22 +196,19 @@ class _SettingsPageState extends State<SettingsPage> {
       if (dialogRebuild != null && dialogRebuild!.mounted) {
         Navigator.of(dialogRebuild!).pop();
       }
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('下载失败：$e')));
+      showAppSnackBar(context, '下载失败：$e');
     }
   }
 
   // ────────────────────────── 导出数据 ──────────────────────────
 
   Future<void> _exportData(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(const SnackBar(content: Text('正在导出…')));
+    showAppSnackBar(context, '正在导出…');
 
     final res = await const HttpAppApi().exportMyData();
     if (!mounted) return;
     if (!res.ok || res.data == null) {
-      messenger.showSnackBar(
-          SnackBar(content: Text(res.error?.message ?? '导出失败，请稍后重试')));
+      showAppSnackBar(context, res.error?.message ?? '导出失败，请稍后重试');
       return;
     }
 
@@ -245,7 +240,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
     } catch (_) {
-      messenger.showSnackBar(const SnackBar(content: Text('保存文件失败')));
+      showAppSnackBar(context, '保存文件失败');
     }
   }
 
@@ -298,8 +293,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final messenger = ScaffoldMessenger.of(context);
     final res = await const HttpAppApi().deleteAccount();
     if (!res.ok) {
-      messenger.showSnackBar(
-          SnackBar(content: Text(res.error?.message ?? '注销失败，请稍后重试')));
+      showAppSnackBar(context, res.error?.message ?? '注销失败，请稍后重试');
       return;
     }
 

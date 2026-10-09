@@ -29,8 +29,8 @@ STATIC = os.path.join(ROOT, "static")
 SITE_URL = "http://8.137.71.241"
 SITE_NAME = "职管家"
 SITE_DESC = "每个人，都值得一个终身陪伴的 AI 职业管家。职业规划、简历优化、求职面试、技能成长、薪酬谈判、职场法律。"
-APP_VERSION = "v1.0.45"
-APP_APK = "zhiguanjia-v1.0.45.apk"
+APP_VERSION = "v1.0.46"
+APP_APK = "zhiguanjia-v1.0.46.apk"
 LATEST_ON_HOME = 3
 
 # 备案期间保持 False（搜索引擎不收录 IP 地址）；域名上线后改成 True 即可
@@ -206,6 +206,12 @@ def build():
     shutil.copy(os.path.join(STATIC, "qr.png"), os.path.join(dl, "qr.png"))
     if os.path.exists(ak):
         shutil.copy(ak, os.path.join(dl, APP_APK))
+
+    # 管理后台（/admin/）
+    # 不进入公开导航、robots 已禁止收录；前端零依赖，加模块 = 加一个 js 文件
+    admin_src = os.path.join(ROOT, "admin")
+    if os.path.isdir(admin_src):
+        shutil.copytree(admin_src, os.path.join(DIST, "admin"))
 
     # 404 页
     write(os.path.join(DIST, "404.html"),

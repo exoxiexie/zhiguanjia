@@ -1,1 +1,1 @@
-{"versionName":"1.0.45","versionCode":46,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.45/zhiguanjia-v1.0.45.apk","changelog":"「我的」页新增「设置」「测试」两个入口（测试入口可按灰度隐藏）；另一台设备的新对话会自动出现，无需重进页面。"}
+{"versionName":"1.0.46","versionCode":47,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.46/zhiguanjia-v1.0.46.apk","changelog":"修复「检查更新」提示文案未居中；管理后台与运营看板上线（网页版，地址 /admin/）。"}

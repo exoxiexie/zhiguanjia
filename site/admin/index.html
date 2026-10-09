@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>职管家 · 管理后台</title>
+<link rel="icon" href="/assets/icon.png">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<!-- 登录视图 -->
+<div id="login-view" class="login-wrap" hidden>
+  <form class="login-card" id="login-form" autocomplete="on">
+    <div class="login-brand">
+      <span class="dot"></span>职管家 · 管理后台
+    </div>
+    <label class="field">
+      <span>管理员手机号</span>
+      <input id="login-phone" type="tel" inputmode="numeric" maxlength="11" placeholder="11 位手机号" required>
+    </label>
+    <label class="field">
+      <span>密码</span>
+      <input id="login-password" type="password" placeholder="登录密码" required>
+    </label>
+    <p class="login-err" id="login-err" hidden></p>
+    <button class="btn primary block" id="login-btn" type="submit">登录</button>
+    <p class="login-tip">仅限管理员账号。普通账号登录会被拒绝（后端强制校验权限）。</p>
+  </form>
+</div>
+
+<!-- 后台视图 -->
+<div id="app-view" class="app" hidden>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="dot"></span>职管家后台</div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-foot">
+      <div class="who" id="who"></div>
+      <button class="btn ghost block" id="logout-btn">退出登录</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="btn icon only-mobile" id="menu-btn" aria-label="菜单">☰</button>
+      <h1 id="page-title">运营看板</h1>
+      <div class="topbar-right">
+        <span class="muted" id="updated-at"></span>
+        <button class="btn" id="refresh-btn">刷新</button>
+      </div>
+    </header>
+    <div class="content" id="content">
+      <div class="loading">加载中…</div>
+    </div>
+  </main>
+</div>
+
+<script src="admin.js"></script>
+<script src="modules/dashboard.js"></script>
+<script src="modules/placeholders.js"></script>
+<script>ZGJ.boot();</script>
+</body>
+</html>
