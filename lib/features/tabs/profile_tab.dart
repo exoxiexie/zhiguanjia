@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../contracts/update_service.dart';
+import '../chat/session_reset.dart';
 import '../common/plain_group.dart';
 import '../data/favorite_store.dart';
 import '../data/favorites_page.dart';
@@ -215,6 +216,10 @@ class ProfileTabState extends State<ProfileTab> {
   }
 
   Future<void> _logout(BuildContext context) async {
+    // 【P0-1 / P0-2】先重置进程级单例里的账号态，再清登录态。
+    // 顺序不能反：服务容器不会随退出登录自动清空，若不先重置，
+    // 下一个账号（本机无历史会话）会直接读到上一个账号的会话与消息。
+    resetUserSessionState();
     await PersonalAuthService.clearAuth();
     if (!context.mounted) return;
     Navigator.of(context).pushAndRemoveUntil(

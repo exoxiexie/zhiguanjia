@@ -66,8 +66,12 @@ class HomeTabState extends State<HomeTab> {
     try {
       final PersonalAuth? auth = await PersonalAuthService.getAuth();
       if (auth == null || !auth.isVerified) {
+        // 【P0-2】清身份上下文的同时必须清租户 ID：
+        // 只清上下文会让"未实名的下一个账号"把联网搜索沉淀写进上一个账号目录
         widget.chatService.setPersonContext(null);
+        widget.chatService.setTenantId(null);
         widget.agentService?.setPersonContext(null);
+        widget.agentService?.setTenantId(null);
         return;
       }
 
@@ -102,7 +106,9 @@ class HomeTabState extends State<HomeTab> {
     } catch (e) {
       debugPrint('设置个人身份上下文失败: $e');
       widget.chatService.setPersonContext(null);
+      widget.chatService.setTenantId(null);
       widget.agentService?.setPersonContext(null);
+      widget.agentService?.setTenantId(null);
     }
   }
 

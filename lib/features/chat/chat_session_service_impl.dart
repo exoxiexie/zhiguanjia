@@ -50,9 +50,17 @@ class ChatSessionServiceImpl implements ChatSessionService {
 
   @override
   Future<void> init() async {
+    // 【缺陷 P0-1】先**无条件**清空上一个账号的内存态。
+    // 本服务是 main.dart 注册的进程级单例：若只在"新账号有历史会话"时才
+    // 清空，本机无历史会话的新账号会直接沿用上一账号的会话列表与消息正文
+    // ——即跨账号隐私泄漏，且会把上一账号的会话 id 写进新账号的库。
+    _clearInMemory();
+
     try {
       final auth = await PersonalAuthService.getAuth();
       if (auth == null) {
+        // 未登录：保留一个空占位会话，保证界面读 conversations 不越界
+        _seedEmptyConversation();
         _ready = true;
         return;
       }
@@ -99,10 +107,18 @@ class ChatSessionServiceImpl implements ChatSessionService {
         _conversations.addAll(convList);
         _currentIndex = 0;
       } else {
-        // 没有历史会话，把默认的"新对话"存入数据库
+        // 没有历史会话：为本租户新建一个空会话。
+        // 【P0-1】必须**新生成 id**，绝不复用上一账号遗留对象的 id
+        // （旧实现用 `_conversations.first.id`，会把上一账号的会话 id 落库）
+        final fresh = Conversation(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          title: '新对话',
+        );
+        _conversations.add(fresh);
+
         final now = DateTime.now().millisecondsSinceEpoch;
         final session = SessionEntity(
-          id: _conversations.first.id,
+          id: fresh.id,
           tenantId: tenantId,
           title: '新对话',
           createdAt: now,
@@ -115,6 +131,33 @@ class ChatSessionServiceImpl implements ChatSessionService {
     } catch (e) {
       debugPrint('数据库初始化失败: $e');
       _ready = true;
+    } finally {
+      // 无论成功失败都保证至少有一个会话：
+      // 否则界面读 currentConversation / currentMessages 会越界崩溃
+      _seedEmptyConversation();
+    }
+  }
+
+  @override
+  void reset() {
+    // 退出登录时调用：回到「刚安装、未登录」状态
+    _clearInMemory();
+    _seedEmptyConversation();
+    _ready = false;
+  }
+
+  /// 清空所有按账号隔离的内存态（会话、租户、登录人）
+  void _clearInMemory() {
+    _conversations.clear();
+    _currentIndex = 0;
+    _tenantId = null;
+    _currentUserPhone = null;
+  }
+
+  /// 放入一个空占位会话，保证 `conversations` / `currentMessages` 读取不越界
+  void _seedEmptyConversation() {
+    if (_conversations.isEmpty) {
+      _conversations.add(Conversation(id: 'default', title: '新对话'));
     }
   }
 

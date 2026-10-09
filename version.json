@@ -1,1 +1,1 @@
-{"versionName":"1.0.36","versionCode":37,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.36/zhiguanjia-v1.0.36.apk","changelog":"账号改为服务端校验：注册/登录上云，换手机不丢号；老版本地账号首次登录自动迁移；本机不再保存明文密码。"}
+{"versionName":"1.0.37","versionCode":38,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.37/zhiguanjia-v1.0.37.apk","changelog":"修复换账号后能看到上一账号聊天记录的隐私泄漏（P0-1）；同步修复联网搜索数据串账号问题（P0-2）。"}

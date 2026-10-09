@@ -23,13 +23,16 @@
 
 ## 一、P0（数据泄漏 / 数据损坏 / 信任链）
 
-### P0-1 换账号后能看到上一账号的全部聊天记录
+### P0-1 换账号后能看到上一账号的全部聊天记录 〔**已于 v1.0.37 修复**〕
+- **修复**：`ChatSessionServiceImpl.init()` 开头**无条件**清空内存态（`_clearInMemory()`），无历史会话分支改为**新生成会话 id**（不再复用上一账号遗留对象）；新增 `reset()` 并在退出登录时经唯一入口 `features/chat/session_reset.dart` 调用；`init()` 增加 `finally` 兜底，保证任何时候 `conversations` 非空（避免界面越界崩溃）。
+- **回归测试**：`test/chat_session_isolation_test.dart`（4 项，含"换账号后 A 的会话与消息全部消失"核心场景）。
 - **位置**：`lib/features/chat/chat_session_service_impl.dart:25-27`、`:99-114`；`lib/features/tabs/profile_tab.dart:56-63`；`lib/main.dart:23`
 - **根因**：`ChatSessionServiceImpl` 是 `main.dart:23` 注册的**进程级单例**，会话缓存在实例字段 `_conversations` 上；`init()` **只在"新租户有历史会话"分支才 `_conversations.clear()`**，新账号无历史会话时直接沿用上一个账号的内存列表（`else` 分支还把 `_conversations.first.id` 写进新账号的库）。退出登录只调 `clearAuth()`，不重置任何服务。
 - **复现**：A 登录 → 对话页聊几句 → 「我的」退出登录 → 同机注册/登录 B（B 本地无会话）→ 打开对话页 → **直接显示 A 的全部会话标题与消息正文**；B 继续发消息会写进 A 的会话 id。
 - **修法**：`init()` 开头无条件 `_conversations.clear(); _currentIndex = 0;`；新增 `reset()` 并在 `ProfileTab._logout` 调用。
 
-### P0-2 联网搜索沉淀写入上一账号的租户目录
+### P0-2 联网搜索沉淀写入上一账号的租户目录 〔**已于 v1.0.37 修复**〕
+- **修复**：`home_tab._setupPersonContext()` 所有 `setPersonContext(null)` 分支同步 `setTenantId(null)`；退出登录经 `session_reset.dart` 统一清空 Chat/Agent 服务的租户 ID 与身份上下文。
 - **位置**：`lib/features/tabs/home_tab.dart:66-70`、`:95-98`；`lib/features/chat/chat_service_impl.dart:291`；`lib/features/agent/agent_service_impl.dart:227`
 - **根因**：未实名时 `_setupPersonContext` 只清 `personContext` 就早退，**不清 tenantId**；全仓库 `setTenantId(null)` 从未被调用（4 处调用全是 `set`）。
 - **复现**：A 实名并触发过联网搜索 → 退出 → B 登录但未实名 → 对话页提一个需要联网搜索的问题 → 结果沉淀到 `tenants/A/` 下，A 在数据页能读到 B 的提问与信源。

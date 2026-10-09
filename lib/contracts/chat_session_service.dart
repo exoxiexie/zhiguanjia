@@ -36,6 +36,14 @@ abstract class ChatSessionService {
   /// 所有历史会话（最新的在前面）。
   List<Conversation> get conversations;
 
+  /// 重置为「刚安装、未登录」的内存态：清空会话与租户信息，并保留一个
+  /// 空的「新对话」占位（保证 [conversations] 永不为空，界面读取不越界）。
+  ///
+  /// 由退出登录流程调用（见 `features/chat/session_reset.dart`）。
+  /// 存在的意义：本服务是**进程级单例**，不清空会把上一账号的会话
+  /// 泄漏给下一个账号（缺陷 P0-1）。
+  void reset();
+
   /// 当前对话索引。
   int get currentIndex;
 

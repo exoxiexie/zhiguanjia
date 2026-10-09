@@ -43,6 +43,14 @@ class _FakeSessionService implements ChatSessionService {
   Future<void> init() async {}
 
   @override
+  void reset() {
+    _conversations
+      ..clear()
+      ..add(Conversation(id: 'default', title: '新对话'));
+    _index = 0;
+  }
+
+  @override
   bool get isReady => true;
 
   @override
