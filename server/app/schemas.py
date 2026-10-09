@@ -57,3 +57,54 @@ class RefreshRequest(BaseModel):
 class LogoutRequest(BaseModel):
     refresh_token: str = ""
     all_devices: bool = False
+
+
+# ────────────────────── P2：职业档案 ──────────────────────
+
+
+class BasicInfoRequest(BaseModel):
+    """基础信息（与 App 端 BasicInfo 对齐）"""
+
+    province: str = Field(default="", max_length=32)
+    city: str = Field(default="", max_length=32)
+    district: str = Field(default="", max_length=32)
+    address: str = Field(default="", max_length=255)
+    work_status: str = Field(default="", max_length=24)
+    marital_status: str = Field(default="", max_length=24)
+
+
+class SelfEvaluationRequest(BaseModel):
+    """自我评价（整段文本，保存空串即清空）"""
+
+    content: str = Field(default="", max_length=20000)
+
+
+class ExperienceUpsertRequest(BaseModel):
+    """单条经历（字段整体透传，服务端不理解字段语义）"""
+
+    id: str = Field(..., min_length=1, max_length=64)
+    kind_id: str = Field(..., min_length=1, max_length=32)
+    values: dict = Field(default_factory=dict)
+    created_at: int = 0
+    updated_at: int = 0
+
+
+class ExperienceBatchRequest(BaseModel):
+    """批量推送：新增/更新 + 删除（离线补发用）"""
+
+    items: list[ExperienceUpsertRequest] = Field(default_factory=list)
+    deleted_ids: list[str] = Field(default_factory=list)
+
+
+class IdentityRequest(BaseModel):
+    """实名认证（P2 服务端能力；App 侧在切 HTTPS 后启用）
+
+    传输的是完整身份证号，因此**必须走 HTTPS**：
+    服务端只落库「脱敏号 + SHA-256 哈希」，明文不落盘、不打日志。
+    """
+
+    id_card: str = Field(..., min_length=15, max_length=18)
+    real_name: str = Field(default="", max_length=32)
+    gender: str = Field(default="", max_length=8)
+    birthday: str = Field(default="", max_length=16)
+    province: str = Field(default="", max_length=32)
