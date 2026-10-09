@@ -43,6 +43,11 @@ class _FakeSessionService implements ChatSessionService {
   ];
   int _index = 0;
 
+  /// 给首个会话塞入若干消息（供分叉用例构造历史）
+  void seed(List<ChatMessage> messages) {
+    _conversations.first.messages.addAll(messages);
+  }
+
   @override
   Future<void> init() async {}
 
@@ -70,6 +75,26 @@ class _FakeSessionService implements ChatSessionService {
 
   @override
   void switchConversation(int index) => _index = index;
+
+  @override
+  Future<String> forkConversation(int uptoIndex) async {
+    final src = _conversations[_index];
+    final end = (uptoIndex + 1).clamp(0, src.messages.length);
+    final copied = <ChatMessage>[
+      for (var i = 0; i < end; i++)
+        ChatMessage(
+          role: src.messages[i].role,
+          content: src.messages[i].content,
+        ),
+    ];
+    final id = 'fork${_conversations.length + 1}';
+    _conversations.insert(
+      0,
+      Conversation(id: id, title: '${src.title}（分叉）', messages: copied),
+    );
+    _index = 0;
+    return id;
+  }
 
   @override
   Future<void> persistMessage(ChatMessage msg) async {}
@@ -145,6 +170,45 @@ void main() {
       expect(find.text('专业智能体'), findsNothing);
       expect(find.text('学习'), findsNothing);
       expect(find.text('招聘'), findsNothing);
+    });
+  });
+
+  group('对话分叉', () {
+    testWidgets('AI 回复气泡带「分叉」按钮，用户气泡不带', (tester) async {
+      final svc = _FakeSessionService()
+        ..seed(const [
+          ChatMessage(role: 'user', content: '帮我改简历'),
+          ChatMessage(role: 'assistant', content: '好的，请把简历发我'),
+        ]);
+      sl.reset();
+      sl.register<ChatSessionService>(svc);
+
+      await _pumpHome(tester);
+
+      // 只有 AI 回复挂「分叉」（用户消息与流式中气泡都不挂）
+      expect(find.text('分叉'), findsOneWidget);
+    });
+
+    testWidgets('点「分叉」新建会话并复制分叉点（含）之前的全部消息，原对话不变',
+        (tester) async {
+      final svc = _FakeSessionService()
+        ..seed(const [
+          ChatMessage(role: 'user', content: '帮我改简历'),
+          ChatMessage(role: 'assistant', content: '好的，请把简历发我'),
+        ]);
+      sl.reset();
+      sl.register<ChatSessionService>(svc);
+
+      await _pumpHome(tester);
+      await tester.tap(find.text('分叉'));
+      await tester.pumpAndSettle();
+
+      expect(svc.conversations.length, 2, reason: '分叉应新增一个会话');
+      expect(svc.currentIndex, 0, reason: '分叉后应切到新会话');
+      expect(svc.currentConversation.title, '新对话（分叉）');
+      expect(svc.currentMessages.length, 2,
+          reason: '新会话应复制分叉点（含）之前的全部消息');
+      expect(svc.conversations[1].messages.length, 2, reason: '原会话保持不变');
     });
   });
 }

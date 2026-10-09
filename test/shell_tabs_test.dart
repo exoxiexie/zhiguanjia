@@ -69,6 +69,9 @@ class _FakeSessionService implements ChatSessionService {
   void switchConversation(int index) => _index = index;
 
   @override
+  Future<String> forkConversation(int uptoIndex) async => 'c1';
+
+  @override
   Future<void> persistMessage(ChatMessage msg) async {}
 
   @override

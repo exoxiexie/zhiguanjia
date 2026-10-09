@@ -140,6 +140,32 @@ class HomeTabState extends State<HomeTab> {
     }
   }
 
+  /// 从第 [index] 条消息处「分叉」出一条新对话
+  ///
+  /// 复制该条（含）之前的消息到新会话并切过去，原会话保持不变。
+  /// 交给会话服务落库，UI 只负责重置本地流式状态。
+  Future<void> forkConversation(int index) async {
+    if (_isLoading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AI 正在回复中，请稍后再分叉')),
+      );
+      return;
+    }
+    await _sessionService.forkConversation(index);
+    if (!mounted) return;
+    setState(() {
+      _pendingAttachment = null;
+      _streamBuffer.clear();
+      _isLoading = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('已从该处分叉出新对话，原对话已保留'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   /// 供外部调用：提炼当前对话为记忆（手动触发）
   ///
   /// 弹出确认对话框，用户选择增量提炼或全部提炼后，
@@ -863,7 +889,14 @@ class HomeTabState extends State<HomeTab> {
           }
           return _ThinkingBubble(text: _thinkingText);
         }
-        return _MessageBubble(message: _messages[msgIndex]);
+        final msg = _messages[msgIndex];
+        return _MessageBubble(
+          message: msg,
+          // 已在会话里的 AI 回复才可「分叉」；流式中的气泡不挂（见上面分支）
+          onFork: msg.role == 'assistant'
+              ? () => forkConversation(msgIndex)
+              : null,
+        );
       },
     );
   }
@@ -968,7 +1001,10 @@ class HomeTabState extends State<HomeTab> {
 class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
 
-  const _MessageBubble({required this.message});
+  /// 点「分叉」的回调；为 null 时不显示该按钮（用户消息、流式中气泡）
+  final VoidCallback? onFork;
+
+  const _MessageBubble({required this.message, this.onFork});
 
   @override
   Widget build(BuildContext context) {
@@ -1018,6 +1054,7 @@ class _MessageBubble extends StatelessWidget {
               MessageActionBar(
                 content: message.content,
                 source: '通用对话',
+                onFork: onFork,
               ),
           ],
         ),

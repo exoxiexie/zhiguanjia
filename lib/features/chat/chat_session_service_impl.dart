@@ -160,6 +160,69 @@ class ChatSessionServiceImpl implements ChatSessionService {
   }
 
   @override
+  Future<String> forkConversation(int uptoIndex) async {
+    final source = _conversations[_currentIndex];
+    // 分叉点越界时收敛到「复制当前全部消息」，避免调用方传错就把会话搞空
+    final end = (uptoIndex + 1).clamp(0, source.messages.length);
+
+    // 复制消息：ChatMessage 不可变，但显式重建，避免两个会话共享同一实例
+    final copied = <ChatMessage>[
+      for (var i = 0; i < end; i++)
+        ChatMessage(
+          role: source.messages[i].role,
+          content: source.messages[i].content,
+          attachment: source.messages[i].attachment,
+        ),
+    ];
+
+    final newId = DateTime.now().millisecondsSinceEpoch.toString();
+    final title = source.title == '新对话' ? '分叉对话' : '${source.title}（分叉）';
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    // 插到最前并切换过去（抽屉里最新会话在最上面）
+    _conversations.insert(
+      0,
+      Conversation(
+        id: newId,
+        title: title,
+        messages: copied,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+    _currentIndex = 0;
+
+    // 落库：新会话 + 复制的消息，保证重启后分叉线仍在
+    if (_tenantId != null && _ready) {
+      await _sessionDao.insert(SessionEntity(
+        id: newId,
+        tenantId: _tenantId!,
+        title: title,
+        createdAt: now,
+        updatedAt: now,
+        messageCount: copied.length,
+        createdBy: _currentUserPhone,
+      ));
+      for (var i = 0; i < copied.length; i++) {
+        final m = copied[i];
+        await _messageDao.insert(MessageEntity(
+          id: '${now}_fork_$i',
+          sessionId: newId,
+          role: m.role,
+          content: m.content,
+          attachmentType: m.attachment?.type.name,
+          attachmentPath: m.attachment?.filePath,
+          createdAt: now + i,
+        ));
+      }
+      // 原始 JSON 存档同步到新会话
+      await syncArchive();
+    }
+
+    return newId;
+  }
+
+  @override
   Future<void> persistMessage(ChatMessage msg) async {
     if (_tenantId == null || !_ready) return;
     final sessionId = _conversations[_currentIndex].id;

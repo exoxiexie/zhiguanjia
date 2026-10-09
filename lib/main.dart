@@ -4,6 +4,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'contracts/agent_service.dart';
 import 'contracts/chat_service.dart';
@@ -56,6 +57,19 @@ class ZhiguanjiaApp extends StatelessWidget {
       title: '职管家',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
+      // ── 中文本地化（v1.0.35）────────────────────────────────────────
+      // 不接本地化时，MaterialApp 会回落到内置的英文 [DefaultMaterialLocalizations]，
+      // 于是长按文本弹的系统菜单显示 Copy / Paste / Select all（英文），
+      // 系统日期选择器等自带组件同样变英文。
+      // 这里显式声明中文 + Material/Widgets/Cupertino 三套代理，
+      // 一次性把「复制 / 剪切 / 粘贴 / 全选」及所有组件内置文案统一成中文。
+      locale: const Locale('zh', 'CN'),
+      supportedLocales: const [Locale('zh', 'CN')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: const AuthGate(),
     );
   }

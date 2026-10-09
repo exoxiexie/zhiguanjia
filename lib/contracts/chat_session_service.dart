@@ -51,6 +51,15 @@ abstract class ChatSessionService {
   /// 切换到指定索引的对话。
   void switchConversation(int index);
 
+  /// 从当前会话的第 [uptoIndex] 条消息处分叉：
+  /// 新建一个会话，把当前会话中 **[uptoIndex]（含）之前**的消息全量复制过去，
+  /// 并立即切换到新会话；**原会话及其后续消息保持不变**。
+  ///
+  /// 用途：用户在 AI 回复气泡上点「分叉」，即可在不破坏原对话的前提下
+  /// 另起一条从该处继续的对话线。返回新会话 id。
+  /// [uptoIndex] 越界时按「复制当前全部消息」处理。
+  Future<String> forkConversation(int uptoIndex);
+
   /// 持久化单条消息到数据库，并同步 JSON 存档；
   /// AI 回复后自动触发记忆提炼（fire-and-forget，失败静默）。
   Future<void> persistMessage(ChatMessage msg);

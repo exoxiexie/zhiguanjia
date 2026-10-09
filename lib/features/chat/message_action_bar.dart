@@ -21,10 +21,15 @@ class MessageActionBar extends StatefulWidget {
   /// 来源标签（写进收藏记录，如 '通用对话' / '学习'）
   final String source;
 
+  /// 点「分叉」的回调。传 null 则不显示「分叉」按钮
+  /// （收藏列表页 / 详情页复用本组件时不需要分叉）。
+  final VoidCallback? onFork;
+
   const MessageActionBar({
     super.key,
     required this.content,
     required this.source,
+    this.onFork,
   });
 
   @override
@@ -112,6 +117,16 @@ class _MessageActionBarState extends State<MessageActionBar> {
             color: _fav ? const Color(0xFFF59E0B) : null,
             onTap: _toggleFav,
           ),
+          // 「分叉」：从这条 AI 回复处另起一条对话线（原对话不动）。
+          // 仅在可分享的调用点传入（对话气泡），收藏列表 / 详情页不传即不显示。
+          if (widget.onFork != null) ...[
+            const SizedBox(width: 8),
+            MessageActionButton(
+              icon: Icons.call_split,
+              label: '分叉',
+              onTap: widget.onFork!,
+            ),
+          ],
         ],
       ),
     );
