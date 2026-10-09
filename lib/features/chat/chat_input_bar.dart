@@ -36,8 +36,11 @@ class ChatInputBar extends StatefulWidget {
   final ValueChanged<ChatModel>? onModelChanged;
   final VoidCallback? onAddAttachment;
   final VoidCallback? onSend;
-  final VoidCallback? onConnectComputer;
-  final VoidCallback? onSkillSelect;
+  /// 「快捷指令」：打开预设指令列表，选中后填入输入框
+  final VoidCallback? onQuickCommand;
+
+  /// 「提炼记忆」：把当前对话提炼为记忆（原顶栏魔法星星的能力）
+  final VoidCallback? onExtractMemory;
 
   /// 是否显示顶部工具行（模型选择+连接电脑+技能选择），默认 true
   final bool showTopBar;
@@ -54,8 +57,8 @@ class ChatInputBar extends StatefulWidget {
     this.onModelChanged,
     this.onAddAttachment,
     this.onSend,
-    this.onConnectComputer,
-    this.onSkillSelect,
+    this.onQuickCommand,
+    this.onExtractMemory,
     this.showTopBar = true,
     this.hintText = '输入你的问题…',
   });
@@ -149,15 +152,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     ),
                     const SizedBox(width: 8),
                     _buildFeatureButton(
-                      icon: Icons.computer,
-                      label: '连接电脑',
-                      onTap: widget.onConnectComputer,
+                      icon: Icons.tips_and_updates_outlined,
+                      label: '快捷指令',
+                      onTap: widget.onQuickCommand,
                     ),
                     const SizedBox(width: 8),
                     _buildFeatureButton(
-                      icon: Icons.extension,
-                      label: '技能选择',
-                      onTap: widget.onSkillSelect,
+                      icon: Icons.auto_awesome,
+                      label: '提炼记忆',
+                      onTap: widget.onExtractMemory,
                     ),
                   ],
                 ),

@@ -309,6 +309,17 @@ class HomeTabState extends State<HomeTab> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
 
+  /// 打开预设指令列表（原「对话区顶部卡片」的能力，现由输入栏「快捷指令」按钮触发）
+  void _openPresetCommands() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PresetCommandsPage(
+          onSelect: (command) => setInputText(command),
+        ),
+      ),
+    );
+  }
+
   /// 供外部调用：设置输入框内容（快捷指令跳转时使用）
   void setInputText(String text) {
     _controller.text = text;
@@ -873,13 +884,12 @@ class HomeTabState extends State<HomeTab> {
     );
   }
 
-  /// 空状态：快捷指令卡片 + 居中提示
+  /// 空状态：居中提示（快捷指令卡片已下移到输入栏按钮）
   Widget _buildEmptyState() {
     return ListView(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 12, 12, 16),
       children: [
-        _buildQuickCommandCard(),
         const SizedBox(height: 80),
         Column(
           children: [
@@ -903,13 +913,9 @@ class HomeTabState extends State<HomeTab> {
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 12, 12, 16),
-      itemCount: 1 + _messages.length + (_isLoading ? 1 : 0),
+      itemCount: _messages.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
-        // 滚动区最上面：快捷指令卡片
-        if (index == 0) {
-          return _buildQuickCommandCard();
-        }
-        final msgIndex = index - 1;
+        final msgIndex = index;
         if (msgIndex == _messages.length) {
           if (!_streamingReasoning && _streamBuffer.isNotEmpty) {
             return _MessageBubble(
@@ -933,76 +939,6 @@ class HomeTabState extends State<HomeTab> {
     );
   }
 
-  /// 快捷指令卡片（点击进入预设指令列表，选择后填入输入框）
-  Widget _buildQuickCommandCard() {
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => PresetCommandsPage(
-              onSelect: (command) => setInputText(command),
-            ),
-          ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF5B7FD4), Color(0xFF7C3AED)],
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            // 左侧图标
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.tips_and_updates_outlined,
-                  size: 22, color: Colors.white),
-            ),
-            const SizedBox(width: 12),
-            // 中间标题和小字
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '试试像这样给我下指令',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '正确的、完整的指令会得到更好的结果',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withOpacity(0.8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // 右侧箭头
-            const Icon(Icons.arrow_forward_ios,
-                size: 16, color: Colors.white70),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildInputBar() {
     return ChatInputBar(
       controller: _controller,
@@ -1015,16 +951,9 @@ class HomeTabState extends State<HomeTab> {
       },
       onAddAttachment: _showAttachmentSheet,
       onSend: _send,
-      onConnectComputer: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('连接电脑功能开发中')),
-        );
-      },
-      onSkillSelect: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('技能选择功能开发中')),
-        );
-      },
+      onQuickCommand: _openPresetCommands,
+      // 原顶栏魔法星星的能力：提炼当前对话为记忆（本 State 自身的方法）
+      onExtractMemory: extractToMemory,
     );
   }
 }

@@ -3,7 +3,7 @@
 /// 直接作为「懂你」Tab 的首页，不再是从卡片进入的二级页面：
 /// 进入即对话，与职管家 AI 对话完成各类任务。
 /// 左上角：双横杠菜单（划出历史会话抽屉）
-/// 右上角：提炼为记忆 + 新建对话
+/// 右上角：新建对话（提炼记忆在输入栏）
 /// 主体：HomeTab（对话内容 + 输入栏）
 library;
 
@@ -192,14 +192,9 @@ class _ChatPageState extends State<ChatPage> {
             ],
           ),
         ),
-        // 右上角：提炼为记忆 + 新建对话
+        // 右上角：新建对话
+        // （「提炼为记忆」已下移到输入栏按钮，见 chat_input_bar）
         actions: [
-          IconButton(
-            icon: const Icon(Icons.auto_awesome, size: 22),
-            onPressed: () => _homeTabKey.currentState?.extractToMemory(),
-            tooltip: '提炼为记忆',
-          ),
-          const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.edit, size: 22),
             onPressed: () => _homeTabKey.currentState?.newConversation(),

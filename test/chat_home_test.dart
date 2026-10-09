@@ -2,7 +2,8 @@
 ///
 /// 改造后「懂你」Tab 自身即对话首页（Agent 模式），不再是从卡片进入的二级页：
 /// 1. 左上角**没有返回箭头**（已是顶层页面）；
-/// 2. 顶栏标题为「职管家」，左侧双横杠菜单、右侧「提炼为记忆 / 新建对话」齐备；
+/// 2. 顶栏标题为「职管家」，左侧双横杠菜单、右侧「新建对话」；
+///    输入栏上方为「快捷指令 / 提炼记忆」两个按钮；
 /// 3. 主体是同一条对话链（消息区 + 输入栏）；
 /// 4. 首页不再出现已下线的「洞察」与「专业智能体」。
 library;
@@ -147,11 +148,20 @@ void main() {
       expect(find.byTooltip('返回'), findsNothing);
     });
 
-    testWidgets('顶栏保留菜单与「提炼为记忆 / 新建对话」', (tester) async {
+    testWidgets('顶栏保留「新建对话」（提炼记忆已下移到输入栏）', (tester) async {
       await _pumpHome(tester);
 
-      expect(find.byTooltip('提炼为记忆'), findsOneWidget);
       expect(find.byTooltip('新建对话'), findsOneWidget);
+      expect(find.byTooltip('提炼为记忆'), findsNothing, reason: '顶栏魔法星星已移入输入栏');
+    });
+
+    testWidgets('输入栏上方是「快捷指令」与「提炼记忆」两个按钮', (tester) async {
+      await _pumpHome(tester);
+
+      expect(find.text('快捷指令'), findsOneWidget);
+      expect(find.text('提炼记忆'), findsOneWidget);
+      expect(find.text('连接电脑'), findsNothing, reason: '旧按钮已替换');
+      expect(find.text('技能选择'), findsNothing, reason: '旧按钮已替换');
     });
 
     testWidgets('主体是对话区：消息区 + 输入栏', (tester) async {
