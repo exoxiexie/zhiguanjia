@@ -56,6 +56,9 @@ class SyncEngine {
   /// 否则"一条消息触发的同步"可能被在途同步挡掉，变更要等到下次 App 启动才发出去。
   static bool _rerunRequested = false;
 
+  /// 已排定但尚未结束的"补跑"（测试收尾时用它判断是否还有后台写库）
+  static bool _rerunScheduled = false;
+
   /// 节流时间按账号记录（换账号后新账号应立即同步，而不是等满 45 秒）
   static final Map<String, DateTime> _lastSyncAt = <String, DateTime>{};
 
@@ -168,7 +171,8 @@ class SyncEngine {
       _syncing = false;
       if (_rerunRequested) {
         _rerunRequested = false;
-        unawaited(sync()); // 补跑：把被挡掉的那次变更补上
+        _rerunScheduled = true;
+        unawaited(sync().whenComplete(() => _rerunScheduled = false)); // 补跑
       }
     }
   }
@@ -640,12 +644,21 @@ class SyncEngine {
     };
   }
 
+  /// 等待所有同步（含补跑）结束 —— 测试收尾用，避免后台仍在写库
+  static Future<void> waitForIdle({int maxRounds = 100}) async {
+    for (var i = 0; i < maxRounds; i++) {
+      if (!_syncing && !_rerunScheduled) return;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+  }
+
   /// 仅测试使用：重置节流与进行中标记
   @visibleForTesting
   static void resetForTest() {
     _lastSyncAt.clear();
     _syncing = false;
     _rerunRequested = false;
+    _rerunScheduled = false;
     lastSyncAt = null;
     lastPushError = '';
     lastPullError = '';

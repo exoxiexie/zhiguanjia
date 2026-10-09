@@ -17,6 +17,7 @@ import '../../contracts/chat_session_service.dart';
 import '../../core/di/service_locator.dart';
 import '../agent/agent_service_impl.dart';
 import '../chat/attachment_parser.dart';
+import '../common/app_snack_bar.dart';
 import '../chat/chat_input_bar.dart';
 import '../chat/identity_question.dart';
 import '../chat/message_action_bar.dart';
@@ -49,6 +50,7 @@ class HomeTabState extends State<HomeTab> {
     super.initState();
     // S-3：监听云端变更，另一台设备的新对话/新消息能自动出现
     SyncEngine.remoteChanges.addListener(_onRemoteChanges);
+    _scrollController.addListener(_onScroll);
     _initSessionService();
   }
 
@@ -309,6 +311,18 @@ class HomeTabState extends State<HomeTab> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
 
+  /// 对话内容是否已滑到（接近）底部；false 时右下角显示"回到底部"箭头
+  bool _atBottom = true;
+
+  /// 滚动监听：维护"是否在底部"，用于显隐回到底部箭头
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    // 距底部 48px 以内都算"在底部"，避免手指微抖导致箭头闪烁
+    final atBottom = pos.maxScrollExtent - pos.pixels < 48;
+    if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
+  }
+
   /// 打开预设指令列表（原「对话区顶部卡片」的能力，现由输入栏「快捷指令」按钮触发）
   void _openPresetCommands() {
     Navigator.of(context).push(
@@ -346,6 +360,7 @@ class HomeTabState extends State<HomeTab> {
   @override
   void dispose() {
     SyncEngine.remoteChanges.removeListener(_onRemoteChanges);
+    _scrollController.removeListener(_onScroll);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -858,6 +873,28 @@ class HomeTabState extends State<HomeTab> {
     );
   }
 
+  /// 右下角「回到底部」圆形按钮
+  Widget _buildScrollToBottomButton() {
+    return Material(
+      color: Colors.white,
+      elevation: 2,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: _scrollToBottom,
+        child: const SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 24,
+            color: Color(0xCC1A1B1C),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -875,9 +912,28 @@ class HomeTabState extends State<HomeTab> {
     return Column(
       children: [
         Expanded(
-          child: _messages.isEmpty && !_isLoading
-              ? _buildEmptyState()
-              : _buildMessageList(),
+          child: Stack(
+            children: <Widget>[
+              Positioned.fill(
+                child: _messages.isEmpty && !_isLoading
+                    ? _buildEmptyState()
+                    : _buildMessageList(),
+              ),
+              // 内容未在底部时，右下角浮出"回到底部"箭头（在则淡出且不拦截点击）
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: IgnorePointer(
+                  ignoring: _atBottom,
+                  child: AnimatedOpacity(
+                    opacity: _atBottom ? 0 : 1,
+                    duration: const Duration(milliseconds: 150),
+                    child: _buildScrollToBottomButton(),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         _buildInputBar(),
       ],
@@ -930,9 +986,13 @@ class HomeTabState extends State<HomeTab> {
         final msg = _messages[msgIndex];
         return _MessageBubble(
           message: msg,
-          // 已在会话里的 AI 回复才可「分叉」；流式中的气泡不挂（见上面分支）
+          // 已在会话里的 AI 回复才可「分叉 / 提炼」；流式中的气泡不挂（见上面分支）
           onFork: msg.role == 'assistant'
               ? () => forkConversation(msgIndex)
+              : null,
+          onExtract: msg.role == 'assistant'
+              // 占位：真实提炼能力下个版本接入
+              ? () => showAppSnackBar(context, '「提炼」即将上线，敬请期待')
               : null,
         );
       },
@@ -965,7 +1025,10 @@ class _MessageBubble extends StatelessWidget {
   /// 点「分叉」的回调；为 null 时不显示该按钮（用户消息、流式中气泡）
   final VoidCallback? onFork;
 
-  const _MessageBubble({required this.message, this.onFork});
+  /// 点「提炼」的回调；为 null 时不显示（排在「分叉」之后）
+  final VoidCallback? onExtract;
+
+  const _MessageBubble({required this.message, this.onFork, this.onExtract});
 
   @override
   Widget build(BuildContext context) {
@@ -1016,6 +1079,7 @@ class _MessageBubble extends StatelessWidget {
                 content: message.content,
                 source: '通用对话',
                 onFork: onFork,
+                onExtract: onExtract,
               ),
           ],
         ),

@@ -12,6 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zhiguanjia/contracts/chat_service.dart';
+import 'package:zhiguanjia/features/chat/message_action_bar.dart';
+import 'package:zhiguanjia/features/chat/preset_commands_page.dart';
 import 'package:zhiguanjia/contracts/chat_session_service.dart';
 import 'package:zhiguanjia/core/di/service_locator.dart';
 import 'package:zhiguanjia/features/chat/chat_input_bar.dart';
@@ -227,6 +229,111 @@ void main() {
       expect(svc.currentMessages.length, 2,
           reason: '新会话应复制分叉点（含）之前的全部消息');
       expect(svc.conversations[1].messages.length, 2, reason: '原会话保持不变');
+    });
+  });
+
+  group('气泡操作条：分叉与提炼', () {
+    testWidgets('AI 回复挂「分叉 + 提炼」，用户气泡都不挂', (tester) async {
+      final svc = _FakeSessionService()
+        ..seed(const <ChatMessage>[
+          ChatMessage(role: 'user', content: '帮我改简历'),
+          ChatMessage(role: 'assistant', content: '好的，请把简历发我'),
+        ]);
+      sl.reset();
+      sl.register<ChatSessionService>(svc);
+
+      await _pumpHome(tester);
+
+      expect(find.text('分叉'), findsOneWidget);
+      expect(find.text('提炼'), findsOneWidget, reason: '提炼排在分叉之后');
+      // 两个按钮同属 AI 气泡操作条
+      expect(find.byType(MessageActionBar), findsOneWidget);
+    });
+
+    testWidgets('点「提炼」当前为占位提示（功能下个版本接入）', (tester) async {
+      final svc = _FakeSessionService()
+        ..seed(const <ChatMessage>[
+          ChatMessage(role: 'user', content: '帮我改简历'),
+          ChatMessage(role: 'assistant', content: '好的，请把简历发我'),
+        ]);
+      sl.reset();
+      sl.register<ChatSessionService>(svc);
+
+      await _pumpHome(tester);
+      await tester.tap(find.text('提炼'));
+      await tester.pump();
+
+      expect(find.text('「提炼」即将上线，敬请期待'), findsOneWidget);
+    });
+  });
+
+  group('输入栏胶囊按钮', () {
+    testWidgets('点「快捷指令」打开预设指令列表', (tester) async {
+      await _pumpHome(tester);
+
+      await tester.tap(find.text('快捷指令'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PresetCommandsPage), findsOneWidget);
+    });
+
+    testWidgets('两个按钮为胶囊底（圆角 16 + 浅底），不再是"图标+文字"', (tester) async {
+      await _pumpHome(tester);
+
+      for (final label in <String>['快捷指令', '提炼记忆']) {
+        final pill = find.ancestor(
+          of: find.text(label),
+          matching: find.byType(Container),
+        );
+        expect(pill, findsWidgets, reason: label + ' 应在胶囊容器内');
+        final box = tester.widget<Container>(pill.first);
+        final deco = box.decoration as BoxDecoration;
+        expect(deco.color, const Color(0x0F000000), reason: label + ' 胶囊底色');
+        expect((deco.borderRadius as BorderRadius).topLeft.x, 16,
+            reason: label + ' 胶囊圆角');
+      }
+    });
+  });
+
+  group('回到底部箭头', () {
+    testWidgets('滑离底部时浮出箭头，点击后回到底部并隐藏', (tester) async {
+      final svc = _FakeSessionService()
+        ..seed(List<ChatMessage>.generate(
+          30,
+          (i) => ChatMessage(
+            role: i.isEven ? 'user' : 'assistant',
+            content: '第 $i 条较长内容，用于把列表撑到可滚动高度，确保能滑离底部。',
+          ),
+        ));
+      sl.reset();
+      sl.register<ChatSessionService>(svc);
+
+      await _pumpHome(tester);
+
+      double arrowOpacity() {
+        final f = find.ancestor(
+          of: find.byIcon(Icons.keyboard_arrow_down_rounded),
+          matching: find.byType(AnimatedOpacity),
+        );
+        return tester.widget<AnimatedOpacity>(f.first).opacity;
+      }
+
+      expect(arrowOpacity(), 0, reason: '初始在底部：箭头隐藏');
+
+      // 直接驱动滚动（气泡里的 SelectableText 会吞掉拖拽手势，
+      // 用控制器位移同样会触发滚动监听，验证的是同一套显隐逻辑）
+      final controller =
+          tester.widget<ListView>(find.byType(ListView)).controller!;
+      expect(controller.position.maxScrollExtent, greaterThan(0),
+          reason: '用例前提：列表可滚动');
+      controller.jumpTo(controller.position.maxScrollExtent - 400);
+      await tester.pumpAndSettle();
+      expect(arrowOpacity(), 1, reason: '滑离底部后箭头出现');
+
+      // 点箭头 → 回到底部
+      await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
+      await tester.pumpAndSettle();
+      expect(arrowOpacity(), 0, reason: '回到最底部后箭头自动隐藏');
     });
   });
 }

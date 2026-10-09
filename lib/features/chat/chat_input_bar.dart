@@ -151,14 +151,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _buildFeatureButton(
-                      icon: Icons.tips_and_updates_outlined,
+                    _buildPillButton(
                       label: '快捷指令',
                       onTap: widget.onQuickCommand,
                     ),
                     const SizedBox(width: 8),
-                    _buildFeatureButton(
-                      icon: Icons.auto_awesome,
+                    _buildPillButton(
                       label: '提炼记忆',
                       onTap: widget.onExtractMemory,
                     ),
@@ -239,25 +237,24 @@ class _ChatInputBarState extends State<ChatInputBar> {
     );
   }
 
-  Widget _buildFeatureButton({
-    required IconData icon,
+  /// 顶部胶囊按钮：与模型选择器**同一套胶囊底**（圆角 16 + 极浅底色），
+  /// 三个控件视觉统一；文字 12px、左右内边距 12、按钮间距 8。
+  Widget _buildPillButton({
     required String label,
     required VoidCallback? onTap,
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: const Color(0x991A1B1C)),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: Color(0xCC1A1B1C)),
-            ),
-          ],
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0x0F000000),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Color(0xCC1A1B1C)),
         ),
       ),
     );

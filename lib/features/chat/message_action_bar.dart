@@ -25,11 +25,16 @@ class MessageActionBar extends StatefulWidget {
   /// （收藏列表页 / 详情页复用本组件时不需要分叉）。
   final VoidCallback? onFork;
 
+  /// 点「提炼」的回调，排在「分叉」之后。
+  /// 传 null 则不显示 —— 目前仅对话气泡传占位实现（功能下个版本落地）。
+  final VoidCallback? onExtract;
+
   const MessageActionBar({
     super.key,
     required this.content,
     required this.source,
     this.onFork,
+    this.onExtract,
   });
 
   @override
@@ -125,6 +130,15 @@ class _MessageActionBarState extends State<MessageActionBar> {
               icon: Icons.call_split,
               label: '分叉',
               onTap: widget.onFork!,
+            ),
+          ],
+          // 「提炼」：从这条 AI 回复里提炼记忆（当前为占位，功能下个版本实现）
+          if (widget.onExtract != null) ...[
+            const SizedBox(width: 8),
+            MessageActionButton(
+              icon: Icons.auto_awesome_outlined,
+              label: '提炼',
+              onTap: widget.onExtract!,
             ),
           ],
         ],

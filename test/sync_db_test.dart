@@ -117,8 +117,14 @@ void main() {
   });
 
   tearDown(() async {
+    // 先等在途/补跑的同步结束，再关库 —— 否则后台仍会写盘，删目录偶发失败
+    await SyncEngine.waitForIdle();
     await AppDatabase.instance.close();
-    if (await tempRoot.exists()) await tempRoot.delete(recursive: true);
+    try {
+      if (await tempRoot.exists()) await tempRoot.delete(recursive: true);
+    } catch (_) {
+      // 清理由系统临时目录兜底，不影响测试结论
+    }
   });
 
   Future<void> seedLocal() async {
