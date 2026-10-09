@@ -57,3 +57,7 @@ tools/bin/
 # 本机 Android/Flutter SDK 路径（每台机器不同，不提交）
 android/local.properties
 **/local.properties
+
+# 静态站构建产物与预览截图（源文件进仓库，产物不进）
+site/dist/
+site/preview/
