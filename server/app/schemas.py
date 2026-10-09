@@ -203,3 +203,19 @@ class SyncPushRequest(BaseModel):
     memories: list[MemoryPush] = Field(default_factory=list)
     search_items: list[SearchItemPush] = Field(default_factory=list)
     deleted: SyncDeleted = Field(default_factory=SyncDeleted)
+
+
+# ══════════════════ P5：设备上报（装机量 / 版本分布） ══════════════════
+
+
+class DeviceReportRequest(BaseModel):
+    """App 启动时上报一次设备信息（幂等：同设备重复上报只更新最后活跃）"""
+
+    device_id: str = Field(..., min_length=4, max_length=64)
+    platform: str = Field(default="android", max_length=16)
+    brand: str = Field(default="", max_length=32)
+    model: str = Field(default="", max_length=48)
+    os_version: str = Field(default="", max_length=24)
+    app_version: str = Field(default="", max_length=24)
+    version_code: int = 0
+    channel: str = Field(default="", max_length=24)

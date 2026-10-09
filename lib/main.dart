@@ -9,11 +9,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'contracts/agent_service.dart';
+import 'contracts/app_api.dart';
 import 'contracts/chat_service.dart';
 import 'contracts/chat_session_service.dart';
 import 'core/di/service_locator.dart';
 import 'features/agent/agent_service_impl.dart';
 import 'features/api/api_client.dart';
+import 'features/app/app_config_service.dart';
+import 'features/app/force_update_page.dart';
 import 'features/blog/content_sync.dart';
 import 'features/data/profile_sync.dart';
 import 'features/chat/chat_service_impl.dart';
@@ -93,12 +96,61 @@ class _AuthGateState extends State<AuthGate> {
   late final AgentService _agentService;
   late final Future<bool> _loggedInFuture;
 
+  /// 启动检查结果（服务端下发配置：公告 / 强制更新）
+  StartupCheck? _startup;
+  bool _startupChecked = false;
+
   @override
   void initState() {
     super.initState();
     _chatService = sl.get<ChatService>();
     _agentService = sl.get<AgentService>();
     _loggedInFuture = _checkLogin();
+    unawaited(_runStartupCheck());
+  }
+
+  /// P5：启动检查（公告 / 强制更新）+ 设备上报
+  ///
+  /// 放在 AuthGate 而不是登录后，是因为**公告与强制更新必须在登录页也能生效**；
+  /// 任何网络失败都按"无公告、不强制"处理，不会把用户挡在外面。
+  Future<void> _runStartupCheck() async {
+    final result = await AppConfigService.check();
+    if (!mounted) return;
+    setState(() {
+      _startup = result;
+      _startupChecked = true;
+    });
+
+    if (result.forceUpdate) return; // 强制更新页：不再叠加公告弹窗
+
+    if (result.announcement != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_showAnnouncement(result.announcement!));
+      });
+    }
+
+    // 已在登录态时上报设备（装机量统计）
+    unawaited(AppConfigService.reportDevice());
+  }
+
+  Future<void> _showAnnouncement(AppRemoteConfig cfg) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(cfg.announcementTitle.isEmpty ? '公告' : cfg.announcementTitle),
+        content: SingleChildScrollView(
+          child: Text(cfg.announcementBody,
+              style: const TextStyle(fontSize: 14, height: 1.7)),
+        ),
+        actions: <Widget>[
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('我知道了')),
+        ],
+      ),
+    );
+    await AppConfigService.markAnnouncementSeen(cfg.announcementId);
   }
 
   Future<bool> _checkLogin() async {
@@ -123,6 +175,14 @@ class _AuthGateState extends State<AuthGate> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
+        // 强制更新优先于一切（含未登录场景）
+        if (_startupChecked && (_startup?.forceUpdate ?? false)) {
+          return ForceUpdatePage(
+            config: _startup!.config!,
+            currentVersion: _startup!.currentVersionName,
+          );
+        }
+
         final loggedIn = snapshot.data ?? false;
         return loggedIn
             ? ShellPage(chatService: _chatService, agentService: _agentService)

@@ -1,1 +1,1 @@
-{"versionName":"1.0.40","versionCode":41,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.40/zhiguanjia-v1.0.40.apk","changelog":"修复换设备后历史对话/说说丢失与实名不同步：新增历史数据回填、同步游标按账号隔离、消息拉取幂等、实名改为只上传脱敏号与哈希。"}
+{"versionName":"1.0.41","versionCode":42,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.41/zhiguanjia-v1.0.41.apk","changelog":"新增运营能力：装机量与版本统计、服务端公告与强制更新、个人数据导出与账号注销。"}

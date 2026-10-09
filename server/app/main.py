@@ -17,9 +17,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import settings
 from .db import Base, engine
-from .routers import auth, content, me, profile, sync
+from .routers import auth, config, content, device, me, profile, sync
 
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.5.0"
 
 
 @asynccontextmanager
@@ -83,6 +83,8 @@ app.include_router(me.router)
 app.include_router(profile.router)
 app.include_router(content.router)
 app.include_router(sync.router)
+app.include_router(device.router)
+app.include_router(config.router)
 
 
 def _probe_db() -> bool:

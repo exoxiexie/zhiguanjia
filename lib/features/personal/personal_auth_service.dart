@@ -352,6 +352,14 @@ class PersonalAuthService {
     }
   }
 
+  /// 从本机用户表中移除某账号（注销账号时调用；不触碰服务端）
+  static Future<void> removeLocalAccount(String phone) async {
+    if (phone.isEmpty) return;
+    final users = await getUsers();
+    users.removeWhere((u) => u.phone == phone);
+    await _saveUsers(users);
+  }
+
   /// 退出登录：吊销服务端令牌（尽力而为）+ 清理本机令牌与登录态
   static Future<void> clearAuth() async {
     final refreshToken = await TokenStore.refreshToken();

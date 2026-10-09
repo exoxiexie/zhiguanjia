@@ -47,6 +47,8 @@ class User(Base):
     )
 
     status: Mapped[int] = mapped_column(Integer, default=1)  # 1 正常，0 禁用
+    # 管理员标记：只有管理员能看装机统计等运营数据（避免普通用户看到全站数据）
+    is_admin: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=utcnow, onupdate=utcnow
@@ -417,3 +419,71 @@ class SearchItem(Base):
             "updated_at": self.updated_at or 0,
             "deleted": self.deleted_at is not None,
         }
+
+
+# ══════════════════════ P5：商业能力（装机统计 / 下发配置 / 合规） ══════════════════════
+
+
+class Device(Base):
+    """设备（装机量 / 版本分布 / 活跃统计的底座）
+
+    一台设备一行，按 (user_id, device_id) 唯一；App 每次启动上报一次，
+    服务端做"最后活跃时间"更新，因此**不会重复计数**。
+    """
+
+    __tablename__ = "devices"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
+    device_id: Mapped[str] = mapped_column(String(64), index=True)
+    platform: Mapped[str] = mapped_column(String(16), default="android")
+    brand: Mapped[str] = mapped_column(String(32), default="")
+    model: Mapped[str] = mapped_column(String(48), default="")
+    os_version: Mapped[str] = mapped_column(String(24), default="")
+    app_version: Mapped[str] = mapped_column(String(24), default="")
+    version_code: Mapped[int] = mapped_column(Integer, default=0)
+    channel: Mapped[str] = mapped_column(String(24), default="")
+    first_seen_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=utcnow)
+    last_seen_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=utcnow)
+
+    def to_public(self) -> dict:
+        return {
+            "device_id": self.device_id,
+            "platform": self.platform or "",
+            "brand": self.brand or "",
+            "model": self.model or "",
+            "os_version": self.os_version or "",
+            "app_version": self.app_version or "",
+            "version_code": self.version_code or 0,
+            "first_seen_at": self.first_seen_at.isoformat() if self.first_seen_at else "",
+            "last_seen_at": self.last_seen_at.isoformat() if self.last_seen_at else "",
+        }
+
+
+class AppConfig(Base):
+    """服务端下发配置（单行，id 固定为 1）
+
+    用途：**不发版就能**发公告、强制更新（最低支持版本）、开关功能。
+    """
+
+    __tablename__ = "app_config"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+
+    # 公告：为空表示不显示
+    announcement_title: Mapped[str] = mapped_column(String(120), default="")
+    announcement_body: Mapped[str] = mapped_column(Text, default="")
+    announcement_id: Mapped[str] = mapped_column(String(32), default="")
+    announcement_enabled: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 强制更新：versionCode 低于该值的客户端必须升级（0=不强制）
+    min_version_code: Mapped[int] = mapped_column(Integer, default=0)
+    min_version_name: Mapped[str] = mapped_column(String(24), default="")
+    update_url: Mapped[str] = mapped_column(String(255), default="")
+    update_note: Mapped[str] = mapped_column(Text, default="")
+
+    # 功能开关（JSON，便于扩展）
+    flags_json: Mapped[str] = mapped_column(Text, default="{}")
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=utcnow, onupdate=utcnow
+    )

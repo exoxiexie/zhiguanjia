@@ -5,12 +5,19 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 
+import '../../contracts/app_api.dart';
 import '../../contracts/update_service.dart';
+import '../api/app_api_impl.dart';
+import '../app/local_data_cleaner.dart';
 import '../chat/session_reset.dart';
 import '../common/plain_group.dart';
 import '../data/favorite_store.dart';
@@ -213,6 +220,117 @@ class ProfileTabState extends State<ProfileTab> {
     await PersonalAuthService.updateAvatar(phone: auth.phone, avatarPath: '');
     if (!mounted) return;
     _refreshAuth();
+  }
+
+  /// P5：导出账号数据（服务端打包 JSON → 写入本机文件 → 可打开查看）
+  Future<void> _exportData(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('正在导出…')));
+
+    final res = await const HttpAppApi().exportMyData();
+    if (!mounted) return;
+    if (!res.ok || res.data == null) {
+      messenger.showSnackBar(
+          SnackBar(content: Text(res.error?.message ?? '导出失败，请稍后重试')));
+      return;
+    }
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File(p.join(dir.path,
+          'zhiguanjia-export-${DateTime.now().millisecondsSinceEpoch}.json'));
+      await file.writeAsString(
+          const JsonEncoder.withIndent('  ').convert(res.data));
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('导出成功'),
+          content: Text('已保存到：\n${file.path}',
+              style: const TextStyle(fontSize: 13, height: 1.6)),
+          actions: <Widget>[
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('关闭')),
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                OpenFilex.open(file.path);
+              },
+              child: const Text('打开文件'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(const SnackBar(content: Text('保存文件失败')));
+    }
+  }
+
+  /// P5：注销账号（二次确认 → 服务端删除 → 本机清理 → 回登录页）
+  Future<void> _deleteAccount(BuildContext context) async {
+    final auth = await PersonalAuthService.getAuth();
+    if (auth == null) return;
+    if (!context.mounted) return;
+
+    final step1 = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认注销账号？'),
+        content: const Text(
+            '注销后，服务端与本机的**全部数据**（对话、记忆、档案、说说、收藏等）都会被永久删除，'
+            '且无法恢复。',
+            style: TextStyle(fontSize: 14, height: 1.7)),
+        actions: <Widget>[
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('继续', style: TextStyle(color: Color(0xFFD05656)))),
+        ],
+      ),
+    );
+    if (step1 != true || !context.mounted) return;
+
+    final step2 = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('再次确认'),
+        content: Text('账号 ${auth.phone} 注销后不可恢复，确定继续吗？',
+            style: const TextStyle(fontSize: 14, height: 1.7)),
+        actions: <Widget>[
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('我再想想')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('确认注销',
+                  style: TextStyle(color: Color(0xFFD05656)))),
+        ],
+      ),
+    );
+    if (step2 != true || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final res = await const HttpAppApi().deleteAccount();
+    if (!res.ok) {
+      messenger.showSnackBar(
+          SnackBar(content: Text(res.error?.message ?? '注销失败，请稍后重试')));
+      return;
+    }
+
+    // 服务端已删除 → 清本机：先重置进程级服务账号态，再清该账号数据与登录态
+    final phone = auth.phone;
+    resetUserSessionState();
+    await LocalDataCleaner.purgeAccount(phone);
+    await PersonalAuthService.clearAuth();
+
+    if (!context.mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const PersonalLoginPage()),
+      (route) => false,
+    );
   }
 
   Future<void> _logout(BuildContext context) async {
@@ -509,17 +627,21 @@ class ProfileTabState extends State<ProfileTab> {
                     const SizedBox(height: 12),
                   ],
 
-                  // 分组：设置
+                  // 分组：设置（P5：数据导出 / 账号注销 —— 合规要求）
                   _buildGroup([
                     _ListItem(
-                      icon: Icons.settings_outlined,
-                      iconColor: const Color(0xFF6B7280),
-                      title: '设置',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('设置功能开发中')),
-                        );
-                      },
+                      icon: Icons.download_outlined,
+                      iconColor: const Color(0xFF2563EB),
+                      title: '导出我的数据',
+                      subtitle: '把账号数据导出为文件留存',
+                      onTap: () => _exportData(context),
+                    ),
+                    _ListItem(
+                      icon: Icons.no_accounts_outlined,
+                      iconColor: const Color(0xFFD05656),
+                      title: '注销账号',
+                      subtitle: '永久删除账号与全部数据（不可恢复）',
+                      onTap: () => _deleteAccount(context),
                     ),
                   ]),
                   const SizedBox(height: 12),
