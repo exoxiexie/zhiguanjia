@@ -112,10 +112,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
           children: [
             if (widget.pendingAttachment != null) widget.pendingAttachment!,
             if (widget.showTopBar) ...[
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
+              // 左对齐并铺满整行：**第一个胶囊（模型选择器）与输入框左边缘对齐**，
+              // 后续胶囊向右排开；将来新增按钮超出宽度时横向滑动即可。
+              SizedBox(
+                width: double.infinity,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
                     Container(
                       decoration: BoxDecoration(
                         color: const Color(0x0F000000),
@@ -151,16 +156,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _buildPillButton(
-                      label: '快捷指令',
-                      onTap: widget.onQuickCommand,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildPillButton(
-                      label: '提炼记忆',
-                      onTap: widget.onExtractMemory,
-                    ),
-                  ],
+                      _buildPillButton(
+                        label: '快捷指令',
+                        onTap: widget.onQuickCommand,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildPillButton(
+                        label: '提炼记忆',
+                        onTap: widget.onExtractMemory,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 6),

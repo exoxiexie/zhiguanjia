@@ -10,8 +10,14 @@ library;
 import 'package:flutter/material.dart';
 
 /// 显示一条居中的底部提示
-void showAppSnackBar(BuildContext context, String message) {
-  ScaffoldMessenger.of(context).showSnackBar(
+///
+/// [replace] 为 true 时先**收掉当前提示**再显示 —— 用于"正在处理…"→结果 的替换。
+/// 否则 Flutter 会把新提示**排队**，结果要等前一条 4 秒结束才出现。
+void showAppSnackBar(BuildContext context, String message,
+    {bool replace = false}) {
+  final messenger = ScaffoldMessenger.of(context);
+  if (replace) messenger.removeCurrentSnackBar();
+  messenger.showSnackBar(
     SnackBar(
       content: Text(message, textAlign: TextAlign.center),
     ),

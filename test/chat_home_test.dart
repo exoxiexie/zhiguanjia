@@ -124,6 +124,16 @@ class _FakeSessionService implements ChatSessionService {
 
   @override
   Future<bool> extractToMemory({bool incremental = true}) async => true;
+
+  /// 记录单条提炼的调用内容（供断言）
+  final List<String> extractedMessages = <String>[];
+  bool extractMessageResult = true;
+
+  @override
+  Future<bool> extractMessageToMemory(String content) async {
+    extractedMessages.add(content);
+    return extractMessageResult;
+  }
 }
 
 Future<void> _pumpHome(WidgetTester tester) async {
@@ -250,7 +260,7 @@ void main() {
       expect(find.byType(MessageActionBar), findsOneWidget);
     });
 
-    testWidgets('点「提炼」当前为占位提示（功能下个版本接入）', (tester) async {
+    testWidgets('点「提炼」把这一条输出提炼进对话记忆（单条提炼）', (tester) async {
       final svc = _FakeSessionService()
         ..seed(const <ChatMessage>[
           ChatMessage(role: 'user', content: '帮我改简历'),
@@ -261,9 +271,27 @@ void main() {
 
       await _pumpHome(tester);
       await tester.tap(find.text('提炼'));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      expect(find.text('「提炼」即将上线，敬请期待'), findsOneWidget);
+      expect(svc.extractedMessages, <String>['好的，请把简历发我'],
+          reason: '只提炼这一条 AI 输出，不触发会话级提炼');
+      expect(find.text('已提炼到「对话记忆」'), findsOneWidget);
+    });
+
+    testWidgets('单条提炼失败时如实提示原因', (tester) async {
+      final svc = _FakeSessionService()
+        ..seed(const <ChatMessage>[
+          ChatMessage(role: 'assistant', content: '这条没什么可提炼的'),
+        ])
+        ..extractMessageResult = false;
+      sl.reset();
+      sl.register<ChatSessionService>(svc);
+
+      await _pumpHome(tester);
+      await tester.tap(find.text('提炼'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('提炼失败'), findsOneWidget);
     });
   });
 
@@ -275,6 +303,22 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(PresetCommandsPage), findsOneWidget);
+    });
+
+    testWidgets('胶囊行左对齐：第一个胶囊与输入框左边缘对齐，不是居中', (tester) async {
+      await _pumpHome(tester);
+
+      // 第一个胶囊是模型选择器（DropdownButton）
+      final firstPill = find.byType(DropdownButton<ChatModel>);
+      final pillLeft = tester.getTopLeft(firstPill).dx;
+      final inputLeft = tester.getTopLeft(find.byType(TextField)).dx;
+
+      expect((pillLeft - inputLeft).abs(), lessThan(24),
+          reason: '模型选择器应与输入框左对齐（实际 pill=$pillLeft, input=$inputLeft）');
+      expect(pillLeft, lessThan(60), reason: '不得整体居中');
+      // 第二个胶囊在第一个右侧
+      expect(tester.getTopLeft(find.text('快捷指令')).dx,
+          greaterThan(tester.getTopRight(firstPill).dx - 1));
     });
 
     testWidgets('两个按钮为胶囊底（圆角 16 + 浅底），不再是"图标+文字"', (tester) async {

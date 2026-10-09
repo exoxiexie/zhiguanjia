@@ -873,6 +873,26 @@ class HomeTabState extends State<HomeTab> {
     );
   }
 
+  /// 单条提炼：把这一条 AI 输出提炼进「对话记忆」（与会话级提炼同一份数据）
+  Future<void> _extractOneMessage(String content) async {
+    showAppSnackBar(context, '正在提炼这条内容…');
+    try {
+      final ok = await _sessionService.extractMessageToMemory(content);
+      if (!mounted) return;
+      if (ok) {
+        showAppSnackBar(context, '已提炼到「对话记忆」', replace: true);
+      } else {
+        showAppSnackBar(
+          context,
+          '提炼失败：${MemoryDistiller.lastError ?? '这条内容没有可提炼的信息'}',
+          replace: true,
+        );
+      }
+    } catch (e) {
+      if (mounted) showAppSnackBar(context, '提炼失败：$e', replace: true);
+    }
+  }
+
   /// 右下角「回到底部」圆形按钮
   Widget _buildScrollToBottomButton() {
     return Material(
@@ -990,9 +1010,9 @@ class HomeTabState extends State<HomeTab> {
           onFork: msg.role == 'assistant'
               ? () => forkConversation(msgIndex)
               : null,
+          // 单条提炼：只提炼这一条输出，写入同一份「对话记忆」
           onExtract: msg.role == 'assistant'
-              // 占位：真实提炼能力下个版本接入
-              ? () => showAppSnackBar(context, '「提炼」即将上线，敬请期待')
+              ? () => _extractOneMessage(msg.content)
               : null,
         );
       },

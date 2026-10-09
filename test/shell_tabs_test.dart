@@ -96,6 +96,9 @@ class _FakeSessionService implements ChatSessionService {
 
   @override
   Future<bool> extractToMemory({bool incremental = true}) async => true;
+
+  @override
+  Future<bool> extractMessageToMemory(String content) async => true;
 }
 
 Future<void> _pumpShell(WidgetTester tester) async {

@@ -393,6 +393,37 @@ class ChatSessionServiceImpl implements ChatSessionService {
   }
 
   @override
+  @override
+  Future<bool> extractMessageToMemory(String content) async {
+    if (_tenantId == null || !_ready) return false;
+    final text = content.trim();
+    if (text.isEmpty) return false;
+    try {
+      final all =
+          await _messageDao.findBySession(_conversations[_currentIndex].id);
+      // 从后往前找最新一条同内容的消息（界面层 ChatMessage 不带 id）
+      MessageEntity? target;
+      for (var i = all.length - 1; i >= 0; i--) {
+        if (all[i].content.trim() == text) {
+          target = all[i];
+          break;
+        }
+      }
+      if (target == null) return false;
+
+      final role = target.role == 'user' ? '用户' : '职管家';
+      // 单条提炼：只提炼这一条，不动增量提炼进度指针
+      return await MemoryDistiller.distillAndSave(
+        tenantId: _tenantId!,
+        conversationText: '【$role】${target.content}',
+        forceSave: true,
+        source: '单条提炼',
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> extractToMemory({bool incremental = true}) async {
     if (_tenantId == null || !_ready) return false;
     final sessionId = _conversations[_currentIndex].id;

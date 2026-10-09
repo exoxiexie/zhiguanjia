@@ -91,4 +91,14 @@ abstract class ChatSessionService {
   /// 为 false 时，提炼全部消息。
   /// 返回 true 表示提炼成功并保存了记忆，false 表示提炼失败或无值得记忆的内容。
   Future<bool> extractToMemory({bool incremental = true});
+
+  /// 把**单条消息**提炼为记忆（AI 气泡上的「提炼」按钮）。
+  ///
+  /// 与会话级 [extractToMemory] 的区别：
+  /// - 只提炼这一条内容，**不改变会话的增量提炼进度指针**
+  /// - 提炼结果写入**同一份「对话记忆」**（数据页可见）
+  ///
+  /// 按内容定位消息（界面层 [ChatMessage] 不带 id）：取当前会话中**最新**一条
+  /// 内容相同且角色一致的消息。
+  Future<bool> extractMessageToMemory(String content);
 }
