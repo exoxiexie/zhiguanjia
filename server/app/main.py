@@ -17,9 +17,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import settings
 from .db import Base, engine
-from .routers import auth, me, profile
+from .routers import auth, content, me, profile, sync
 
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 
 
 @asynccontextmanager
@@ -81,6 +81,8 @@ async def _validation_error_handler(
 app.include_router(auth.router)
 app.include_router(me.router)
 app.include_router(profile.router)
+app.include_router(content.router)
+app.include_router(sync.router)
 
 
 def _probe_db() -> bool:
@@ -124,6 +126,8 @@ async def index() -> JSONResponse:
             "auth": ["/auth/register", "/auth/login", "/auth/refresh", "/auth/logout"],
             "me": "/me",
             "profile": "/profile",
+            "content": "/content",
+            "sync": "/sync",
             "hint": "本服务通过 /api/ 对外提供，请访问 /api/health",
         }
     )

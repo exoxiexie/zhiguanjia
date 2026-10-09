@@ -175,3 +175,245 @@ class Experience(Base):
             "created_at": self.created_at or 0,
             "updated_at": self.updated_at or 0,
         }
+
+
+# ══════════════════════ P3：内容（说说 / 收藏 / 关注） ══════════════════════
+
+
+class BlogPost(Base):
+    """说说 / 博客文章
+
+    与 App 端 BlogPost 对齐；`images_json` 存图片地址列表
+    （本机路径或上传后的服务端 URL），因此换手机后配图也能显示。
+    """
+
+    __tablename__ = "posts"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    content: Mapped[str] = mapped_column(Text, default="")
+    images_json: Mapped[str] = mapped_column(Text, default="[]")
+    author_phone: Mapped[str] = mapped_column(String(20), default="")
+    author_name: Mapped[str] = mapped_column(String(64), default="")
+    author_avatar_path: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    updated_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    seq: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
+
+    def to_public(self) -> dict:
+        import json as _json
+
+        try:
+            images = _json.loads(self.images_json or "[]")
+        except Exception:  # noqa: BLE001
+            images = []
+        return {
+            "id": self.id,
+            "title": self.title or "",
+            "content": self.content or "",
+            "images": [str(x) for x in images] if isinstance(images, list) else [],
+            "author_phone": self.author_phone or "",
+            "author_name": self.author_name or "",
+            "author_avatar_path": self.author_avatar_path or "",
+            "created_at": self.created_at or 0,
+            "updated_at": self.updated_at or 0,
+        }
+
+
+class Favorite(Base):
+    """收藏（对话内容 / 回答 / 资料）"""
+
+    __tablename__ = "favorites"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
+    content: Mapped[str] = mapped_column(Text, default="")
+    source: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+
+    def to_public(self) -> dict:
+        return {
+            "id": self.id,
+            "content": self.content or "",
+            "source": self.source or "",
+            "created_at": self.created_at or 0,
+        }
+
+
+class Follow(Base):
+    """关注关系（谁关注了谁的手机号）"""
+
+    __tablename__ = "follows"
+
+    # 复合主键：user_id + target_phone（同一对关系只有一条）
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), primary_key=True
+    )
+    target_phone: Mapped[str] = mapped_column(String(20), primary_key=True)
+    created_at: Mapped[int] = mapped_column(BigInteger, default=0)
+
+
+# ══════════════════════ P4：对话同步（增量 + 游标） ══════════════════════
+
+
+class UserSyncState(Base):
+    """每个用户的同步游标
+
+    为什么需要"按用户分配 seq"而不是用自增主键：
+    增量同步要求**同一用户内严格单调递增**，而全局自增主键会因其他用户的
+    写入产生空洞、且不同表的自增互不可比。这里用一个计数器统一分配，
+    客户端只存一个 `since` 就能拉全所有表的增量。
+    """
+
+    __tablename__ = "user_sync_state"
+
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), primary_key=True
+    )
+    last_seq: Mapped[int] = mapped_column(BigInteger, default=0)
+
+
+class Conversation(Base):
+    """会话"""
+
+    __tablename__ = "conversations"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    business_tag: Mapped[str] = mapped_column(String(32), default="")
+    message_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_extracted_message_id: Mapped[str] = mapped_column(String(128), default="")
+    created_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    updated_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    seq: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
+
+    def to_public(self) -> dict:
+        return {
+            "id": self.id,
+            "title": self.title or "",
+            "business_tag": self.business_tag or "",
+            "message_count": self.message_count or 0,
+            "last_extracted_message_id": self.last_extracted_message_id or "",
+            "created_at": self.created_at or 0,
+            "updated_at": self.updated_at or 0,
+            "deleted": self.deleted_at is not None,
+        }
+
+
+class Message(Base):
+    """消息"""
+
+    __tablename__ = "messages"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
+    conversation_id: Mapped[str] = mapped_column(String(64), index=True)
+    role: Mapped[str] = mapped_column(String(16), default="user")
+    content: Mapped[str] = mapped_column(Text, default="")
+    attachment_type: Mapped[str] = mapped_column(String(16), default="")
+    attachment_path: Mapped[str] = mapped_column(String(512), default="")
+    created_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    seq: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
+
+    def to_public(self) -> dict:
+        return {
+            "id": self.id,
+            "conversation_id": self.conversation_id,
+            "role": self.role or "user",
+            "content": self.content or "",
+            "attachment_type": self.attachment_type or "",
+            "attachment_path": self.attachment_path or "",
+            "created_at": self.created_at or 0,
+            "deleted": self.deleted_at is not None,
+        }
+
+
+class Memory(Base):
+    """对话记忆（从会话中提炼）"""
+
+    __tablename__ = "memories"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    content: Mapped[str] = mapped_column(Text, default="")
+    tags_json: Mapped[str] = mapped_column(Text, default="[]")
+    weight: Mapped[int] = mapped_column(Integer, default=50)
+    category: Mapped[str] = mapped_column(String(32), default="")
+    source: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    updated_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    seq: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
+
+    def to_public(self) -> dict:
+        import json as _json
+
+        try:
+            tags = _json.loads(self.tags_json or "[]")
+        except Exception:  # noqa: BLE001
+            tags = []
+        return {
+            "id": self.id,
+            "title": self.title or "",
+            "content": self.content or "",
+            "tags": [str(x) for x in tags] if isinstance(tags, list) else [],
+            "weight": self.weight or 50,
+            "category": self.category or "",
+            "source": self.source or "",
+            "created_at": self.created_at or 0,
+            "updated_at": self.updated_at or 0,
+            "deleted": self.deleted_at is not None,
+        }
+
+
+class SearchItem(Base):
+    """联网搜索沉淀"""
+
+    __tablename__ = "search_items"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    content: Mapped[str] = mapped_column(Text, default="")
+    search_query: Mapped[str] = mapped_column(String(300), default="")
+    source: Mapped[str] = mapped_column(String(64), default="")
+    category: Mapped[str] = mapped_column(String(32), default="")
+    weight: Mapped[int] = mapped_column(Integer, default=30)
+    tags_json: Mapped[str] = mapped_column(Text, default="[]")
+    sources_json: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    updated_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    seq: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
+
+    def to_public(self) -> dict:
+        import json as _json
+
+        def _load(raw):
+            try:
+                v = _json.loads(raw or "[]")
+                return v if isinstance(v, list) else []
+            except Exception:  # noqa: BLE001
+                return []
+
+        return {
+            "id": self.id,
+            "title": self.title or "",
+            "content": self.content or "",
+            "search_query": self.search_query or "",
+            "source": self.source or "",
+            "category": self.category or "",
+            "weight": self.weight or 30,
+            "tags": [str(x) for x in _load(self.tags_json)],
+            "sources": _load(self.sources_json),
+            "created_at": self.created_at or 0,
+            "updated_at": self.updated_at or 0,
+            "deleted": self.deleted_at is not None,
+        }

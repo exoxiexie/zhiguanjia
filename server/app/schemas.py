@@ -108,3 +108,96 @@ class IdentityRequest(BaseModel):
     gender: str = Field(default="", max_length=8)
     birthday: str = Field(default="", max_length=16)
     province: str = Field(default="", max_length=32)
+
+
+# ══════════════════ P3：内容（说说 / 收藏 / 关注） ══════════════════
+
+
+class PostUpsertRequest(BaseModel):
+    """说说 / 博客（含图片地址列表）"""
+
+    id: str = Field(..., min_length=1, max_length=64)
+    title: str = Field(default="", max_length=200)
+    content: str = Field(default="", max_length=50000)
+    images: list[str] = Field(default_factory=list)
+    created_at: int = 0
+    updated_at: int = 0
+
+
+class FavoriteUpsertRequest(BaseModel):
+    id: str = Field(..., min_length=1, max_length=64)
+    content: str = Field(default="", max_length=50000)
+    source: str = Field(default="", max_length=64)
+    created_at: int = 0
+
+
+class FollowRequest(BaseModel):
+    target_phone: str = Field(..., min_length=1, max_length=20)
+
+
+# ══════════════════ P4：对话同步（增量 + 游标） ══════════════════
+
+
+class ConversationPush(BaseModel):
+    id: str = Field(..., min_length=1, max_length=64)
+    title: str = Field(default="", max_length=200)
+    business_tag: str = Field(default="", max_length=32)
+    message_count: int = 0
+    last_extracted_message_id: str = Field(default="", max_length=128)
+    created_at: int = 0
+    updated_at: int = 0
+
+
+class MessagePush(BaseModel):
+    id: str = Field(..., min_length=1, max_length=128)
+    conversation_id: str = Field(..., min_length=1, max_length=64)
+    role: str = Field(default="user", max_length=16)
+    content: str = Field(default="", max_length=200000)
+    attachment_type: str = Field(default="", max_length=16)
+    attachment_path: str = Field(default="", max_length=512)
+    created_at: int = 0
+
+
+class MemoryPush(BaseModel):
+    id: str = Field(..., min_length=1, max_length=128)
+    title: str = Field(default="", max_length=200)
+    content: str = Field(default="", max_length=200000)
+    tags: list[str] = Field(default_factory=list)
+    weight: int = 50
+    category: str = Field(default="", max_length=32)
+    source: str = Field(default="", max_length=64)
+    created_at: int = 0
+    updated_at: int = 0
+
+
+class SearchItemPush(BaseModel):
+    id: str = Field(..., min_length=1, max_length=128)
+    title: str = Field(default="", max_length=200)
+    content: str = Field(default="", max_length=200000)
+    search_query: str = Field(default="", max_length=300)
+    source: str = Field(default="", max_length=64)
+    category: str = Field(default="", max_length=32)
+    weight: int = 30
+    tags: list[str] = Field(default_factory=list)
+    sources: list[dict] = Field(default_factory=list)
+    created_at: int = 0
+    updated_at: int = 0
+
+
+class SyncDeleted(BaseModel):
+    """本地删除的记录（软删除同步到云端，避免"这台删了那台又回来"）"""
+
+    conversations: list[str] = Field(default_factory=list)
+    messages: list[str] = Field(default_factory=list)
+    memories: list[str] = Field(default_factory=list)
+    search_items: list[str] = Field(default_factory=list)
+
+
+class SyncPushRequest(BaseModel):
+    """离线补发：一次把攒下的变更全部推上来"""
+
+    conversations: list[ConversationPush] = Field(default_factory=list)
+    messages: list[MessagePush] = Field(default_factory=list)
+    memories: list[MemoryPush] = Field(default_factory=list)
+    search_items: list[SearchItemPush] = Field(default_factory=list)
+    deleted: SyncDeleted = Field(default_factory=SyncDeleted)
