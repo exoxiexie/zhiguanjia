@@ -29,8 +29,8 @@ STATIC = os.path.join(ROOT, "static")
 SITE_URL = "http://8.137.71.241"
 SITE_NAME = "职管家"
 SITE_DESC = "每个人，都值得一个终身陪伴的 AI 职业管家。职业规划、简历优化、求职面试、技能成长、薪酬谈判、职场法律。"
-APP_VERSION = "v1.0.36"
-APP_APK = "zhiguanjia-v1.0.36.apk"
+APP_VERSION = "v1.0.37"
+APP_APK = "zhiguanjia-v1.0.37.apk"
 LATEST_ON_HOME = 3
 
 # 备案期间保持 False（搜索引擎不收录 IP 地址）；域名上线后改成 True 即可
