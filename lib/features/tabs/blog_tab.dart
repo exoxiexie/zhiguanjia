@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import '../blog/blog_editor_page.dart';
 import '../blog/blog_post_card.dart';
 import '../blog/blog_store.dart';
+import '../blog/content_sync.dart';
 import '../blog/follow_store.dart';
 import '../blog/user_profile_page.dart';
 import '../common/app_fab.dart';
@@ -80,6 +81,8 @@ class _BlogTabState extends State<BlogTab> with SingleTickerProviderStateMixin {
 
   /// 一次读取三份数据：推荐流、关注流、我的
   Future<void> _loadPosts() async {
+    // P3：进入说说页先尝试拉取云端内容（节流 + 8 秒超时，失败静默）
+    await ContentSync.pullIfNeeded();
     final feed = await BlogStore.loadFeed();
     final following = await FollowStore.loadFollowingFeed();
     final mine = await BlogStore.loadMyPosts();

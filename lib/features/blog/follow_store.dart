@@ -9,10 +9,13 @@
 /// 说说数据的读写完全不受关注功能影响；接口化时两者也能各自替换。
 library;
 
+import 'dart:async';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../personal/personal_auth_service.dart';
 import 'blog_store.dart';
+import 'content_sync.dart';
 
 class FollowStore {
   /// 每个账号一个存储键（键后缀即账号手机号）
@@ -60,6 +63,15 @@ class FollowStore {
       set.remove(targetPhone);
     }
     await prefs.setStringList(key, set.toList());
+    // P3 起：本地关注成功后尽力上云
+    unawaited(ContentSync.pushFollow(targetPhone, follow));
+  }
+
+  /// 用云端数据覆盖本地缓存（同步层专用，不触发推送）
+  static Future<void> replaceCache(Set<String> following) async {
+    final prefs = await SharedPreferences.getInstance();
+    final me = await _currentPhone();
+    await prefs.setStringList(_keyFor(me), following.toList());
   }
 
   /// 切换关注状态，返回切换**后**的状态

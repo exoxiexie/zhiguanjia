@@ -34,4 +34,10 @@ class ApiConfig {
   // 开发期用 HTTP：Android 已允许明文（AndroidManifest 中
   // usesCleartextTraffic="true"），且当前仅自用，无第三方风险。
   static const String apiBaseUrl = 'http://8.137.71.241/api';
+
+  /// 上传文件（说说配图）的访问前缀
+  ///
+  /// 服务端返回的是相对地址（`/uploads/{用户}/{文件名}`），客户端用本常量拼全。
+  /// TODO(备案): 与 [apiBaseUrl] 同步改为域名（`https://zhidongni.com.cn`）。
+  static const String mediaBaseUrl = 'http://8.137.71.241';
 }

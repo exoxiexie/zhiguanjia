@@ -4,12 +4,14 @@
 /// 存储位置：tenants/{手机号}/memory/*.md
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
 import '../data/data_tags.dart';
 import 'tenant_storage.dart';
+import '../sync/sync_engine.dart';
 
 /// 记忆条目
 class MemoryItem {
@@ -151,7 +153,8 @@ class MemoryStore {
   }
 
   /// 保存记忆（新建或更新）
-  static Future<void> save(String tenantId, MemoryItem item) async {
+  static Future<void> save(String tenantId, MemoryItem item,
+      {bool sync = true}) async {
     final dir = await TenantStorage.getMemoryDir(tenantId);
     final file = File(p.join(dir.path, '${item.id}.md'));
     item.updatedAt = DateTime.now();
@@ -160,14 +163,21 @@ class MemoryStore {
       item.dataTags.set(DataTagDimension.source, [DataSourceTag.chatMemory]);
     }
     await file.writeAsString(item.toFileContent());
+    // P4：本地写入成功后入队，联网时补发到云端
+    if (sync) {
+      unawaited(SyncEngine.enqueueMemory(SyncEngine.memoryToWire(item)));
+    }
   }
 
   /// 删除记忆
-  static Future<void> delete(String tenantId, String id) async {
+  static Future<void> delete(String tenantId, String id,
+      {bool sync = true}) async {
     final dir = await TenantStorage.getMemoryDir(tenantId);
     final file = File(p.join(dir.path, '$id.md'));
     if (await file.exists()) {
       await file.delete();
     }
+    // P4：删除也要同步，否则换手机后记忆会重新出现
+    if (sync) unawaited(SyncEngine.enqueueDeleteMemory(id));
   }
 }

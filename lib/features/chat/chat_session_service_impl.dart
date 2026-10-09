@@ -5,6 +5,8 @@
 /// AI 回复后的自动记忆提炼。UI 层只调用本类，不直接接触 DAO/Entity。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../contracts/chat_service.dart';
@@ -17,6 +19,7 @@ import '../storage/database/dao/session_dao.dart';
 import '../storage/database/models/message_entity.dart';
 import '../storage/database/models/session_entity.dart';
 import '../storage/session_archive.dart';
+import '../sync/sync_engine.dart';
 
 class ChatSessionServiceImpl implements ChatSessionService {
   final SessionDao _sessionDao = SessionDao();
@@ -126,6 +129,8 @@ class ChatSessionServiceImpl implements ChatSessionService {
           createdBy: auth.phone,
         );
         await _sessionDao.insert(session);
+        // P4：本地落库成功后入队，联网时补发到云端
+        unawaited(SyncEngine.enqueueConversation(session.toMap()));
       }
       _ready = true;
     } catch (e) {
@@ -184,14 +189,17 @@ class ChatSessionServiceImpl implements ChatSessionService {
     // 写入数据库
     if (_tenantId != null && _ready) {
       final now = DateTime.now().millisecondsSinceEpoch;
-      await _sessionDao.insert(SessionEntity(
+      final entity = SessionEntity(
         id: newId,
         tenantId: _tenantId!,
         title: '新对话',
         createdAt: now,
         updatedAt: now,
         createdBy: _currentUserPhone,
-      ));
+      );
+      await _sessionDao.insert(entity);
+      // P4：本地落库成功后入队
+      unawaited(SyncEngine.enqueueConversation(entity.toMap()));
     }
     return newId;
   }
@@ -282,6 +290,8 @@ class ChatSessionServiceImpl implements ChatSessionService {
     try {
       await _messageDao.insert(entity);
       await _sessionDao.incrementMessageCount(sessionId);
+      // P4：本地落库成功后入队（消息不可变，服务端按 id 去重）
+      unawaited(SyncEngine.enqueueMessage(entity.toMap()));
     } catch (e) {
       debugPrint('消息持久化失败: $e');
       return;
@@ -301,10 +311,13 @@ class ChatSessionServiceImpl implements ChatSessionService {
     try {
       final session = await _sessionDao.findById(sessionId);
       if (session != null) {
-        await _sessionDao.update(session.copyWith(
+        final updated = session.copyWith(
           title: title,
           updatedAt: DateTime.now().millisecondsSinceEpoch,
-        ));
+        );
+        await _sessionDao.update(updated);
+        // P4：标题变更也要上云，否则换手机后会话名会回到旧值
+        unawaited(SyncEngine.enqueueConversation(updated.toMap()));
       }
     } catch (e) {
       debugPrint('更新会话标题失败: $e');

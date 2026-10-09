@@ -8,6 +8,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../contracts/chat_service.dart';
 import '../data/data_tags.dart';
+import '../sync/sync_engine.dart';
 
 /// 联网搜索数据项
 class SearchDataItem {
@@ -256,6 +258,7 @@ class SearchDataStore {
 
   /// 创建搜索数据（自动沉淀）
   static Future<SearchDataItem> create({
+    bool sync = true,
     required String tenantId,
     required String title,
     required String searchQuery,
@@ -295,12 +298,17 @@ class SearchDataStore {
     );
 
     await file.writeAsString(_serialize(item));
+    // P4：本地写入成功后入队，联网时补发
+    if (sync) {
+      unawaited(SyncEngine.enqueueSearchItem(SyncEngine.searchItemToWire(item)));
+    }
     return item;
   }
 
   /// 更新搜索数据
   static Future<SearchDataItem> update(
-      String tenantId, SearchDataItem item) async {
+      String tenantId, SearchDataItem item,
+      {bool sync = true}) async {
     final dir = await _dir(tenantId);
     // 按 id 精确定位原文件（id 即文件名去扩展名）
     final targetFile = await _resolveFile(dir, item.id);
@@ -314,7 +322,17 @@ class SearchDataStore {
       await File(p.join(dir, '${updated.id}.md'))
           .writeAsString(_serialize(updated));
     }
+    if (sync) {
+      unawaited(
+          SyncEngine.enqueueSearchItem(SyncEngine.searchItemToWire(updated)));
+    }
     return updated;
+  }
+
+  /// 同步层回写用：按 id 原样落盘（不改时间戳、不入队，避免拉下来又推回去）
+  static Future<void> saveRaw(String tenantId, SearchDataItem item) async {
+    final dir = await _dir(tenantId);
+    await File(p.join(dir, '${item.id}.md')).writeAsString(_serialize(item));
   }
 
   /// 只更新权重（列表页快速操作）
@@ -326,11 +344,14 @@ class SearchDataStore {
   }
 
   /// 删除搜索数据
-  static Future<bool> delete(String tenantId, String id) async {
+  static Future<bool> delete(String tenantId, String id,
+      {bool sync = true}) async {
     final dir = await _dir(tenantId);
     final file = await _resolveFile(dir, id);
     if (file == null) return false;
     await file.delete();
+    // P4：删除也要同步，否则换手机后搜索沉淀会重新出现
+    if (sync) unawaited(SyncEngine.enqueueDeleteSearchItem(id));
     return true;
   }
 

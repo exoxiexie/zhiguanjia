@@ -7,6 +7,7 @@
 ///   memory                记忆表
 ///   local_upload_sessions 本地文件沉淀会话表
 ///   local_files           本地文件记录表
+///   outbox                同步发件箱（P4：本地优先后台补发变更）
 ///   {domain}_data         业务域数据表（12 张，三位一体：业务智能体↔标签↔数据表，
 ///                         由 kBusinessDomains 注册表驱动建表，可随注册增长）
 library;
@@ -32,7 +33,7 @@ class AppDatabase {
     final path = await TenantStorage.getDatabasePath(tenantId);
     _db = await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -94,6 +95,16 @@ class AppDatabase {
     await db.execute(
       'CREATE INDEX idx_sessions_tenant_id ON sessions(tenant_id)',
     );
+
+    // 同步发件箱（P4）：本地变更先入队，联网后按 seq 顺序补发
+    await db.execute('''
+      CREATE TABLE outbox (
+        seq INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
 
     // 记忆表
     await db.execute('''
@@ -175,6 +186,18 @@ class AppDatabase {
 
   /// 数据库升级
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 9) {
+      // v8 → v9：同步发件箱（P4）
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS outbox (
+          seq INTEGER PRIMARY KEY AUTOINCREMENT,
+          kind TEXT NOT NULL,
+          payload TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+      ''');
+    }
+
     if (oldVersion < 2) {
       // v1 → v2：添加本地文件沉淀相关表
       await db.execute('''

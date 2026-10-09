@@ -18,11 +18,13 @@
 /// 后续接入后端时，把本类的读写换成接口即可，上层（编辑器 / 列表）无需改动。
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../personal/personal_auth_service.dart';
+import 'content_sync.dart';
 
 /// 博客文章模型
 class BlogPost {
@@ -206,6 +208,42 @@ class BlogStore {
     final list = prefs.getStringList(key) ?? <String>[];
     list.add(jsonEncode(toSave.toJson()));
     await prefs.setStringList(key, list);
+
+    // P3 起：本地发布成功后再尽力上云（含配图上传）
+    unawaited(ContentSync.pushPost(toSave));
+  }
+
+  /// 用云端数据覆盖某个作者的缓存（同步层专用，不触发推送）
+  static Future<void> replaceAuthorCache(
+      String phone, List<BlogPost> posts) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _keyFor(phone),
+      posts.map((p) => jsonEncode(p.toJson())).toList(),
+    );
+  }
+
+  /// 图片上传成功后，把服务端地址写回本地（避免每次拉取重复上传同一张图）
+  static Future<void> updatePostImagesLocal(
+      String authorPhone, String postId, List<String> images) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = _keyFor(authorPhone.isEmpty ? _guestPhone : authorPhone);
+    final raw = prefs.getStringList(key) ?? <String>[];
+    final next = <String>[];
+    for (final e in raw) {
+      try {
+        final map = jsonDecode(e) as Map<String, dynamic>;
+        if (map['id']?.toString() == postId) {
+          map['images'] = images;
+          next.add(jsonEncode(map));
+          continue;
+        }
+      } catch (_) {
+        // 损坏条目原样保留
+      }
+      next.add(e);
+    }
+    await prefs.setStringList(key, next);
   }
 
   /// 用户表：手机号 → 作者资料（昵称 + 头像路径）

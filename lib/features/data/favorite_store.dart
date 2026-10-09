@@ -9,12 +9,14 @@
 /// **去重**：同一段内容重复点「收藏」不产生第二条；气泡按钮据此在「收藏 / 已收藏」间切换。
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../personal/personal_auth_service.dart';
+import '../blog/content_sync.dart';
 
 /// 一条收藏的 AI 输出
 class FavoriteItem {
@@ -124,7 +126,17 @@ class FavoriteStore {
       createdAt: now,
     );
     await prefs.setStringList(key, [...raw, jsonEncode(item.toJson())]);
+    // P3 起：本地收藏成功后尽力上云
+    unawaited(ContentSync.pushFavorite(item));
     return true;
+  }
+
+  /// 用云端数据覆盖本地缓存（同步层专用，不触发推送）
+  static Future<void> replaceCache(List<FavoriteItem> items) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = await _keyFor();
+    await prefs.setStringList(
+        key, items.map((e) => jsonEncode(e.toJson())).toList());
   }
 
   /// 取消收藏（按内容移除，供气泡「已收藏」再点取消）
@@ -133,12 +145,17 @@ class FavoriteStore {
     final key = await _keyFor();
     final raw = prefs.getStringList(key) ?? <String>[];
     final next = <String>[];
+    String? removedId;
     for (final e in raw) {
       final item = _decode(e);
-      if (item != null && item.content == content) continue;
+      if (item != null && item.content == content) {
+        removedId = item.id;
+        continue;
+      }
       next.add(e);
     }
     await prefs.setStringList(key, next);
+    if (removedId != null) unawaited(ContentSync.pushDeleteFavorite(removedId));
   }
 
   /// 删除一条收藏（收藏列表页按 id 删除）
@@ -153,5 +170,6 @@ class FavoriteStore {
       next.add(e);
     }
     await prefs.setStringList(key, next);
+    unawaited(ContentSync.pushDeleteFavorite(id));
   }
 }

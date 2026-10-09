@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 
 import '../personal/user_avatar.dart';
 import 'blog_store.dart';
+import 'post_image.dart';
 
 /// 卡片文字色（与全站保持一致）
 const Color _kTitleColor = Color(0xFF1A1B1C);
@@ -177,11 +178,11 @@ class _PostImages extends StatelessWidget {
     );
   }
 
-  /// 单张图片：统一走 [BoxFit.cover] 填充，加载失败回落占位图标
-  Widget _image(String path, BoxFit fit) => Image.file(
-        File(path),
+  /// 单张图片：本机文件与云端图片统一渲染（P3 起配图可能来自服务端）
+  Widget _image(String path, BoxFit fit) => PostImage(
+        path,
         fit: fit,
-        errorBuilder: (_, __, ___) => Container(
+        placeholder: () => Container(
           color: _kImagePlaceholder,
           alignment: Alignment.center,
           child: const Icon(Icons.broken_image_outlined,
@@ -271,10 +272,10 @@ class _PostImageViewerState extends State<_PostImageViewer> {
           minScale: 1,
           maxScale: 4,
           child: Center(
-            child: Image.file(
-              File(widget.images[i]),
+            child: PostImage(
+              widget.images[i],
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Icon(
+              placeholder: () => const Icon(
                 Icons.broken_image_outlined,
                 color: Colors.white54,
                 size: 48,

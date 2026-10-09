@@ -23,6 +23,7 @@ import '../chat/message_action_bar.dart';
 import '../chat/preset_commands_page.dart';
 import '../memory/memory_distiller.dart';
 import '../personal/personal_auth_service.dart';
+import '../sync/sync_engine.dart';
 import '../personal/personal_model.dart';
 
 // 导出 Conversation 类型，保持 shell_page 等通过 import home_tab 间接访问的兼容性
@@ -51,6 +52,11 @@ class HomeTabState extends State<HomeTab> {
 
   /// 初始化会话服务（获取租户、打开数据库、加载历史会话）
   Future<void> _initSessionService() async {
+    await _sessionService.init();
+    // P4：先补发本地变更、拉取云端增量（需本地库已打开），再重新加载一次，
+    // 这样换手机登录进来说话时，云端已有的会话会直接出现。
+    // 失败静默：离线时照常用本地数据。
+    await SyncEngine.sync();
     await _sessionService.init();
     // 设置个人职业身份上下文（实名认证后作为每次对话的系统提示词）
     await _setupPersonContext();
