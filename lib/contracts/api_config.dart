@@ -24,4 +24,14 @@ class ApiConfig {
   /// 联网搜索接口（Anthropic 兼容格式，web_search 服务器工具）
   static const String anthropicMessagesUrl =
       '$proxyBaseUrl/anthropic/v1/messages';
+
+  // ── 商业版业务 API（P1 起）─────────────────────────────────────────
+  //
+  // 自建于阿里云 ECS（与官网同机），经 Nginx 反代 `/api/` → 本机 8000。
+  //
+  // TODO(备案): 域名 zhidongni.com.cn 备案通过后，把这里改成
+  // `https://zhidongni.com.cn/api` 并启用 HTTPS——**App 侧只改这一处**。
+  // 开发期用 HTTP：Android 已允许明文（AndroidManifest 中
+  // usesCleartextTraffic="true"），且当前仅自用，无第三方风险。
+  static const String apiBaseUrl = 'http://8.137.71.241/api';
 }

@@ -3,6 +3,8 @@
 /// 职责：组装主题、路由与顶层依赖（铁律：入口只做组装，不写业务逻辑）。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -11,6 +13,7 @@ import 'contracts/chat_service.dart';
 import 'contracts/chat_session_service.dart';
 import 'core/di/service_locator.dart';
 import 'features/agent/agent_service_impl.dart';
+import 'features/api/api_client.dart';
 import 'features/chat/chat_service_impl.dart';
 import 'features/chat/chat_session_service_impl.dart';
 import 'features/personal/personal_auth_service.dart';
@@ -98,7 +101,11 @@ class _AuthGateState extends State<AuthGate> {
 
   Future<bool> _checkLogin() async {
     final auth = await PersonalAuthService.getAuth();
-    return auth != null;
+    if (auth == null) return false;
+    // 已登录：后台尽力续期服务端令牌（30 天滑动窗口）。
+    // 不 await、失败也不影响本地登录态——保证断网时仍可正常进入 App。
+    unawaited(ApiClient.ensureFreshSession());
+    return true;
   }
 
   @override

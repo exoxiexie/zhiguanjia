@@ -60,11 +60,12 @@
 ## 二、P1（功能正确性与合规）
 
 ### P1-1 密码与完整身份证号明文落盘，与 README 宣称矛盾
-- **位置**：`lib/features/personal/personal_model.dart:13-15`（注释即写明"明文存储"）、`:71-81`（toJson 原样写出）；`lib/features/personal/personal_auth_service.dart:126-129`（登录态整包落盘）；`android/app/src/main/AndroidManifest.xml`（**未设 `android:allowBackup`，Android 默认 true**）
+- **位置**：`lib/features/personal/personal_model.dart:13-15`（注释即写明"明文存储"）、`:71-81`（toJson 原样写出）；`lib/features/personal/personal_auth_service.dart`（登录态整包落盘）；`android/app/src/main/AndroidManifest.xml`（**未设 `android:allowBackup`，Android 默认 true**）
 - **现状**：`zhiguanjia.personal.users` 存有全部账号的**明文密码与完整 18 位身份证号**；`zhiguanjia.personal.auth` 再存一份完整身份证号。`maskedIdCard` 仅用于界面展示。
 - **对照**：`README.md:110-111` 宣称"身份证号仅用于实名认证……脱敏存储"——**该宣称当前不成立**。
 - **正面结论**：《不向大模型发送完整身份证号》这一条在代码层面**成立**（已核查上下文组装路径）。
-- **修法**：密码改加盐哈希（SHA-256 + 随机 salt）；身份证号落盘脱敏或迁移到 `flutter_secure_storage`（Android Keystore 加密）；Manifest 补 `android:allowBackup="false"`。
+- **进展（v1.0.36）**：**明文密码一项已消除** —— 注册/登录改为服务端校验后，服务端认证成功即把本机密码字段置空（`_mergeLocalUser(password: '')`），老版本地明文密码仅在"首次登录自动迁移"时用于证明身份、迁移后立即清除。**完整身份证号明文落盘仍在**（P2 上云时一并处理）。
+- **修法（剩余部分）**：身份证号落盘脱敏或迁移到 `flutter_secure_storage`（Android Keystore 加密）+ 服务端只存脱敏号与哈希；Manifest 补 `android:allowBackup="false"`。
 
 ### P1-2 流式回复中切换/新建会话 → 回答落进另一个会话
 - **位置**：`lib/features/tabs/home_tab.dart:107`（`_messages` 每次读当前索引）、`:130-138`、`:385-390`；`lib/features/chat/chat_session_service_impl.dart:166`
@@ -94,8 +95,9 @@
 
 ### P1-7 `usesCleartextTraffic="true"`
 - **位置**：`android/app/src/main/AndroidManifest.xml`
-- **现状**：全部接口均为 HTTPS，无明文需求，却显式允许明文流量。
-- **修法**：删除该属性或置 `false`。
+- **原始现状（v1.0.35 及以前）**：对外接口均为 HTTPS，无明文需求，却显式允许明文流量。
+- **变化（v1.0.36）**：新增的**自建业务 API 目前是 HTTP**（`http://8.137.71.241/api`，域名备案未通过、无法上证书），因此该属性**暂时是必需的**，属有意保留。
+- **修法（备案通过后必须执行）**：`contracts/api_config.dart` 的 `apiBaseUrl` 改为 `https://zhidongni.com.cn/api`，随后删除该属性或置 `false`。**这是商用发布前的硬性前置条件**（明文传输登录口令与令牌不可接受）。
 
 ### P1-8 更新包无完整性校验
 - **位置**：`lib/features/update/update_service_impl.dart:110-129`；`lib/features/tabs/profile_tab.dart:168`
