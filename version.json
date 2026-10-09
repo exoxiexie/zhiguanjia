@@ -1,1 +1,1 @@
-{"versionName":"1.0.43","versionCode":44,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.43/zhiguanjia-v1.0.43.apk","changelog":"新增「同步诊断」：一眼看清本机/云端数据量与待发队列，定位多设备不同步；修复并发同步时新消息可能滞留未发的问题。"}
+{"versionName":"1.0.44","versionCode":45,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.44/zhiguanjia-v1.0.44.apk","changelog":"修复新对话/消息同步不出去：一条超长字段会让整批推送被拒，现已改为上传前截断+整批失败自动逐条补发。"}

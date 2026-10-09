@@ -42,6 +42,9 @@ class FakeSyncApi implements SyncApi {
   SyncChanges pullResult = const SyncChanges();
   bool online = true;
 
+  /// 模拟"批里有畸形数据 → 服务端整批 422"（S-2 的线上场景）
+  bool rejectBatches = false;
+
   int get pushedConversations =>
       pushed.fold(0, (n, p) => n + p.conversations.length);
   int get pushedMessages => pushed.fold(0, (n, p) => n + p.messages.length);
@@ -52,6 +55,16 @@ class FakeSyncApi implements SyncApi {
   @override
   Future<ApiResult<int>> push(SyncPushPayload payload) async {
     if (!online) return ApiResult.failure(_offline);
+    final rows = payload.conversations.length +
+        payload.messages.length +
+        payload.memories.length +
+        payload.searchItems.length;
+    if (rejectBatches && rows > 1) {
+      return const ApiResult.failure(ApiError(
+          statusCode: 422,
+          code: 'invalid_request',
+          message: 'conversations.0.title: String should have at most 200 characters'));
+    }
     pushed.add(payload);
     return const ApiResult.success(1);
   }
@@ -293,7 +306,8 @@ void main() {
     expect(d['server_ok'], isTrue);
     expect(d['server_conversations'], 2);
     expect(d['server_seq'], 42);
-    expect(d.containsKey('last_error'), isTrue);
+    expect(d.containsKey('last_push_error'), isTrue);
+    expect(d.containsKey('last_pull_error'), isTrue);
   });
 
   test('诊断：离线时服务端标记为不可访问但仍能给出本机数据', () async {
@@ -305,5 +319,53 @@ void main() {
     expect(d['server_ok'], isFalse);
     expect((d['server_error'] as String).isNotEmpty, isTrue);
     expect(d['local_conversations'], 2, reason: '服务端不可达也要能报本机数量');
+  });
+
+  test('整批被拒时降级为逐条补发：坏行不阻塞其余变更（S-2 根因修复）', () async {
+    api.rejectBatches = true; // 服务端拒绝任何"多于一行的批次"
+
+    await SyncEngine.enqueueConversation(<String, dynamic>{
+      'id': 'k1', 'tenant_id': _phone, 'title': '批一',
+      'created_at': 1, 'updated_at': 1, 'message_count': 0,
+    });
+    await SyncEngine.enqueueMessage(<String, dynamic>{
+      'id': 'km1', 'session_id': 'k1', 'role': 'user', 'content': '批二', 'created_at': 2,
+    });
+    await SyncEngine.enqueueMessage(<String, dynamic>{
+      'id': 'km2', 'session_id': 'k1', 'role': 'user', 'content': '批三', 'created_at': 3,
+    });
+
+    await waitUntil(() async => await OutboxDao().count() == 0);
+
+    expect(await OutboxDao().count(), 0, reason: '整批失败后必须逐条补发、最终清空队列');
+    // 逐条降级后，单行批次应该出现（说明确实走了降级路径）
+    expect(api.pushed.where((p) => p.conversations.length + p.messages.length == 1).length,
+        greaterThanOrEqualTo(3));
+  });
+
+  test('上传前截断：超长会话标题被裁到 200 字（本地标题不变）', () async {
+    final longTitle = '标' * 250;
+    await SyncEngine.enqueueConversation(<String, dynamic>{
+      'id': 'long1', 'tenant_id': _phone, 'title': longTitle,
+      'created_at': 1, 'updated_at': 1, 'message_count': 0,
+    });
+
+    await waitUntil(() async => await OutboxDao().count() == 0);
+
+    final sent = api.pushed.firstWhere((p) => p.conversations.isNotEmpty);
+    expect(sent.conversations.first['title'].toString().length, 200,
+        reason: '上传前必须裁剪，否则服务端整批 422');
+  });
+
+  test('上传前截断：超长附件路径被裁到 512 字', () async {
+    await SyncEngine.enqueueMessage(<String, dynamic>{
+      'id': 'longm', 'session_id': 's1', 'role': 'user', 'content': 'x',
+      'attachment_path': '/a' * 400, 'created_at': 1,
+    });
+
+    await waitUntil(() async => await OutboxDao().count() == 0);
+
+    final sent = api.pushed.firstWhere((p) => p.messages.isNotEmpty);
+    expect(sent.messages.first['attachment_path'].toString().length, 512);
   });
 }

@@ -61,7 +61,11 @@ class SyncEngine {
 
   // ── 诊断信息（同步诊断页展示；排查线上问题时靠它，不再"静默吞异常"）──
   static DateTime? lastSyncAt;
-  static String lastError = '';
+
+  /// 推送/拉取错误**分开记**：曾经用同一个字段，结果"拉取成功"把推送错误覆盖掉，
+  /// 诊断页显示不出失败原因（S-2 排查时踩的坑）。
+  static String lastPushError = '';
+  static String lastPullError = '';
   static int lastPushedCount = 0;
   static int lastPulledCount = 0;
 
@@ -147,10 +151,11 @@ class SyncEngine {
       final pulled = await _pull(phone);
       _lastSyncAt[phone] = DateTime.now();
       lastSyncAt = DateTime.now();
-      if (pulled) lastError = '';
+      // 推送错误**不因拉取成功而清除**（否则诊断页看不到真正的失败原因）
+      lastPullError = pulled ? '' : lastPullError;
       return pulled;
     } catch (e) {
-      lastError = '同步异常：$e';
+      lastPushError = '同步异常：$e';
       return false;
     } finally {
       _syncing = false;
@@ -257,11 +262,41 @@ class SyncEngine {
     final res = await _api.push(payload).timeout(requestTimeout);
     if (res.ok) {
       await dao.removeUpTo(rows.last.seq);
+      lastPushError = '';
       return rows.length;
     }
-    // 失败：保留在 outbox，下次同步重试（本地已落库，不会丢数据）
-    lastError = '推送失败：${res.error?.message ?? '未知原因'}（待发 ${rows.length} 条）';
-    return 0;
+
+    // ── 整批失败 → 降级为逐条补发 ──
+    // 教训（S-2）：一条超长/畸形的记录会让整批被服务端拒绝，
+    // 于是整个发件箱永远清不掉、新数据再也同步不出去。
+    // 逐条重试可以"跳过坏行"，保证其余变更照常同步。
+    final code = res.error?.code ?? '未知';
+    lastPushError = '整批推送失败（$code）：${res.error?.message ?? ''}；已改为逐条补发';
+
+    var pushed = 0;
+    final doneSeqs = <int>[];
+    for (final row in rows) {
+      final single = buildPayload(<OutboxRow>[row]);
+      if (single.isEmpty) {
+        doneSeqs.add(row.seq); // 未知类型：丢弃，避免永久占位
+        continue;
+      }
+      try {
+        final one = await _api.push(single).timeout(requestTimeout);
+        if (one.ok) {
+          pushed++;
+          doneSeqs.add(row.seq);
+        } else {
+          lastPushError = '第 ${row.seq} 条（${row.kind}）推送失败：'
+              '${one.error?.code ?? ''} ${one.error?.message ?? ''}';
+        }
+      } catch (e) {
+        lastPushError = '逐条补发中断：$e';
+        break;
+      }
+    }
+    if (doneSeqs.isNotEmpty) await dao.removeSeqs(doneSeqs);
+    return pushed;
   }
 
   /// 拉取云端增量并合并进本地库
@@ -274,7 +309,7 @@ class SyncEngine {
     for (var round = 0; round < 20; round++) {
       final res = await _api.pull(since: cursor).timeout(requestTimeout);
       if (!res.ok || res.data == null) {
-        lastError = '拉取失败：${res.error?.message ?? '未知原因'}（游标 $cursor）';
+        lastPullError = '拉取失败：${res.error?.message ?? '未知原因'}（游标 $cursor）';
         return false;
       }
       final changes = res.data!;
@@ -347,8 +382,8 @@ class SyncEngine {
   static Map<String, dynamic> memoryToWire(MemoryItem item) =>
       <String, dynamic>{
         'id': item.id,
-        'title': item.title,
-        'content': item.content,
+        'title': _clamp(item.title, 200),
+        'content': _clamp(item.content, 600000),
         'tags': item.tags,
         'weight': item.weight,
         'category': item.category,
@@ -376,9 +411,9 @@ class SyncEngine {
   static Map<String, dynamic> searchItemToWire(SearchDataItem item) =>
       <String, dynamic>{
         'id': item.id,
-        'title': item.title,
-        'content': item.content,
-        'search_query': item.searchQuery,
+        'title': _clamp(item.title, 200),
+        'content': _clamp(item.content, 600000),
+        'search_query': _clamp(item.searchQuery, 300),
         'source': item.source,
         'category': item.category,
         'weight': item.weight,
@@ -473,15 +508,20 @@ class SyncEngine {
     );
   }
 
+  /// 按服务端可接受的长度截断（本地不做截断，只在上传时裁剪）
+  static String _clamp(String value, int max) =>
+      value.length <= max ? value : value.substring(0, max);
+
   /// 本地会话行 → 线上字段（本地用 session_id/tenant_id，线上用 conversation_id/user_id）
   static Map<String, dynamic> conversationToWire(Map<String, dynamic> local) =>
       <String, dynamic>{
         'id': local['id']?.toString() ?? '',
-        'title': local['title']?.toString() ?? '',
-        'business_tag': local['business_tag']?.toString() ?? '',
+        // 标题由首条消息自动生成，可能很长 → 上传前裁剪，避免整批被拒
+        'title': _clamp(local['title']?.toString() ?? '', 200),
+        'business_tag': _clamp(local['business_tag']?.toString() ?? '', 32),
         'message_count': (local['message_count'] as num?)?.toInt() ?? 0,
-        'last_extracted_message_id':
-            local['last_extracted_message_id']?.toString() ?? '',
+        'last_extracted_message_id': _clamp(
+            local['last_extracted_message_id']?.toString() ?? '', 128),
         'created_at': (local['created_at'] as num?)?.toInt() ?? 0,
         'updated_at': (local['updated_at'] as num?)?.toInt() ?? 0,
       };
@@ -492,9 +532,9 @@ class SyncEngine {
         'id': local['id']?.toString() ?? '',
         'conversation_id': local['session_id']?.toString() ?? '',
         'role': local['role']?.toString() ?? 'user',
-        'content': local['content']?.toString() ?? '',
-        'attachment_type': local['attachment_type']?.toString() ?? '',
-        'attachment_path': local['attachment_path']?.toString() ?? '',
+        'content': _clamp(local['content']?.toString() ?? '', 600000),
+        'attachment_type': _clamp(local['attachment_type']?.toString() ?? '', 16),
+        'attachment_path': _clamp(local['attachment_path']?.toString() ?? '', 512),
         'created_at': (local['created_at'] as num?)?.toInt() ?? 0,
       };
 
@@ -576,7 +616,8 @@ class SyncEngine {
       'server_memories': server?.memories ?? -1,
       'server_search_items': server?.searchItems ?? -1,
       'last_sync_at': lastSyncAt?.toIso8601String() ?? '',
-      'last_error': lastError,
+      'last_push_error': lastPushError,
+      'last_pull_error': lastPullError,
       'last_pushed': lastPushedCount,
       'last_pulled': lastPulledCount,
     };
@@ -589,7 +630,8 @@ class SyncEngine {
     _syncing = false;
     _rerunRequested = false;
     lastSyncAt = null;
-    lastError = '';
+    lastPushError = '';
+    lastPullError = '';
     lastPushedCount = 0;
     lastPulledCount = 0;
   }

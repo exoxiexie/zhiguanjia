@@ -77,7 +77,7 @@ def upsert_post(
         db.add(row)
 
     row.title = body.title.strip()
-    row.content = body.content
+    row.content = (body.content or "")[:600000]
     row.images_json = json.dumps(
         [str(x)[:512] for x in (body.images or [])][:9], ensure_ascii=False
     )
@@ -119,7 +119,7 @@ def upsert_favorite(
     if row is None:
         row = Favorite(id=body.id, user_id=user.id)
         db.add(row)
-    row.content = body.content
+    row.content = (body.content or "")[:600000]
     row.source = body.source.strip()
     row.created_at = body.created_at or row.created_at or 0
     row.deleted_at = None

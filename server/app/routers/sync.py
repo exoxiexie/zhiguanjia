@@ -109,8 +109,9 @@ def push(
                 continue
             elif (item.updated_at or 0) < (row.updated_at or 0):
                 continue  # 补发的旧版本，保留服务端较新的
-            row.title = item.title
-            row.business_tag = item.business_tag
+            # 写入时截断：宁可截断也不要因单条超长而整批失败
+            row.title = (item.title or "")[:200]
+            row.business_tag = item.business_tag[:32]
             row.message_count = item.message_count
             row.last_extracted_message_id = item.last_extracted_message_id
             row.created_at = item.created_at or row.created_at or 0
@@ -131,9 +132,9 @@ def push(
                 user_id=user.id,
                 conversation_id=item.conversation_id,
                 role=item.role,
-                content=item.content,
-                attachment_type=item.attachment_type,
-                attachment_path=item.attachment_path,
+                content=(item.content or "")[:600000],
+                attachment_type=item.attachment_type[:16],
+                attachment_path=(item.attachment_path or "")[:512],
                 created_at=item.created_at,
                 seq=seq + offset,
             ))
@@ -168,8 +169,8 @@ def push(
                 db.add(row)
             elif row.user_id != user.id or (item.updated_at or 0) < (row.updated_at or 0):
                 continue
-            row.title = item.title
-            row.content = item.content
+            row.title = (item.title or "")[:200]
+            row.content = (item.content or "")[:600000]
             row.tags_json = _json.dumps(item.tags or [], ensure_ascii=False)
             row.weight = item.weight
             row.category = item.category
@@ -193,9 +194,9 @@ def push(
                 db.add(row)
             elif row.user_id != user.id or (item.updated_at or 0) < (row.updated_at or 0):
                 continue
-            row.title = item.title
-            row.content = item.content
-            row.search_query = item.search_query
+            row.title = (item.title or "")[:200]
+            row.content = (item.content or "")[:600000]
+            row.search_query = item.search_query[:300]
             row.source = item.source
             row.category = item.category
             row.weight = item.weight

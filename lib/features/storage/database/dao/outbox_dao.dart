@@ -62,6 +62,16 @@ class OutboxDao {
     await _db.delete('outbox', where: 'seq <= ?', whereArgs: [maxSeq]);
   }
 
+  /// 精确移除指定 seq 的行（逐条降级补发时用：成功哪条删哪条，绝不误删失败项）
+  Future<void> removeSeqs(List<int> seqs) async {
+    if (seqs.isEmpty) return;
+    final batch = _db.batch();
+    for (final seq in seqs) {
+      batch.delete('outbox', where: 'seq = ?', whereArgs: <Object>[seq]);
+    }
+    await batch.commit(noResult: true);
+  }
+
   /// 待发送条数
   Future<int> count() async {
     final r = await _db.rawQuery('SELECT COUNT(*) AS n FROM outbox');

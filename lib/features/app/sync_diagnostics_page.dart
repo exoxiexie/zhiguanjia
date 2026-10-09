@@ -59,7 +59,8 @@ class _SyncDiagnosticsPageState extends State<SyncDiagnosticsPage> {
       '服务端会话：${d['server_conversations']}   服务端消息：${d['server_messages']}',
       '上次同步：${d['last_sync_at']}',
       '上次推送：${d['last_pushed']} 条   上次拉取：${d['last_pulled']} 条',
-      '最近错误：${(d['last_error'] as String).isEmpty ? '无' : d['last_error']}',
+      '推送错误：${(d['last_push_error'] as String).isEmpty ? '无' : d['last_push_error']}',
+      '拉取错误：${(d['last_pull_error'] as String).isEmpty ? '无' : d['last_pull_error']}',
     ].join('\n');
   }
 
@@ -67,7 +68,8 @@ class _SyncDiagnosticsPageState extends State<SyncDiagnosticsPage> {
   Widget build(BuildContext context) {
     final d = _data ?? const <String, dynamic>{};
     final pending = (d['outbox_pending'] as int?) ?? 0;
-    final lastError = (d['last_error'] as String?) ?? '';
+    final pushError = (d['last_push_error'] as String?) ?? '';
+    final pullError = (d['last_pull_error'] as String?) ?? '';
     final serverOk = d['server_ok'] == true;
 
     return Scaffold(
@@ -108,12 +110,19 @@ class _SyncDiagnosticsPageState extends State<SyncDiagnosticsPage> {
                     title: '发件箱已清空',
                     body: '本机所有变更都已推送成功。',
                   ),
-                if (lastError.isNotEmpty)
+                if (pushError.isNotEmpty)
                   _banner(
                     color: const Color(0xFFFEE2E2),
-                    icon: Icons.error_outline,
-                    title: '最近一次失败原因',
-                    body: lastError,
+                    icon: Icons.cloud_off_outlined,
+                    title: '推送失败原因',
+                    body: pushError,
+                  ),
+                if (pullError.isNotEmpty)
+                  _banner(
+                    color: const Color(0xFFFEE2E2),
+                    icon: Icons.download_for_offline_outlined,
+                    title: '拉取失败原因',
+                    body: pullError,
                   ),
                 const SizedBox(height: 8),
                 _section('本机', <String, String>{

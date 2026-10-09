@@ -141,8 +141,11 @@ class FollowRequest(BaseModel):
 
 
 class ConversationPush(BaseModel):
+    """会话（长度上限刻意放宽：客户端标题由首条消息自动生成，可能很长；
+    真正的截断在写入时做——**单条畸形数据绝不能让整批同步失败**）"""
+
     id: str = Field(..., min_length=1, max_length=64)
-    title: str = Field(default="", max_length=200)
+    title: str = Field(default="", max_length=5000)
     business_tag: str = Field(default="", max_length=32)
     message_count: int = 0
     last_extracted_message_id: str = Field(default="", max_length=128)
@@ -151,19 +154,21 @@ class ConversationPush(BaseModel):
 
 
 class MessagePush(BaseModel):
+    """消息（同上：放宽上限，写入时截断）"""
+
     id: str = Field(..., min_length=1, max_length=128)
     conversation_id: str = Field(..., min_length=1, max_length=64)
     role: str = Field(default="user", max_length=16)
-    content: str = Field(default="", max_length=200000)
+    content: str = Field(default="", max_length=1000000)
     attachment_type: str = Field(default="", max_length=16)
-    attachment_path: str = Field(default="", max_length=512)
+    attachment_path: str = Field(default="", max_length=5000)
     created_at: int = 0
 
 
 class MemoryPush(BaseModel):
     id: str = Field(..., min_length=1, max_length=128)
-    title: str = Field(default="", max_length=200)
-    content: str = Field(default="", max_length=200000)
+    title: str = Field(default="", max_length=5000)
+    content: str = Field(default="", max_length=1000000)
     tags: list[str] = Field(default_factory=list)
     weight: int = 50
     category: str = Field(default="", max_length=32)
@@ -174,8 +179,8 @@ class MemoryPush(BaseModel):
 
 class SearchItemPush(BaseModel):
     id: str = Field(..., min_length=1, max_length=128)
-    title: str = Field(default="", max_length=200)
-    content: str = Field(default="", max_length=200000)
+    title: str = Field(default="", max_length=5000)
+    content: str = Field(default="", max_length=1000000)
     search_query: str = Field(default="", max_length=300)
     source: str = Field(default="", max_length=64)
     category: str = Field(default="", max_length=32)

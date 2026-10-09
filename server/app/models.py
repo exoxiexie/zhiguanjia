@@ -10,7 +10,15 @@
 import datetime
 import uuid
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -194,7 +202,9 @@ class BlogPost(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
     title: Mapped[str] = mapped_column(String(200), default="")
-    content: Mapped[str] = mapped_column(Text, default="")
+    content: Mapped[str] = mapped_column(
+        Text().with_variant(MEDIUMTEXT, "mysql"), default=""
+    )
     images_json: Mapped[str] = mapped_column(Text, default="[]")
     author_phone: Mapped[str] = mapped_column(String(20), default="")
     author_name: Mapped[str] = mapped_column(String(64), default="")
@@ -231,7 +241,9 @@ class Favorite(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
-    content: Mapped[str] = mapped_column(Text, default="")
+    content: Mapped[str] = mapped_column(
+        Text().with_variant(MEDIUMTEXT, "mysql"), default=""
+    )
     source: Mapped[str] = mapped_column(String(64), default="")
     created_at: Mapped[int] = mapped_column(BigInteger, default=0)
     deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
@@ -316,7 +328,9 @@ class Message(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
     conversation_id: Mapped[str] = mapped_column(String(64), index=True)
     role: Mapped[str] = mapped_column(String(16), default="user")
-    content: Mapped[str] = mapped_column(Text, default="")
+    content: Mapped[str] = mapped_column(
+        Text().with_variant(MEDIUMTEXT, "mysql"), default=""
+    )
     attachment_type: Mapped[str] = mapped_column(String(16), default="")
     attachment_path: Mapped[str] = mapped_column(String(512), default="")
     created_at: Mapped[int] = mapped_column(BigInteger, default=0)
@@ -344,7 +358,9 @@ class Memory(Base):
     id: Mapped[str] = mapped_column(String(128), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
     title: Mapped[str] = mapped_column(String(200), default="")
-    content: Mapped[str] = mapped_column(Text, default="")
+    content: Mapped[str] = mapped_column(
+        Text().with_variant(MEDIUMTEXT, "mysql"), default=""
+    )
     tags_json: Mapped[str] = mapped_column(Text, default="[]")
     weight: Mapped[int] = mapped_column(Integer, default=50)
     category: Mapped[str] = mapped_column(String(32), default="")
@@ -383,7 +399,9 @@ class SearchItem(Base):
     id: Mapped[str] = mapped_column(String(128), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
     title: Mapped[str] = mapped_column(String(200), default="")
-    content: Mapped[str] = mapped_column(Text, default="")
+    content: Mapped[str] = mapped_column(
+        Text().with_variant(MEDIUMTEXT, "mysql"), default=""
+    )
     search_query: Mapped[str] = mapped_column(String(300), default="")
     source: Mapped[str] = mapped_column(String(64), default="")
     category: Mapped[str] = mapped_column(String(32), default="")
