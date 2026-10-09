@@ -231,4 +231,28 @@ void main() {
     expect(id1, isNotEmpty);
     expect(id1, id2, reason: '同一设备标识必须稳定，否则装机量会被重复计数');
   });
+
+  test('测试入口可见性：全局开关打开则所有人可见', () {
+    const cfg = AppRemoteConfig(flags: <String, dynamic>{'test_panel': true});
+    expect(AppConfigService.testPanelVisibleByFlags(cfg, '13800000000'), isTrue);
+  });
+
+  test('测试入口可见性：灰度名单内的手机号可见，名单外不可见', () {
+    const cfg = AppRemoteConfig(flags: <String, dynamic>{
+      'test_panel': false,
+      'test_panel_phones': <String>['13608074995'],
+    });
+    expect(AppConfigService.testPanelVisibleByFlags(cfg, '13608074995'), isTrue,
+        reason: '灰度账号应看到测试入口');
+    expect(AppConfigService.testPanelVisibleByFlags(cfg, '13800000000'), isFalse,
+        reason: '普通用户必须看不到（正式发布时靠它隐藏）');
+  });
+
+  test('测试入口可见性：没有配置 / 配置为空时一律隐藏', () {
+    expect(AppConfigService.testPanelVisibleByFlags(null, '13608074995'), isFalse);
+    expect(
+        AppConfigService.testPanelVisibleByFlags(
+            const AppRemoteConfig(), '13608074995'),
+        isFalse);
+  });
 }

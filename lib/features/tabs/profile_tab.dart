@@ -5,21 +5,15 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:open_filex/open_filex.dart';
 
-import '../../contracts/app_api.dart';
-import '../../contracts/update_service.dart';
-import '../api/app_api_impl.dart';
-import '../app/local_data_cleaner.dart';
-import '../app/sync_diagnostics_page.dart';
 import '../chat/session_reset.dart';
+import '../app/app_config_service.dart';
+import '../app/settings_page.dart';
+import '../app/test_panel_page.dart';
 import '../common/plain_group.dart';
 import '../data/favorite_store.dart';
 import '../data/favorites_page.dart';
@@ -45,20 +39,11 @@ Future<String?> defaultPickAvatar(ImageSource source) async {
   return picked?.path;
 }
 
-/// 更新服务器地址（多源：Gitee API 优先，GitHub 回退；均公网可访问）
-/// Gitee 用 API 方式获取文件内容，避免 raw URL 302 重定向导致超时
-const List<String> _kUpdateBaseUrls = [
-  'https://gitee.com/api/v5/repos/laoxie2076/zhiguanjia/contents',
-  'https://raw.githubusercontent.com/exoxiexie/zhiguanjia/main',
-];
-
 class ProfileTab extends StatefulWidget {
-  final UpdateService? updateService;
-
   /// 头像选择器（默认使用 image_picker 的相机 / 相册；测试可注入假实现）
   final AvatarPickFn? avatarPicker;
 
-  const ProfileTab({super.key, this.updateService, this.avatarPicker});
+  const ProfileTab({super.key, this.avatarPicker});
 
   @override
   State<ProfileTab> createState() => ProfileTabState();
@@ -66,22 +51,19 @@ class ProfileTab extends StatefulWidget {
 
 class ProfileTabState extends State<ProfileTab> {
   late Future<PersonalAuth?> _authFuture;
-  bool _checking = false;
 
   /// 收藏条数（我的页「收藏」卡右侧显示；异步加载，不阻塞首屏）
   int? _favCount;
-  bool _downloading = false;
-  double _progress = 0;
-  StateSetter? _setDialogState; // 用于更新下载进度对话框内部状态
 
-  UpdateService get _updateSvc =>
-      widget.updateService ?? HttpUpdateService(baseUrls: _kUpdateBaseUrls);
+  /// 测试入口是否可见（服务端下发开关；正式用户默认隐藏）
+  bool _testPanelVisible = false;
 
   @override
   void initState() {
     super.initState();
     _authFuture = PersonalAuthService.getAuth();
     unawaited(_loadFavCount());
+    unawaited(_loadTestPanelVisibility());
   }
 
   /// 重新加载登录态（实名认证返回后刷新卡片）
@@ -101,6 +83,19 @@ class ProfileTabState extends State<ProfileTab> {
   }
 
   /// 加载收藏条数（异步，不阻塞首屏）
+  /// 「测试」入口是否显示：由服务端 flags 控制（灰度），正式用户默认隐藏
+  Future<void> _loadTestPanelVisibility() async {
+    final auth = await PersonalAuthService.getAuth();
+    if (AppConfigService.cachedConfig == null) {
+      // 冷启动离线时可能还没拿到配置：补一次，拿到后刷新入口
+      await AppConfigService.check();
+    }
+    if (!mounted) return;
+    setState(() {
+      _testPanelVisible = AppConfigService.testPanelVisible(auth?.phone ?? '');
+    });
+  }
+
   Future<void> _loadFavCount() async {
     final n = await FavoriteStore.count();
     if (mounted) setState(() => _favCount = n);
@@ -224,116 +219,6 @@ class ProfileTabState extends State<ProfileTab> {
   }
 
   /// P5：导出账号数据（服务端打包 JSON → 写入本机文件 → 可打开查看）
-  Future<void> _exportData(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(const SnackBar(content: Text('正在导出…')));
-
-    final res = await const HttpAppApi().exportMyData();
-    if (!mounted) return;
-    if (!res.ok || res.data == null) {
-      messenger.showSnackBar(
-          SnackBar(content: Text(res.error?.message ?? '导出失败，请稍后重试')));
-      return;
-    }
-
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File(p.join(dir.path,
-          'zhiguanjia-export-${DateTime.now().millisecondsSinceEpoch}.json'));
-      await file.writeAsString(
-          const JsonEncoder.withIndent('  ').convert(res.data));
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('导出成功'),
-          content: Text('已保存到：\n${file.path}',
-              style: const TextStyle(fontSize: 13, height: 1.6)),
-          actions: <Widget>[
-            TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('关闭')),
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                OpenFilex.open(file.path);
-              },
-              child: const Text('打开文件'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      messenger.showSnackBar(const SnackBar(content: Text('保存文件失败')));
-    }
-  }
-
-  /// P5：注销账号（二次确认 → 服务端删除 → 本机清理 → 回登录页）
-  Future<void> _deleteAccount(BuildContext context) async {
-    final auth = await PersonalAuthService.getAuth();
-    if (auth == null) return;
-    if (!context.mounted) return;
-
-    final step1 = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('确认注销账号？'),
-        content: const Text(
-            '注销后，服务端与本机的**全部数据**（对话、记忆、档案、说说、收藏等）都会被永久删除，'
-            '且无法恢复。',
-            style: TextStyle(fontSize: 14, height: 1.7)),
-        actions: <Widget>[
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('取消')),
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('继续', style: TextStyle(color: Color(0xFFD05656)))),
-        ],
-      ),
-    );
-    if (step1 != true || !context.mounted) return;
-
-    final step2 = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('再次确认'),
-        content: Text('账号 ${auth.phone} 注销后不可恢复，确定继续吗？',
-            style: const TextStyle(fontSize: 14, height: 1.7)),
-        actions: <Widget>[
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('我再想想')),
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('确认注销',
-                  style: TextStyle(color: Color(0xFFD05656)))),
-        ],
-      ),
-    );
-    if (step2 != true || !context.mounted) return;
-
-    final messenger = ScaffoldMessenger.of(context);
-    final res = await const HttpAppApi().deleteAccount();
-    if (!res.ok) {
-      messenger.showSnackBar(
-          SnackBar(content: Text(res.error?.message ?? '注销失败，请稍后重试')));
-      return;
-    }
-
-    // 服务端已删除 → 清本机：先重置进程级服务账号态，再清该账号数据与登录态
-    final phone = auth.phone;
-    resetUserSessionState();
-    await LocalDataCleaner.purgeAccount(phone);
-    await PersonalAuthService.clearAuth();
-
-    if (!context.mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const PersonalLoginPage()),
-      (route) => false,
-    );
-  }
-
   Future<void> _logout(BuildContext context) async {
     // 【P0-1 / P0-2】先重置进程级单例里的账号态，再清登录态。
     // 顺序不能反：服务容器不会随退出登录自动清空，若不先重置，
@@ -354,129 +239,6 @@ class ProfileTabState extends State<ProfileTab> {
           builder: (_) => PersonalVerifyPage(onVerified: _refreshAuth)),
     );
     _refreshAuth();
-  }
-
-  Future<void> _checkUpdate(BuildContext context) async {
-    if (_checking || _downloading) return;
-    setState(() => _checking = true);
-
-    CheckResult result;
-    try {
-      result = await _updateSvc.checkForUpdate();
-    } finally {
-      if (mounted) setState(() => _checking = false);
-    }
-    if (!mounted) return;
-
-    if (result.hasUpdate && result.latest != null) {
-      final info = result.latest!;
-      final proceed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('发现新版本'),
-          content: Text(
-              '最新版本：${info.version}\n\n更新内容：\n${info.note.isEmpty ? '暂无' : info.note}'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('取消')),
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('立即更新')),
-          ],
-        ),
-      );
-      if (proceed == true) {
-        await _downloadAndInstall(context, info);
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result.message ?? '已是最新版本',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
-  }
-
-  Future<void> _downloadAndInstall(
-      BuildContext context, UpdateInfo info) async {
-    setState(() => _downloading = true);
-    BuildContext? dialogRebuild;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        dialogRebuild = ctx;
-        return AlertDialog(
-          title: const Text('正在下载更新'),
-          content: StatefulBuilder(
-            builder: (ctx, setDialogState) {
-              _setDialogState = setDialogState; // 存起来，供 onProgress 回调使用
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_progress >= 0)
-                    LinearProgressIndicator(
-                        value: _progress > 0 ? _progress / 100 : null)
-                  else
-                    const LinearProgressIndicator(),
-                  const SizedBox(height: 12),
-                  if (_progress >= 0)
-                    Text('${_progress.toStringAsFixed(0)}%')
-                  else
-                    Text(
-                        '已下载 ${(_progress.abs() / 1024 / 1024).toStringAsFixed(1)} MB'),
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-
-    try {
-      final path = await _updateSvc.download(
-        info.url,
-        onProgress: (p) {
-          // 用 setDialogState 更新对话框内部 UI（setState 不会触发 StatefulBuilder 重建）
-          _setDialogState?.call(() {
-            if (p >= 0) {
-              _progress = p * 100; // 已知总大小：百分比
-            } else {
-              _progress = p; // 未知总大小：已下载字节数（负数标识）
-            }
-          });
-        },
-      );
-      if (dialogRebuild != null && dialogRebuild!.mounted) {
-        Navigator.of(dialogRebuild!).pop();
-      }
-      if (!mounted) return;
-      setState(() => _downloading = false);
-
-      final r = await OpenFilex.open(path);
-      final ok = r.type == ResultType.done;
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content:
-              Text(ok ? '下载完成，请在系统安装界面确认安装' : '下载完成，但打开安装器失败（${r.message}）'),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _downloading = false);
-      if (dialogRebuild != null && dialogRebuild!.mounted) {
-        Navigator.of(dialogRebuild!).pop();
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('下载失败：$e')),
-      );
-    }
   }
 
   @override
@@ -628,53 +390,30 @@ class ProfileTabState extends State<ProfileTab> {
                     const SizedBox(height: 12),
                   ],
 
-                  // 分组：设置（P5：数据导出 / 账号注销 —— 合规要求）
+                  // 分组：设置 / 测试（通栏入口，具体条目在各自页面里维护）
                   _buildGroup([
                     _ListItem(
-                      icon: Icons.download_outlined,
-                      iconColor: const Color(0xFF2563EB),
-                      title: '导出我的数据',
-                      subtitle: '把账号数据导出为文件留存',
-                      onTap: () => _exportData(context),
+                      icon: Icons.settings_outlined,
+                      iconColor: const Color(0xFF6B7280),
+                      title: '设置',
+                      subtitle: '检查更新 · 导出数据 · 账号注销',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const SettingsPage()),
+                      ),
                     ),
-                    _ListItem(
-                      icon: Icons.sync_problem_outlined,
-                      iconColor: const Color(0xFF7C3AED),
-                      title: '同步诊断',
-                      subtitle: '多设备数据不一致时，用它定位',
-                      onTap: () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute(
-                              builder: (_) => const SyncDiagnosticsPage()),
-                        );
-                        if (mounted) _refreshAuth();
-                      },
-                    ),
-                    _ListItem(
-                      icon: Icons.no_accounts_outlined,
-                      iconColor: const Color(0xFFD05656),
-                      title: '注销账号',
-                      subtitle: '永久删除账号与全部数据（不可恢复）',
-                      onTap: () => _deleteAccount(context),
-                    ),
-                  ]),
-                  const SizedBox(height: 12),
-
-                  // 分组：关于
-                  _buildGroup([
-                    _ListItem(
-                      icon: Icons.system_update_alt,
-                      iconColor: const Color(0xFF10B981),
-                      title: '检查更新',
-                      trailing: _checking
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : null,
-                      onTap: () => _checkUpdate(context),
-                    ),
+                    // 测试入口：仅灰度/开发可见，正式用户不显示（避免体验突兀）
+                    if (_testPanelVisible)
+                      _ListItem(
+                        icon: Icons.science_outlined,
+                        iconColor: const Color(0xFF7C3AED),
+                        title: '测试',
+                        subtitle: '诊断与灰度功能（正式用户不可见）',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                              builder: (_) => const TestPanelPage()),
+                        ),
+                      ),
                   ]),
                   const SizedBox(height: 24),
 

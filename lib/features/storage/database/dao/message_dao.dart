@@ -28,6 +28,13 @@ class MessageDao {
   }
 
   /// 获取指定会话的所有消息，按创建时间正序
+  /// 该消息是否已在本地（同步合并时用于判断"是否新增"）
+  Future<bool> exists(String id) async {
+    final r = await _db.query('messages',
+        columns: <String>['id'], where: 'id = ?', whereArgs: <Object>[id], limit: 1);
+    return r.isNotEmpty;
+  }
+
   /// 消息总数（同步诊断用）
   Future<int> count() async {
     final r = await _db.rawQuery('SELECT COUNT(*) AS n FROM messages');

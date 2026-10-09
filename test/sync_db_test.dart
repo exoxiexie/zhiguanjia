@@ -368,4 +368,51 @@ void main() {
     final sent = api.pushed.firstWhere((p) => p.messages.isNotEmpty);
     expect(sent.messages.first['attachment_path'].toString().length, 512);
   });
+
+  test('远端变更通知（S-3）：拉取到新数据时自增，重复数据不再自增', () async {
+    SyncEngine.remoteChanges.value = 0;
+    api.pullResult = SyncChanges(
+      seq: 10,
+      conversations: [
+        {'id': 'n1', 'title': '另一台设备的会话', 'created_at': 1, 'updated_at': 2,
+         'message_count': 1, 'last_extracted_message_id': '', 'business_tag': '',
+         'deleted': false},
+      ],
+      messages: [
+        {'id': 'nm1', 'conversation_id': 'n1', 'role': 'user', 'content': '新消息',
+         'attachment_type': '', 'attachment_path': '', 'created_at': 3, 'deleted': false},
+      ],
+    );
+
+    await SyncEngine.sync(force: true);
+    expect(SyncEngine.remoteChanges.value, greaterThan(0),
+        reason: '有新数据必须通知界面自动刷新（否则要重进页面才看到）');
+
+    // 同一批数据再合并一次：本地已有，不应再次通知（避免反复刷界面）
+    final mid = SyncEngine.remoteChanges.value;
+    await SyncEngine.applyChanges(SyncChanges(
+      conversations: api.pullResult.conversations,
+      messages: api.pullResult.messages,
+    ));
+    expect(SyncEngine.remoteChanges.value, mid, reason: '重复数据不应反复刷新界面');
+  });
+
+  test('远端变更通知：云端删除也会通知（本机对应记录消失）', () async {
+    await seedLocal();
+    SyncEngine.remoteChanges.value = 0;
+    api.pullResult = SyncChanges(
+      seq: 11,
+      conversations: [
+        {'id': 's1', 'title': '被删', 'created_at': 1, 'updated_at': 2,
+         'message_count': 0, 'last_extracted_message_id': '', 'business_tag': '',
+         'deleted': true},
+      ],
+    );
+
+    await SyncEngine.sync(force: true);
+
+    expect(SyncEngine.remoteChanges.value, greaterThan(0));
+    final ids = (await SessionDao().findByTenant(_phone)).map((e) => e.id).toList();
+    expect(ids, isNot(contains('s1')));
+  });
 }

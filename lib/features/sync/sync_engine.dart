@@ -59,6 +59,13 @@ class SyncEngine {
   /// 节流时间按账号记录（换账号后新账号应立即同步，而不是等满 45 秒）
   static final Map<String, DateTime> _lastSyncAt = <String, DateTime>{};
 
+  /// **远端变更通知**：云端拉取到「本地原本没有」的数据时自增，
+  /// 供对话页监听后自动刷新列表（S-3）。
+  ///
+  /// 只在确有新增/删除时自增（不是每次拉取都通知），
+  /// 避免把自己刚推上去又拉回来的数据当成"新消息"反复刷新界面。
+  static final ValueNotifier<int> remoteChanges = ValueNotifier<int>(0);
+
   // ── 诊断信息（同步诊断页展示；排查线上问题时靠它，不再"静默吞异常"）──
   static DateTime? lastSyncAt;
 
@@ -330,14 +337,19 @@ class SyncEngine {
     final tenant = AppDatabase.instance.tenantId;
     if (tenant == null) return;
 
+    // 统计"确实变化"的条数：只有本地没有过的（或需要删除的）才算变化
+    var changed = 0;
+
     final sessionDao = SessionDao();
     for (final row in changes.conversations) {
       final id = row['id']?.toString() ?? '';
       if (id.isEmpty) continue;
       if (row['deleted'] == true) {
         await sessionDao.delete(id);
+        changed++;
         continue;
       }
+      if (await sessionDao.findById(id) == null) changed++;
       await sessionDao.insert(SessionEntity.fromMap(sessionRowFromWire(row, tenant)));
     }
 
@@ -348,8 +360,10 @@ class SyncEngine {
       if (row['deleted'] == true) {
         await AppDatabase.instance.db
             .delete('messages', where: 'id = ?', whereArgs: [id]);
+        changed++;
         continue;
       }
+      if (!await messageDao.exists(id)) changed++;
       await messageDao.insert(MessageEntity.fromMap(messageRowFromWire(row)));
     }
 
@@ -374,6 +388,9 @@ class SyncEngine {
       }
       await SearchDataStore.saveRaw(tenant, searchItemFromWire(row));
     }
+
+    // 有真实变化才通知界面（对话页据此自动刷新，S-3）
+    if (changed > 0) remoteChanges.value++;
   }
 
   // ────────────────────────── 记忆 / 搜索沉淀映射 ──────────────────────────

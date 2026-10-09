@@ -44,6 +44,12 @@ class StartupCheck {
 class AppConfigService {
   static AppApi _api = const HttpAppApi();
 
+  /// 最近一次拿到的服务端配置（进程内缓存）
+  ///
+  /// 「我的」页需要**同步**判断测试入口是否显示，因此启动检查的结果必须留一份。
+  /// 拿不到时保持 null，界面按"隐藏"处理（正式用户默认看不到测试入口）。
+  static AppRemoteConfig? cachedConfig;
+
   /// 测试注入口
   @visibleForTesting
   static set apiForTest(AppApi value) => _api = value;
@@ -84,6 +90,7 @@ class AppConfigService {
         if (seen != cfg.announcementId) announcement = cfg;
       }
 
+      cachedConfig = cfg;
       return StartupCheck(
         forceUpdate: forceUpdate,
         announcement: announcement,
@@ -95,6 +102,31 @@ class AppConfigService {
       return StartupCheck(
           currentVersionName: versionName, currentVersionCode: versionCode);
     }
+  }
+
+  /// 「测试」入口是否显示
+  ///
+  /// 规则（服务端可随时调整，无需发版）：
+  /// 1. `flags.test_panel == true` → 全量可见（开发/内测期）
+  /// 2. `flags.test_panel_phones` 含当前手机号 → 仅这些账号可见（灰度）
+  /// 3. 其余情况隐藏；debug 构建默认可见，便于开发调试
+  ///
+  /// 这样正式发布时**无需删代码**，只要服务端关掉开关即可对普通用户隐藏。
+  static bool testPanelVisible(String phone) =>
+      testPanelVisibleByFlags(cachedConfig, phone) || kDebugMode;
+
+  /// 纯函数版本（便于单测，不受 debug/release 影响）
+  ///
+  /// `kDebugMode` 让开发构建始终能看到测试入口；正式包只看服务端配置。
+  @visibleForTesting
+  static bool testPanelVisibleByFlags(AppRemoteConfig? config, String phone) {
+    final flags = config?.flags ?? const <String, dynamic>{};
+    if (flags['test_panel'] == true) return true;
+    final list = flags['test_panel_phones'];
+    if (list is List && phone.isNotEmpty) {
+      return list.map((e) => e.toString()).contains(phone);
+    }
+    return false;
   }
 
   /// 标记公告已读（弹过之后调用）

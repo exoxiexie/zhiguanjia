@@ -47,7 +47,26 @@ class HomeTabState extends State<HomeTab> {
   @override
   void initState() {
     super.initState();
+    // S-3：监听云端变更，另一台设备的新对话/新消息能自动出现
+    SyncEngine.remoteChanges.addListener(_onRemoteChanges);
     _initSessionService();
+  }
+
+  /// 云端拉取到新数据 → 自动刷新会话列表
+  ///
+  /// 两条保护：
+  /// 1. **正在流式输出时不刷新** —— 否则会把正在逐字输出的气泡打断
+  /// 2. 刷新后**尽量回到原会话** —— 避免把用户"甩"到别的对话里
+  Future<void> _onRemoteChanges() async {
+    if (_isLoading || !mounted) return;
+    final currentId = _sessionService.conversations.isNotEmpty
+        ? _sessionService.currentConversation.id
+        : '';
+    await _sessionService.init();
+    final idx =
+        _sessionService.conversations.indexWhere((c) => c.id == currentId);
+    if (idx >= 0) _sessionService.switchConversation(idx);
+    if (mounted) setState(() {});
   }
 
   /// 初始化会话服务（获取租户、打开数据库、加载历史会话）
@@ -315,6 +334,7 @@ class HomeTabState extends State<HomeTab> {
 
   @override
   void dispose() {
+    SyncEngine.remoteChanges.removeListener(_onRemoteChanges);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();

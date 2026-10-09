@@ -1,1 +1,1 @@
-{"versionName":"1.0.44","versionCode":45,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.44/zhiguanjia-v1.0.44.apk","changelog":"修复新对话/消息同步不出去：一条超长字段会让整批推送被拒，现已改为上传前截断+整批失败自动逐条补发。"}
+{"versionName":"1.0.45","versionCode":46,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.45/zhiguanjia-v1.0.45.apk","changelog":"「我的」页新增「设置」「测试」两个入口（测试入口可按灰度隐藏）；另一台设备的新对话会自动出现，无需重进页面。"}
