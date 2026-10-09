@@ -505,3 +505,32 @@ class AppConfig(Base):
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=utcnow, onupdate=utcnow
     )
+
+
+class Article(Base):
+    """官网博客文章（后台「博客发布管理」维护）
+
+    与 App 的 `posts`（说说）是两回事：这里是**官网博客**的内容源。
+    发布流程 = 写回 `site/content/{slug}.md` → 重新构建 → 同步到站点根目录，
+    因此官网始终保持**纯静态**（访问快、无运行时依赖、SEO 友好）。
+    """
+
+    __tablename__ = "articles"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    author: Mapped[str] = mapped_column(String(64), default="老谢")
+    date: Mapped[str] = mapped_column(String(20), default="")
+    excerpt: Mapped[str] = mapped_column(String(500), default="")
+    tags_json: Mapped[str] = mapped_column(Text, default="[]")
+    body_md: Mapped[str] = mapped_column(
+        Text().with_variant(MEDIUMTEXT, "mysql"), default=""
+    )
+    # draft / published
+    status: Mapped[str] = mapped_column(String(16), default="draft")
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=utcnow)
+    published_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )

@@ -67,7 +67,17 @@ window.ZGJ = (function () {
       return request('POST', '/auth/login', { auth: false, body: { phone: phone, password: password } });
     },
     stats: function () { return request('GET', '/admin/stats'); },
-    trend: function (days) { return request('GET', '/admin/trend?days=' + (days || 14)); }
+    trend: function (days) { return request('GET', '/admin/trend?days=' + (days || 14)); },
+
+    // ── 博客发布管理 ──
+    blogList: function () { return request('GET', '/admin/blog'); },
+    blogGet: function (id) { return request('GET', '/admin/blog/' + id); },
+    blogSave: function (data, id) {
+      return request('POST', '/admin/blog' + (id ? '?article_id=' + id : ''), { body: data });
+    },
+    blogDelete: function (id) { return request('DELETE', '/admin/blog/' + id); },
+    blogPublish: function (id) { return request('POST', '/admin/blog/' + id + '/publish'); },
+    blogRebuild: function () { return request('POST', '/admin/blog/rebuild'); }
   };
 
   /* ────────────── 视图切换 ────────────── */

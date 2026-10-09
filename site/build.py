@@ -115,6 +115,8 @@ def parse_post(path):
     meta.setdefault("title", slug)
     meta.setdefault("date", "")
     meta.setdefault("excerpt", "")
+    # 作者：可在 front-matter 里覆盖，默认「老谢」
+    meta.setdefault("author", "老谢")
     return slug, meta, body.strip()
 
 
@@ -193,6 +195,7 @@ def build():
         art = tpl("post.html")
         art = art.replace("{{TITLE}}", html.escape(meta["title"]))
         art = art.replace("{{DATE}}", cn_date(meta["date"]))
+        art = art.replace("{{AUTHOR}}", html.escape(meta["author"]))
         art = art.replace("{{CONTENT}}", md_to_html(body))
         write(os.path.join(DIST, "blog", slug, "index.html"),
               page(meta["title"] + " · " + SITE_NAME, meta["excerpt"] or SITE_DESC, art, blog_on=' class="on"'))

@@ -10,7 +10,8 @@ ZGJ.registerModule({
 });
 ZGJ.registerModule({
   id: 'content', name: '内容审核', icon: '📝', planned: true,
-  desc: '说说与对话内容的巡检、举报处理、违规内容下架（含审计日志）。'
+  desc: '用户说说与对话内容的巡检、举报处理、违规内容下架（含审计日志）。'
+    + '官网博客的发布管理见「博客发布管理」。'
 });
 ZGJ.registerModule({
   id: 'config', name: '公告与配置', icon: '📣', planned: true,

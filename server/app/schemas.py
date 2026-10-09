@@ -224,3 +224,17 @@ class DeviceReportRequest(BaseModel):
     app_version: str = Field(default="", max_length=24)
     version_code: int = 0
     channel: str = Field(default="", max_length=24)
+
+
+class ArticleIn(BaseModel):
+    """博客文章（后台提交；长度放宽，写入时截断，避免单字段问题导致整表失败）"""
+
+    title: str = Field(default="", max_length=5000)
+    slug: str = Field(default="", max_length=200)
+    author: str = Field(default="老谢", max_length=500)
+    date: str = Field(default="", max_length=40)
+    excerpt: str = Field(default="", max_length=5000)
+    tags: list[str] = Field(default_factory=list)
+    body_md: str = Field(default="", max_length=1000000)
+    # draft / published
+    status: str = Field(default="draft", max_length=16)

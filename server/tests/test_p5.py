@@ -177,7 +177,10 @@ check("使用深度：人均消息 / 对话转化率",
 r = _client.get("/admin/trend?days=3", headers=h(A))
 check("趋势接口 200", r.status_code == 200, r.text[:200])
 trend = r.json()
-_today = stats["generated_at"][:10]
+# generated_at 是 UTC（带时区），趋势按**中国日历日**分桶 —— 必须换算后再比日期，
+# 否则在 UTC 16:00~24:00 这段（北京已是次日）会误判
+_today = (_dt.datetime.fromisoformat(stats["generated_at"])
+          + _dt.timedelta(hours=8)).date().isoformat()
 check("趋势返回 3 天且最后一天是今天",
       len(trend["items"]) == 3 and trend["items"][-1]["date"] == _today, trend["items"])
 check("趋势项字段齐全",
@@ -245,3 +248,10 @@ with SessionLocal() as db:
 
 r = _client.get("/admin/stats", headers=h(A))
 check("已注销账号的管理员令牌也失效 → 401", r.status_code == 401, r.text)
+
+
+print()
+print("════════════════════════════════")
+print("  通过 %d 项，失败 %d 项" % (len(PASSED), len(FAILED)))
+print("════════════════════════════════")
+sys.exit(1 if FAILED else 0)
