@@ -16,6 +16,7 @@ import 'package:zhiguanjia/features/data/basic_info_store.dart';
 import 'package:zhiguanjia/features/data/experience_models.dart';
 import 'package:zhiguanjia/features/data/experience_store.dart';
 import 'package:zhiguanjia/features/data/profile_sync.dart';
+import 'package:zhiguanjia/features/personal/id_card_util.dart';
 import 'package:zhiguanjia/features/personal/personal_auth_service.dart';
 import 'package:zhiguanjia/features/data/self_evaluation_store.dart';
 
@@ -312,5 +313,62 @@ void main() {
     final users = await PersonalAuthService.getUsers();
     expect(users.first.idCard, '510100199001011234',
         reason: '本机完整号不能被脱敏号覆盖');
+  });
+
+  test('实名回填（S-1）：本机已实名而服务端未实名时补推脱敏号+哈希', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'zhiguanjia.personal.users':
+          '[{"phone":"$_phone","password":"","name":"我","idCard":"510100199001011235",'
+              '"gender":"男","birthday":"1990-01-01","province":"四川省",'
+              '"verifiedAt":"2026-09-01T00:00:00.000","createdAt":"2026-09-01T00:00:00.000"}]',
+      'zhiguanjia.personal.auth':
+          '{"token":"t","phone":"$_phone","name":"我","idCard":"510100199001011235","gender":"男","birthday":"1990-01-01","province":"四川省","verifiedAt":"2026-09-01T00:00:00.000","avatarPath":""}',
+    });
+    // 服务端尚未实名（老账号在 v1.0.40 之前认证过）
+    api.bundle = const ProfileBundle(
+        user: {'is_verified': false, 'id_card_masked': ''});
+
+    final ok = await ProfileSync.pull(force: true);
+
+    expect(ok, isTrue);
+    await pumpEventQueue();
+    expect(api.lastIdentityMasked, '510100********1235');
+    expect(api.lastIdentityHash, sha256IdCard('510100199001011235'));
+    expect(api.lastIdentityHash!.length, 64);
+  });
+
+  test('实名回填：本机只有脱敏占位（非完整证件号）时不推', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'zhiguanjia.personal.users':
+          '[{"phone":"$_phone","password":"","name":"我","idCard":"510100********1234",'
+              '"verifiedAt":"2026-09-01T00:00:00.000","createdAt":"2026-09-01T00:00:00.000"}]',
+      'zhiguanjia.personal.auth':
+          '{"token":"t","phone":"$_phone","name":"我","idCard":"510100********1234","gender":"","birthday":"","province":"","verifiedAt":"","avatarPath":""}',
+    });
+    api.bundle = const ProfileBundle(
+        user: {'is_verified': false, 'id_card_masked': ''});
+
+    await ProfileSync.pull(force: true);
+    await pumpEventQueue();
+
+    expect(api.lastIdentityMasked, isNull,
+        reason: '脱敏号不能被当成真实证件号补推（校验位不合法）');
+  });
+
+  test('实名回填：服务端已实名时不重复推送', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'zhiguanjia.personal.users':
+          '[{"phone":"$_phone","password":"","name":"我","idCard":"510100199001011235",'
+              '"verifiedAt":"2026-09-01T00:00:00.000","createdAt":"2026-09-01T00:00:00.000"}]',
+      'zhiguanjia.personal.auth':
+          '{"token":"t","phone":"$_phone","name":"我","idCard":"510100199001011235","gender":"","birthday":"","province":"","verifiedAt":"","avatarPath":""}',
+    });
+    api.bundle = const ProfileBundle(
+        user: {'is_verified': true, 'id_card_masked': '510100********1235'});
+
+    await ProfileSync.pull(force: true);
+    await pumpEventQueue();
+
+    expect(api.lastIdentityMasked, isNull, reason: '服务端已有实名，幂等不重推');
   });
 }

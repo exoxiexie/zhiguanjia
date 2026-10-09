@@ -18,6 +18,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../contracts/profile_api.dart';
 import '../api/profile_api_impl.dart';
+import '../personal/id_card_util.dart';
 import '../personal/personal_auth_service.dart';
 import 'basic_info_store.dart';
 import 'experience_models.dart';
@@ -157,9 +158,13 @@ class ProfileSync {
         bundle.experiences.map(_entryFromDto).toList(),
       );
 
+      final remoteUser = bundle.user;
+
+      // S-1：本机已实名、服务端还没有 → 补推一次（v1.0.40 之前认证过的老账号）
+      await _backfillIdentityIfNeeded(phone, remoteUser);
+
       // 实名状态回写：换设备后本机没有完整证件号，用服务端脱敏号占位，
       // 让「我的」页正确显示"已认证"（本机已有完整号时不覆盖）
-      final remoteUser = bundle.user;
       final masked = remoteUser['id_card_masked']?.toString() ?? '';
       if (remoteUser['is_verified'] == true && masked.isNotEmpty) {
         await PersonalAuthService.applyRemoteVerification(
@@ -184,6 +189,45 @@ class ProfileSync {
 
   /// 登录后调用：强制拉取一次（忽略节流）
   static Future<void> pullOnLogin() => pull(force: true);
+
+  /// 实名回填：本机存有**完整证件号**而服务端尚未实名时，补推一次
+  ///
+  /// 背景：`pushIdentity` 原本只在「重新做实名认证」时调用，
+  /// 因此老账号的实名信息从未上传 —— 换设备后显示未认证（缺陷 S-1）。
+  /// 幂等：服务端一旦标记已实名，后续同步不会再推。
+  static Future<void> _backfillIdentityIfNeeded(
+      String phone, Map<String, dynamic> remoteUser) async {
+    final serverVerified = remoteUser['is_verified'] == true;
+    final serverMasked = remoteUser['id_card_masked']?.toString() ?? '';
+    if (serverVerified || serverMasked.isNotEmpty) return;
+
+    final users = await PersonalAuthService.getUsers();
+    final idx = users.indexWhere((u) => u.phone == phone);
+    if (idx < 0) return;
+    final local = users[idx];
+
+    // 用权威校验区分「完整证件号」与「脱敏占位」：
+    // 脱敏号含 * 校验必失败，因此不会被误当成真实证件号推上去
+    final info = IdCardUtil.validate(local.idCard);
+    if (!info.valid) return;
+
+    final normalized = local.idCard.trim().toUpperCase();
+    final birthday = info.birthday;
+    final birthdayStr = birthday == null
+        ? local.birthday
+        : '${birthday.year.toString().padLeft(4, '0')}'
+            '-${birthday.month.toString().padLeft(2, '0')}'
+            '-${birthday.day.toString().padLeft(2, '0')}';
+
+    await pushIdentity(
+      masked: maskIdCard(normalized),
+      hash: sha256IdCard(normalized),
+      realName: local.name,
+      gender: info.gender ?? local.gender,
+      birthday: birthdayStr,
+      province: info.province ?? local.province,
+    );
+  }
 
   /// 仅测试使用：清空节流与进行中标记
   @visibleForTesting
