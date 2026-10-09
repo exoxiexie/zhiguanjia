@@ -1,31 +1,42 @@
 """职管家 · 商业版 API 服务
 
-P0（地基）阶段职责：
-  1. 提供 /health 健康检查（进程 + 配置 + 数据库连通性）
-  2. 作为后续业务路由（auth / users / posts / conversations / sync）的挂载点
+P1 阶段：账号体系（注册/登录/刷新/退出/我的资料）
 
-路径约定：
-  Nginx 把前端的 `/api/` 反代到本服务的 `/`（剥离前缀），
-  因此本服务内部路由写 `/health`，对外即 `/api/health`；
-  将来切到域名后同样是 `https://zhidongni.com.cn/api/health`，前端无需改动。
+路径约定：Nginx 把 `/api/` 反代到本服务的 `/`（剥离前缀），
+因此本服务内部路由写 `/auth/login`、`/health`，
+对外即 `/api/auth/login`、`/api/health`；将来切域名后前端无需改动。
 """
 
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import settings
+from .db import Base, engine
+from .routers import auth, me
 
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """启动时建表（MVP 阶段；表结构稳定后改用 Alembic 迁移）"""
+    Base.metadata.create_all(bind=engine)
+    yield
+
 
 app = FastAPI(
     title="职管家 API",
     version=APP_VERSION,
     docs_url="/docs" if settings.debug else None,
     redoc_url=None,
+    lifespan=lifespan,
 )
 
-# App 端（移动端）不需要 CORS，但保留以便调试页面调用
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,26 +45,52 @@ app.add_middleware(
 )
 
 
+# ── 统一错误结构：{"error": {"code": "...", "message": "..."}} ──
+@app.exception_handler(StarletteHTTPException)
+async def _http_error_handler(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+    detail = exc.detail
+    if isinstance(detail, dict) and "code" in detail:
+        body = {"error": detail}
+    else:
+        body = {
+            "error": {"code": "http_%d" % exc.status_code, "message": str(detail)}
+        }
+    return JSONResponse(status_code=exc.status_code, content=body)
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error_handler(
+    _: Request, exc: RequestValidationError
+) -> JSONResponse:
+    errors = exc.errors() or []
+    first = errors[0] if errors else {}
+    loc = [str(x) for x in first.get("loc", []) if x not in ("body", "query", "path")]
+    message = str(first.get("msg", "请求参数不正确")).replace("Value error, ", "")
+    field = ".".join(loc) or "参数"
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": {
+                "code": "invalid_request",
+                "message": "%s: %s" % (field, message),
+            }
+        },
+    )
+
+
+app.include_router(auth.router)
+app.include_router(me.router)
+
+
 def _probe_db() -> bool:
     """真连一次数据库；未配置凭据时直接返回 False（不算故障）"""
-    if not settings.db_configured():
+    if not settings.db_configured() and not settings.db_override:
         return False
     try:
-        import pymysql
+        from sqlalchemy import text
 
-        conn = pymysql.connect(
-            host=settings.db_host,
-            port=settings.db_port,
-            user=settings.db_user,
-            password=settings.db_password,
-            database=settings.db_name,
-            charset="utf8mb4",
-            connect_timeout=3,
-        )
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1")
-            cur.fetchone()
-        conn.close()
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
         return True
     except Exception:  # noqa: BLE001
         return False
@@ -62,27 +99,29 @@ def _probe_db() -> bool:
 @app.get("/health")
 async def health() -> JSONResponse:
     """/api/health —— 部署验收与监控探针"""
-    body = {
-        "ok": True,
-        "service": "zhiguanjia-api",
-        "version": APP_VERSION,
-        "env": settings.env,
-        "db_configured": settings.db_configured(),
-        "db": _probe_db(),
-        "jwt_configured": settings.jwt_configured(),
-        "deepseek_configured": bool(settings.deepseek_api_key),
-    }
-    return JSONResponse(body)
+    return JSONResponse(
+        {
+            "ok": True,
+            "service": "zhiguanjia-api",
+            "version": APP_VERSION,
+            "env": settings.env,
+            "db_configured": settings.db_configured() or settings.db_override,
+            "db": _probe_db(),
+            "jwt_configured": settings.jwt_configured(),
+            "deepseek_configured": bool(settings.deepseek_api_key),
+        }
+    )
 
 
 @app.get("/")
 async def index() -> JSONResponse:
-    """根路径给个明确提示，避免误访问时 404 让人困惑"""
     return JSONResponse(
         {
             "service": "职管家 API",
             "version": APP_VERSION,
             "health": "/health",
+            "auth": ["/auth/register", "/auth/login", "/auth/refresh", "/auth/logout"],
+            "me": "/me",
             "hint": "本服务通过 /api/ 对外提供，请访问 /api/health",
         }
     )

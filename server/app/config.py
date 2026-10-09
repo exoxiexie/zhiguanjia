@@ -7,8 +7,8 @@
 2. `/etc/zhiguanjia-api-secrets.json`（应用自行读取）：**可能含特殊字符的密钥**
    —— 数据库名/用户/密码、DeepSeek Key 等
 
-为什么密钥单独放 JSON：systemd 的 EnvironmentFile 对 `"` `\` `$` `#` 等字符
-有转义歧义，密码由宝塔随机生成时极易踩坑。交给 Python 用 json 读写可以
+为什么密钥单独放 JSON：systemd 的 EnvironmentFile 对引号、反斜杠、美元符、井号等
+字符有转义歧义，密码由宝塔随机生成时极易踩坑。交给 Python 用 json 读写可以
 安全处理任意字符（写入侧统一用 json.dump，读取侧用 json.load）。
 
 文件缺失或损坏时**不抛异常**：对应项留空，/health 会显示为未配置，
@@ -75,6 +75,11 @@ class Settings:
     def db_configured(self) -> bool:
         """数据库凭据是否已配置（未配置时 /health 不报错，仅标记 db=false）"""
         return bool(self.db_name and self.db_user and self.db_password)
+
+    @property
+    def db_override(self) -> bool:
+        """是否用环境变量覆盖了连接串（本地测试用 SQLite 时为真）"""
+        return bool(os.environ.get("ZGJ_DATABASE_URL"))
 
     def jwt_configured(self) -> bool:
         return bool(self.jwt_secret)
