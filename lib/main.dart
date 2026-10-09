@@ -14,6 +14,7 @@ import 'contracts/chat_session_service.dart';
 import 'core/di/service_locator.dart';
 import 'features/agent/agent_service_impl.dart';
 import 'features/api/api_client.dart';
+import 'features/data/profile_sync.dart';
 import 'features/chat/chat_service_impl.dart';
 import 'features/chat/chat_session_service_impl.dart';
 import 'features/personal/personal_auth_service.dart';
@@ -105,6 +106,8 @@ class _AuthGateState extends State<AuthGate> {
     // 已登录：后台尽力续期服务端令牌（30 天滑动窗口）。
     // 不 await、失败也不影响本地登录态——保证断网时仍可正常进入 App。
     unawaited(ApiClient.ensureFreshSession());
+    // P2：后台拉取云端档案写入本地缓存（节流；失败静默，离线仍用本地数据）
+    unawaited(ProfileSync.pullIfNeeded());
     return true;
   }
 

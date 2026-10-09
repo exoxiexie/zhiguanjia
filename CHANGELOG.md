@@ -52,6 +52,27 @@
 - 新增 `test/chat_session_isolation_test.dart`（4 项断言，覆盖"换账号后上一账号会话与消息全部消失"核心场景）。
 - `flutter analyze`：0 error / 0 warning。
 
+## [1.0.38] - 2026-10-09
+
+### 新增
+- **职业档案上云（P2）**：基础信息、职业经历（教育/工作/培训）、自我评价保存后自动同步到服务端；
+  **换手机登录后自动出现同一份档案**，多设备改动即时可见。
+- 新增 `contracts/profile_api.dart` 与 `features/api/profile_api_impl.dart`；
+  新增同步层 `features/data/profile_sync.dart`（服务端为准 + 本地缓存）。
+
+### 变更
+- 三个本地存储（`basic_info_store` / `experience_store` / `self_evaluation_store`）
+  **对外方法签名完全不变**：内部改为「先写本地缓存（离线立即可见）→ 再尽力推送服务端」，
+  推送失败静默、不影响本地保存；页面代码零改动。
+- 进入「数据」页与登录后自动拉取云端档案（**90 秒节流 + 6 秒超时**，离线时静默回落本地缓存）。
+- 服务端新增 `GET/PUT /api/profile*` 六个接口与 `user_profiles` / `experiences` 两张表；
+  经历字段整体存 JSON，**新增经历类型无需改表迁移**。
+
+### 安全
+- **实名认证暂不上云**：该接口传输完整身份证号，代码中加了 HTTPS 守卫——
+  备案通过、`apiBaseUrl` 切换为 https 后**自动开始上传**，无需再改代码。
+- 所有档案接口强制按 `user_id` 隔离，实测跨账号无法读写彼此数据。
+
 ## [Unreleased]
 
 ### 规划中

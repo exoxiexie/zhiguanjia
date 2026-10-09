@@ -1,1 +1,1 @@
-{"versionName":"1.0.37","versionCode":38,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.37/zhiguanjia-v1.0.37.apk","changelog":"修复换账号后能看到上一账号聊天记录的隐私泄漏（P0-1）；同步修复联网搜索数据串账号问题（P0-2）。"}
+{"versionName":"1.0.38","versionCode":39,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.38/zhiguanjia-v1.0.38.apk","changelog":"职业档案上云：基础信息、职业经历、自我评价保存后自动同步，换手机登录即可看到同一份档案。"}

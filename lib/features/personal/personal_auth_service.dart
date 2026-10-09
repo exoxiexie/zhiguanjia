@@ -18,9 +18,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../contracts/api_config.dart';
 import '../../contracts/auth_api.dart';
 import '../api/api_client.dart';
 import '../api/auth_api_impl.dart';
+import '../data/profile_sync.dart';
 import 'id_card_util.dart';
 import 'personal_model.dart';
 
@@ -243,15 +245,28 @@ class PersonalAuthService {
     final birthdayStr =
         '${birthday.year.toString().padLeft(4, '0')}-${birthday.month.toString().padLeft(2, '0')}-${birthday.day.toString().padLeft(2, '0')}';
 
+    final verifiedAt = DateTime.now().toIso8601String();
     users[idx] = users[idx].copyWith(
       name: name,
       idCard: normalized,
       gender: info.gender ?? '',
       birthday: birthdayStr,
       province: info.province ?? '',
-      verifiedAt: DateTime.now().toIso8601String(),
+      verifiedAt: verifiedAt,
     );
     await _saveUsers(users);
+
+    // 实名上云：**仅 HTTPS 下启用**（该接口传输完整身份证号）。
+    // 备案通过、apiBaseUrl 切成 https 后自动生效，无需再改这里。
+    if (ApiConfig.apiBaseUrl.startsWith('https')) {
+      unawaited(ProfileSync.pushIdentity(
+        idCard: normalized,
+        realName: name,
+        gender: info.gender ?? '',
+        birthday: birthdayStr,
+        province: info.province ?? '',
+      ));
+    }
     return {'ok': true, 'user': users[idx]};
   }
 

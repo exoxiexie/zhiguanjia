@@ -7,11 +7,13 @@
 /// **空态**：四项全空时**不写键**（等同未填写），数据页卡片据此留白。
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../personal/personal_auth_service.dart';
+import 'profile_sync.dart';
 
 /// 工作状态
 enum WorkStatus {
@@ -152,7 +154,16 @@ class BasicInfoStore {
   }
 
   /// 保存；全部字段为空时删除键（等于清空）
+  ///
+  /// P2 起：**先落本地缓存（离线立即可见）→ 再尽力推送服务端**。
+  /// 推送失败不提示、不影响本地保存，联网后拉取会以服务端为准。
   static Future<void> save(BasicInfo info) async {
+    await writeCache(info);
+    unawaited(ProfileSync.pushBasic(info));
+  }
+
+  /// 只写本地缓存、不推送（同步层拉取云端后回写用，避免"拉下来又推回去"的抖动）
+  static Future<void> writeCache(BasicInfo info) async {
     final prefs = await SharedPreferences.getInstance();
     final key = await _keyFor();
     if (info.isEmpty) {

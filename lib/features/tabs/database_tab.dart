@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 
 import '../common/plain_group.dart';
 import '../data/basic_info_page.dart';
+import '../data/profile_sync.dart';
 import '../data/basic_info_store.dart';
 import '../data/experience_list_page.dart';
 import '../data/experience_models.dart';
@@ -67,6 +68,9 @@ class DatabaseTabState extends State<DatabaseTab> {
   }
 
   Future<void> _load() async {
+    // P2：进入数据页先尝试拉取云端档案（节流 + 6 秒超时，失败静默）
+    // 目的：换手机登录后，档案能自动出现在这里
+    await ProfileSync.pullIfNeeded();
     final auth = await PersonalAuthService.getAuth();
     final counts = await ExperienceStore.counts();
     final selfEvaluation = await SelfEvaluationStore.load();

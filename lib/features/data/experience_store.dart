@@ -13,12 +13,14 @@
 /// 与主流简历产品一致，最近的一段经历永远在最上面。
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../personal/personal_auth_service.dart';
 import 'experience_models.dart';
+import 'profile_sync.dart';
 
 class ExperienceStore {
   /// 每个账号一个存储键（键后缀即账号手机号）
@@ -95,6 +97,18 @@ class ExperienceStore {
     if (!replaced) next.add(jsonEncode(entry.toJson()));
 
     await prefs.setStringList(key, next);
+    // P2 起：先落本地缓存 → 再尽力推送服务端（失败静默）
+    unawaited(ProfileSync.pushExperience(entry));
+  }
+
+  /// 用云端全量覆盖本地缓存（同步层拉取后回写用，不触发推送）
+  static Future<void> replaceCache(List<ExperienceEntry> entries) async {
+    final prefs = await SharedPreferences.getInstance();
+    final phone = await _currentPhone();
+    await prefs.setStringList(
+      _keyFor(phone),
+      entries.map((e) => jsonEncode(e.toJson())).toList(),
+    );
   }
 
   /// 删除一条经历
@@ -115,5 +129,7 @@ class ExperienceStore {
       next.add(e);
     }
     await prefs.setStringList(key, next);
+    // P2 起：同步删除到服务端（失败静默，下次拉取以服务端为准）
+    unawaited(ProfileSync.pushDeleteExperience(id));
   }
 }

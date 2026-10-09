@@ -10,9 +10,12 @@
 /// 保存空串即删除该键（等价于"清空自我评价"）。
 library;
 
+import 'dart:async';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../personal/personal_auth_service.dart';
+import 'profile_sync.dart';
 
 class SelfEvaluationStore {
   /// 每个账号一个存储键（键后缀即账号手机号）
@@ -35,7 +38,15 @@ class SelfEvaluationStore {
   }
 
   /// 保存自我评价（传空串或纯空白即清空）
+  ///
+  /// P2 起：先落本地缓存 → 再尽力推送服务端（失败静默，不阻塞保存）
   static Future<void> save(String text) async {
+    await writeCache(text);
+    unawaited(ProfileSync.pushSelfEvaluation(text));
+  }
+
+  /// 只写本地缓存、不推送（同步层拉取云端后回写用）
+  static Future<void> writeCache(String text) async {
     final prefs = await SharedPreferences.getInstance();
     final key = await _keyFor();
     final t = text.trim();
