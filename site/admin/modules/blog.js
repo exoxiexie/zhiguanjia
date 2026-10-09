@@ -13,8 +13,21 @@ ZGJ.registerModule({
   }
 });
 
+/* 待显示的提示：由动作设置、由 list() 渲染后清空。
+   （曾用函数参数传递，渲染时未传 → 调用即抛异常，导致按钮永远停在"构建中"） */
+var pendingToast = '';
+
+/* 给可能很慢的请求加超时，保证按钮状态一定能恢复 */
+function withTimeout(promise, ms, label) {
+  return Promise.race([promise, new Promise(function (_, reject) {
+    setTimeout(function () {
+      reject(new Error(label + '超时（' + Math.round(ms / 1000) + '秒），请稍后刷新查看结果'));
+    }, ms);
+  })]);
+}
+
 /* ───────────── 列表 ───────────── */
-function list(box, ctx, toast) {
+function list(box, ctx) {
   var el = ctx.el;
   box.innerHTML = '';
   box.appendChild(el('div', { class: 'loading', text: '加载中…' }));
@@ -29,14 +42,18 @@ function list(box, ctx, toast) {
         onclick: function () { editor(box, ctx, ''); }
       }),
       el('button', {
-        class: 'btn', text: '重新构建并发布',
-        title: '用于手工改过模板或内容后重新上线',
+        class: 'btn', text: '发布站点',
+        title: '把当前文章与页面重新构建后发布到官网。'
+          + '日常发文用每篇的「保存并发布」即可，无需点它；'
+          + '只有手工改过模板或样式后才需要点。',
         onclick: function (ev) {
-          var b = ev.target; b.disabled = true; b.textContent = '构建中…';
-          ctx.api.blogRebuild().then(function (r) {
-            toast(r.message || '已重新发布');
-          }).catch(function (e) { toast('失败：' + e.message); })
-            .then(function () { b.disabled = false; b.textContent = '重新构建并发布'; });
+          var b = ev.target;
+          b.disabled = true; b.textContent = '构建中…';
+          function restore() { b.disabled = false; b.textContent = '发布站点'; }
+          withTimeout(ctx.api.blogRebuild(), 200000, '构建发布')
+            .then(function (r) { pendingToast = r.message || '已重新发布'; })
+            .catch(function (e) { pendingToast = '失败：' + e.message; })
+            .then(function () { restore(); list(box, ctx); });
         }
       }),
       el('span', { class: 'muted', text: '共 ' + items.length + ' 篇' })
@@ -47,7 +64,10 @@ function list(box, ctx, toast) {
       box.appendChild(el('div', { class: 'err-box', text:
         '服务器上还没部署站点源码目录（' + data.site_dir + '），发布功能不可用。' }));
     }
-    if (toast) { box.appendChild(el('div', { class: 'ok-box', text: toast })); }
+    if (pendingToast) {
+      box.appendChild(el('div', { class: 'ok-box', text: pendingToast }));
+      pendingToast = '';
+    }
 
     if (!items.length) {
       box.appendChild(el('div', { class: 'empty', text: '还没有文章，点「新建文章」开始写吧。' }));
@@ -75,8 +95,12 @@ function list(box, ctx, toast) {
           e.preventDefault();
           if (!confirm('删除《' + a.title + '》？已发布的会同时下线官网页面。')) return;
           ctx.api.blogDelete(a.id).then(function () {
-            list(box, ctx, '已删除：' + a.title);
-          }).catch(function (err) { alert('删除失败：' + err.message); });
+            pendingToast = '已删除：' + a.title;
+            list(box, ctx);
+          }).catch(function (err) {
+            pendingToast = '删除失败：' + err.message;
+            list(box, ctx);
+          });
         } })
       ]);
       tbody.appendChild(el('tr', {}, [
@@ -171,15 +195,19 @@ function editor(box, ctx, id) {
       ctx.api.blogSave(payload, id).then(function (r) {
         var newId = r.article.id;
         if (status !== 'published') {
-          list(box, ctx, '已保存草稿：' + f.title);
+          pendingToast = '已保存草稿：' + f.title;
+          list(box, ctx);
           return null;
         }
-        return ctx.api.blogPublish(newId).then(function (p) {
-          list(box, ctx, '已发布上线：' + p.url);
-        });
+        return withTimeout(ctx.api.blogPublish(newId), 200000, '发布')
+          .then(function (p) {
+            pendingToast = '已发布上线：' + p.url;
+            list(box, ctx);
+          });
       }).catch(function (e) {
         box.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
-        alert('保存失败：' + e.message);
+        pendingToast = '操作失败：' + e.message;
+        list(box, ctx);
       });
     }
 

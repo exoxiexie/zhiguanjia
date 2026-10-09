@@ -21,6 +21,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -34,6 +35,10 @@ from ..schemas import ArticleIn
 router = APIRouter(tags=["admin-blog"])
 
 SITE_DIR = os.environ.get("ZGJ_SITE_DIR", "/www/wwwroot/zhiguanjia-site")
+
+# 构建必须**串行**：两次构建并发写同一个 dist/ 会互相覆盖，轻则产物错乱、
+# 重则线上页面半新半旧。拿不到锁就直接告诉前端"正在构建"，而不是傻等或并行。
+_build_lock = threading.Lock()
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 _CST = datetime.timedelta(hours=8)
 
@@ -72,6 +77,15 @@ def rebuild_and_deploy() -> dict:
     """重新构建并同步到站点根目录（后台发布与命令行部署共用同一条链路）"""
     if not os.path.isdir(SITE_DIR):
         return {"ok": False, "message": f"站点源码目录不存在：{SITE_DIR}"}
+    if not _build_lock.acquire(blocking=False):
+        return {"ok": False, "busy": True, "message": "另一个构建正在进行，请稍等几秒再试"}
+    try:
+        return _rebuild_locked()
+    finally:
+        _build_lock.release()
+
+
+def _rebuild_locked() -> dict:
     for script, label in (("build.py", "构建"), ("sync_site.py", "部署")):
         try:
             proc = subprocess.run(
@@ -235,6 +249,8 @@ def publish_article(
 
     result = rebuild_and_deploy()
     if not result["ok"]:
+        if result.get("busy"):
+            raise api_error(409, "busy", result["message"])
         raise api_error(500, "publish_failed", result["message"])
 
     row.status = "published"
@@ -257,5 +273,7 @@ def rebuild_site(
     """仅重新构建并部署（用于手工改过模板/内容后的重新上线）"""
     result = rebuild_and_deploy()
     if not result["ok"]:
+        if result.get("busy"):
+            raise api_error(409, "busy", result["message"])
         raise api_error(500, "rebuild_failed", result["message"])
     return {"ok": True, "message": result["message"]}
