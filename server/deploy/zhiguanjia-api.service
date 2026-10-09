@@ -1,0 +1,20 @@
+[Unit]
+Description=职管家 API 服务（FastAPI/uvicorn）
+After=network.target mysqld.service
+Wants=mysqld.service
+
+[Service]
+Type=simple
+User=www
+Group=www
+WorkingDirectory=/www/wwwroot/zhiguanjia-api
+EnvironmentFile=/etc/zhiguanjia-api.env
+ExecStart=/www/wwwroot/zhiguanjia-api/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2 --no-access-log
+Restart=always
+RestartSec=3
+# 资源约束：2 核 2G 机器，防止异常时拖垮系统
+MemoryMax=700M
+CPUQuota=150%
+
+[Install]
+WantedBy=multi-user.target
