@@ -38,7 +38,8 @@ class ProfileSync {
   /// 单次拉取的硬超时：离线/弱网时不能把"进入数据页"卡住
   static const Duration pullTimeout = Duration(seconds: 6);
 
-  static DateTime? _lastPullAt;
+  /// 节流时间按账号记录（换账号后应立即同步）
+  static final Map<String, DateTime> _lastPullAt = <String, DateTime>{};
   static bool _pulling = false;
 
   /// 是否处于可同步状态（未登录只是本机游客数据，不上云）
@@ -104,11 +105,11 @@ class ProfileSync {
 
   /// 推送实名认证
   ///
-  /// ⚠️ **只允许 HTTPS 调用**：本接口传输完整身份证号。
-  /// 备案前业务 API 是 HTTP，此时保持"实名只存本机"，
-  /// 待域名备案通过、`apiBaseUrl` 切成 https 后由调用方自动启用。
+  /// **只上传脱敏号 + SHA-256 哈希**（完整身份证号永不出客户端），
+  /// 因此不需要等 HTTPS：HTTP 下也不会泄漏证件号。
   static Future<void> pushIdentity({
-    required String idCard,
+    required String masked,
+    required String hash,
     required String realName,
     String gender = '',
     String birthday = '',
@@ -117,7 +118,8 @@ class ProfileSync {
     if (!await _canSync()) return;
     try {
       await _api.saveIdentity(
-        idCard: idCard,
+        idCardMasked: masked,
+        idCardHash: hash,
         realName: realName,
         gender: gender,
         birthday: birthday,
@@ -135,11 +137,11 @@ class ProfileSync {
   /// [force] 为 true 时忽略节流（登录后调用）。
   /// 返回 true 表示确实同步成功。任何网络问题都返回 false 且**保留本地缓存**。
   static Future<bool> pull({bool force = false}) async {
-    if (!await _canSync()) return false;
+    final phone = (await PersonalAuthService.getAuth())?.phone ?? '';
+    if (phone.isEmpty) return false;
     if (_pulling) return false;
-    if (!force &&
-        _lastPullAt != null &&
-        DateTime.now().difference(_lastPullAt!) < minPullInterval) {
+    final last = _lastPullAt[phone];
+    if (!force && last != null && DateTime.now().difference(last) < minPullInterval) {
       return false;
     }
 
@@ -154,7 +156,20 @@ class ProfileSync {
       await ExperienceStore.replaceCache(
         bundle.experiences.map(_entryFromDto).toList(),
       );
-      _lastPullAt = DateTime.now();
+
+      // 实名状态回写：换设备后本机没有完整证件号，用服务端脱敏号占位，
+      // 让「我的」页正确显示"已认证"（本机已有完整号时不覆盖）
+      final remoteUser = bundle.user;
+      final masked = remoteUser['id_card_masked']?.toString() ?? '';
+      if (remoteUser['is_verified'] == true && masked.isNotEmpty) {
+        await PersonalAuthService.applyRemoteVerification(
+          phone: phone,
+          maskedIdCard: masked,
+          verifiedAt: remoteUser['verified_at']?.toString() ?? '',
+        );
+      }
+
+      _lastPullAt[phone] = DateTime.now();
       return true;
     } catch (_) {
       // 超时/离线：保留本地缓存，绝不阻塞用户
@@ -173,7 +188,7 @@ class ProfileSync {
   /// 仅测试使用：清空节流与进行中标记
   @visibleForTesting
   static void resetForTest() {
-    _lastPullAt = null;
+    _lastPullAt.clear();
     _pulling = false;
   }
 

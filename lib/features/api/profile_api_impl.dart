@@ -57,7 +57,8 @@ class HttpProfileApi implements ProfileApi {
 
   @override
   Future<ApiResult<bool>> saveIdentity({
-    required String idCard,
+    required String idCardMasked,
+    required String idCardHash,
     required String realName,
     String gender = '',
     String birthday = '',
@@ -66,7 +67,8 @@ class HttpProfileApi implements ProfileApi {
       _void(
         () => ApiClient.sendAuthed('PUT', '/profile/identity',
             data: <String, dynamic>{
-              'id_card': idCard,
+              'id_card_masked': idCardMasked,
+              'id_card_hash': idCardHash,
               'real_name': realName,
               'gender': gender,
               'birthday': birthday,

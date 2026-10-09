@@ -130,8 +130,13 @@ r = _client.get("/profile", headers=hdr(token_a))
 check("A 的数据未被 B 影响", len(r.json()["experiences"]) == 2, r.text)
 
 print("── 9. 实名认证 ──")
+import hashlib
+
+_id = "510100199001011234"
+_masked = _id[:6] + "********" + _id[-4:]
+_hash = hashlib.sha256(_id.encode()).hexdigest()
 r = _client.put("/profile/identity", headers=hdr(token_a), json={
-    "id_card": "510100199001011234", "real_name": "用户A",
+    "id_card_masked": _masked, "id_card_hash": _hash, "real_name": "用户A",
     "gender": "男", "birthday": "1990-01-01", "province": "四川省",
 })
 check("实名保存 → 200", r.status_code == 200, r.text)
@@ -139,10 +144,15 @@ u = r.json()["user"]
 check("身份证已脱敏", u["id_card_masked"] == "510100********1234", u.get("id_card_masked"))
 check("已标记实名", u["is_verified"] is True)
 check("响应不含明文身份证", "510100199001011234" not in r.text)
+check("脱敏号原样保存", u["id_card_masked"] == _masked)
 r = _client.put("/profile/identity", headers=hdr(token_b), json={
-    "id_card": "510100199001011234", "real_name": "用户B",
+    "id_card_masked": _masked, "id_card_hash": _hash, "real_name": "用户B",
 })
 check("同一证件绑第二个账号 → 409", r.status_code == 409, r.text)
+r = _client.put("/profile/identity", headers=hdr(token_b), json={
+    "id_card_masked": _masked, "id_card_hash": "not-a-hash", "real_name": "用户B",
+})
+check("非法哈希格式 → 400/422", r.status_code in (400, 422), r.text)
 
 print()
 print("════════════════════════════════")

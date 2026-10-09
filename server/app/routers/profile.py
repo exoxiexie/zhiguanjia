@@ -15,6 +15,7 @@ PUT    /profile/identity            实名认证（App 侧在 HTTPS 后启用）
 
 import datetime
 import hashlib
+import re
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -197,33 +198,36 @@ def save_identity(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
-    """实名认证：只落库脱敏号 + SHA-256 哈希，明文不落盘
+    """实名认证：只落库「脱敏号 + SHA-256 哈希」
 
-    同一证件不得绑定多个账号（按哈希查重）——这是合规与风控的双重要求。
+    客户端已在本地用权威校验规则（含校验位）验过证件号并把完整号留在本机；
+    服务端只收脱敏号（展示用）与哈希（查重用），**不接触完整证件号**。
     """
-    normalized = body.id_card.strip().upper()
-    id_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    hash_value = body.id_card_hash.strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", hash_value):
+        raise api_error(400, "bad_identity_hash", "实名信息格式不正确")
 
+    masked = body.id_card_masked.strip()
+    if not masked:
+        raise api_error(400, "bad_identity_masked", "实名信息格式不正确")
+
+    # 同一证件不得绑定多个账号
     conflict = db.scalar(
-        select(User).where(User.id_card_hash == id_hash, User.id != user.id)
+        select(User).where(User.id_card_hash == hash_value, User.id != user.id)
     )
     if conflict is not None:
         raise api_error(409, "id_card_taken", "该身份证号已绑定其他账号")
 
-    # 脱敏：保留前 6 位 + 后 4 位
-    masked = (
-        "%s********%s" % (normalized[:6], normalized[-4:])
-        if len(normalized) >= 10
-        else normalized[:2] + "****"
-    )
-
     user.id_card_masked = masked
-    user.id_card_hash = id_hash
+    user.id_card_hash = hash_value
     if body.real_name.strip():
         user.name = body.real_name.strip()
-        user.gender = body.gender.strip() or user.gender
-        user.birthday = body.birthday.strip() or user.birthday
-        user.province = body.province.strip() or user.province
+    if body.gender.strip():
+        user.gender = body.gender.strip()
+    if body.birthday.strip():
+        user.birthday = body.birthday.strip()
+    if body.province.strip():
+        user.province = body.province.strip()
     user.verified_at = utcnow()
     db.commit()
     db.refresh(user)

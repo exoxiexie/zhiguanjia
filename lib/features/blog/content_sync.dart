@@ -12,6 +12,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../contracts/content_api.dart';
 import '../api/content_api_impl.dart';
@@ -35,13 +36,21 @@ class ContentSync {
   /// 单次拉取硬超时：弱网时不能把"进入说说页"卡住
   static const Duration pullTimeout = Duration(seconds: 8);
 
-  static DateTime? _lastPullAt;
+  /// 节流时间按账号记录（换账号后应立即同步）
+  static final Map<String, DateTime> _lastPullAt = <String, DateTime>{};
   static bool _pulling = false;
 
-  static Future<bool> _canSync() async {
+  /// 历史回填标记（按账号）
+  static String backfillKeyFor(String phone) =>
+      'zhiguanjia.content.backfilled.$phone';
+
+  static Future<String?> _currentPhone() async {
     final auth = await PersonalAuthService.getAuth();
-    return auth != null && auth.phone.isNotEmpty;
+    final phone = auth?.phone ?? '';
+    return phone.isEmpty ? null : phone;
   }
+
+  static Future<bool> _canSync() async => await _currentPhone() != null;
 
   // ────────────────────────── 推送（写） ──────────────────────────
 
@@ -123,16 +132,19 @@ class ContentSync {
 
   /// 拉取云端内容并写入本地缓存（[force] 忽略节流）
   static Future<bool> pull({bool force = false}) async {
-    if (!await _canSync()) return false;
+    final phone = await _currentPhone();
+    if (phone == null) return false;
     if (_pulling) return false;
-    if (!force &&
-        _lastPullAt != null &&
-        DateTime.now().difference(_lastPullAt!) < minPullInterval) {
+    final last = _lastPullAt[phone];
+    if (!force && last != null && DateTime.now().difference(last) < minPullInterval) {
       return false;
     }
 
     _pulling = true;
     try {
+      // 首次同步：把本地已发布/已收藏/已关注的内容全量推一次
+      await _maybeBackfill(phone);
+
       final result = await _api.fetch().timeout(pullTimeout);
       if (!result.ok || result.data == null) return false;
       final bundle = result.data!;
@@ -161,7 +173,7 @@ class ContentSync {
 
       await FollowStore.replaceCache(bundle.follows.toSet());
 
-      _lastPullAt = DateTime.now();
+      _lastPullAt[phone] = DateTime.now();
       return true;
     } catch (_) {
       // 超时/离线：保留本地缓存
@@ -177,10 +189,73 @@ class ContentSync {
   /// 登录后调用：强制拉取一次
   static Future<void> pullOnLogin() => pull(force: true);
 
+  /// 首次同步：把本地已有内容全量推一次
+  ///
+  /// 与对话侧同理：outbox 只记录升级后的新写入，升级前发过的说说/收藏/关注
+  /// 从未上传过，需要一次性回填（幂等，失败下次重试）。
+  static Future<void> _maybeBackfill(String phone) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(backfillKeyFor(phone)) == true) return;
+    if (await backfillLocalContent()) {
+      await prefs.setBool(backfillKeyFor(phone), true);
+    }
+  }
+
+  /// 全量回填本地内容（我的说说含配图、收藏、关注），返回是否全部成功
+  @visibleForTesting
+  static Future<bool> backfillLocalContent() async {
+    final phone = await _currentPhone();
+    if (phone == null) return false;
+    try {
+      // 我发布过的说说（配图先上传）
+      final mine = await BlogStore.loadByAuthor(phone);
+      for (final post in mine) {
+        final uploaded = await _uploadLocalImages(post.images);
+        final res = await _api.publishPost(PostDto(
+          id: post.id,
+          title: post.title,
+          content: post.content,
+          images: uploaded,
+          authorPhone: post.authorPhone,
+          authorName: post.authorName,
+          authorAvatarPath: post.authorAvatarPath,
+          createdAt: post.createdAt,
+        ));
+        if (!res.ok) return false;
+        if (!listEquals(uploaded, post.images)) {
+          await BlogStore.updatePostImagesLocal(
+              post.authorPhone.isEmpty ? phone : post.authorPhone,
+              post.id,
+              uploaded);
+        }
+      }
+
+      // 收藏
+      for (final item in await FavoriteStore.list()) {
+        final res = await _api.upsertFavorite(FavoriteDto(
+          id: item.id,
+          content: item.content,
+          source: item.source,
+          createdAt: item.createdAt,
+        ));
+        if (!res.ok) return false;
+      }
+
+      // 关注
+      for (final target in await FollowStore.loadFollowing()) {
+        final res = await _api.setFollow(target, true);
+        if (!res.ok) return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 仅测试使用：清空节流与进行中标记
   @visibleForTesting
   static void resetForTest() {
-    _lastPullAt = null;
+    _lastPullAt.clear();
     _pulling = false;
   }
 

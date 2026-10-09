@@ -9,7 +9,7 @@
 """
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..deps import get_current_user, get_db
@@ -138,6 +138,22 @@ def push(
                 seq=seq + offset,
             ))
             applied["messages"] += 1
+        db.flush()
+
+        # 校正受影响会话的消息数：客户端计数可能滞后（只增消息、不同步计数），
+        # 以服务端实际条数为准，避免新设备拉到的会话显示成 "0 条消息"
+        for cid in {m.conversation_id for m in body.messages}:
+            row = db.get(Conversation, cid)
+            if row is not None and row.user_id == user.id:
+                count = db.scalar(
+                    select(func.count())
+                    .select_from(Message)
+                    .where(
+                        Message.conversation_id == cid,
+                        Message.deleted_at.is_(None),
+                    )
+                )
+                row.message_count = int(count or 0)
         db.flush()
 
     # ── 记忆 ──

@@ -16,6 +16,7 @@ import 'package:zhiguanjia/features/data/basic_info_store.dart';
 import 'package:zhiguanjia/features/data/experience_models.dart';
 import 'package:zhiguanjia/features/data/experience_store.dart';
 import 'package:zhiguanjia/features/data/profile_sync.dart';
+import 'package:zhiguanjia/features/personal/personal_auth_service.dart';
 import 'package:zhiguanjia/features/data/self_evaluation_store.dart';
 
 /// 假接口：记录调用 + 可配置成功/失败
@@ -66,15 +67,23 @@ class FakeProfileApi implements ProfileApi {
     return const ApiResult.success(true);
   }
 
+  String? lastIdentityMasked;
+  String? lastIdentityHash;
+
   @override
   Future<ApiResult<bool>> saveIdentity({
-    required String idCard,
+    required String idCardMasked,
+    required String idCardHash,
     required String realName,
     String gender = '',
     String birthday = '',
     String province = '',
-  }) async =>
-      const ApiResult.success(true);
+  }) async {
+    if (!online) return ApiResult.failure(_offline);
+    lastIdentityMasked = idCardMasked;
+    lastIdentityHash = idCardHash;
+    return const ApiResult.success(true);
+  }
 }
 
 const String _phone = '13800001111';
@@ -243,5 +252,65 @@ void main() {
 
     await ProfileSync.pull(force: true);
     expect(api.fetchCalls, 2, reason: 'force 应忽略节流');
+  });
+
+  test('实名上云：只发脱敏号 + 哈希，完整身份证号不出本机', () async {
+    _seedLoggedIn();
+
+    await ProfileSync.pushIdentity(
+      masked: '510100********1234',
+      hash: 'a' * 64,
+      realName: '张三',
+    );
+    await pumpEventQueue();
+
+    expect(api.lastIdentityMasked, '510100********1234');
+    expect(api.lastIdentityHash, 'a' * 64);
+    expect(api.lastIdentityHash!.length, 64);
+  });
+
+  test('换设备恢复实名：本机无完整号时用服务端脱敏号占位，并刷新登录态', () async {
+    // 本机有账号记录但未实名
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'zhiguanjia.personal.users':
+          '[{"phone":"$_phone","password":"","name":"我","createdAt":"2026-09-01T00:00:00.000"}]',
+      'zhiguanjia.personal.auth':
+          '{"token":"t","phone":"$_phone","name":"我","idCard":"","gender":"","birthday":"","province":"","verifiedAt":"","avatarPath":""}',
+    });
+    api.bundle = const ProfileBundle(
+      user: {
+        'is_verified': true,
+        'id_card_masked': '510100********1234',
+        'verified_at': '2026-10-09T10:00:00',
+      },
+    );
+
+    final ok = await ProfileSync.pull(force: true);
+    expect(ok, isTrue);
+
+    final users = await PersonalAuthService.getUsers();
+    expect(users.length, 1);
+    expect(users.first.isVerified, isTrue, reason: '应恢复为已认证');
+    expect(users.first.idCard, '510100********1234');
+    expect(users.first.maskedIdCard, '510100********1234', reason: '脱敏号原样展示');
+
+    final auth = await PersonalAuthService.getAuth();
+    expect(auth?.isVerified, isTrue, reason: '登录态也要刷新，否则「我的」页显示未认证');
+  });
+
+  test('换设备恢复实名：本机已有完整号时不覆盖', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'zhiguanjia.personal.users':
+          '[{"phone":"$_phone","password":"","name":"我","idCard":"510100199001011234","verifiedAt":"2026-09-01T00:00:00.000","createdAt":"2026-09-01T00:00:00.000"}]',
+    });
+    api.bundle = const ProfileBundle(
+      user: {'is_verified': true, 'id_card_masked': '510100********1234'},
+    );
+
+    await ProfileSync.pull(force: true);
+
+    final users = await PersonalAuthService.getUsers();
+    expect(users.first.idCard, '510100199001011234',
+        reason: '本机完整号不能被脱敏号覆盖');
   });
 }

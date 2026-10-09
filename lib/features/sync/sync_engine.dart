@@ -35,9 +35,14 @@ class SyncEngine {
   @visibleForTesting
   static set apiForTest(SyncApi value) => _api = value;
 
-  /// 增量游标（服务端 seq）
-  @visibleForTesting
-  static const String cursorKey = 'zhiguanjia.sync.cursor';
+  /// 增量游标（服务端 seq）——**按账号隔离**
+  ///
+  /// 曾经用单一全局键，导致同一台设备换账号时新账号沿用旧账号的游标而漏数据。
+  static String cursorKeyFor(String phone) => 'zhiguanjia.sync.cursor.$phone';
+
+  /// 历史回填标记（按账号）：老版本升级上来的历史数据只会补一次
+  static String backfillKeyFor(String phone) =>
+      'zhiguanjia.sync.backfilled.$phone';
 
   /// 两次同步的最小间隔（进会话页、切后台回来都不至于狂发请求）
   static const Duration minInterval = Duration(seconds: 45);
@@ -46,7 +51,9 @@ class SyncEngine {
   static const Duration requestTimeout = Duration(seconds: 12);
 
   static bool _syncing = false;
-  static DateTime? _lastSyncAt;
+
+  /// 节流时间按账号记录（换账号后新账号应立即同步，而不是等满 45 秒）
+  static final Map<String, DateTime> _lastSyncAt = <String, DateTime>{};
 
   // ────────────────────────── 入队 ──────────────────────────
 
@@ -91,35 +98,127 @@ class SyncEngine {
 
   // ────────────────────────── 同步主流程 ──────────────────────────
 
-  static Future<bool> _canSync() async {
+  /// 当前登录手机号（未登录返回 null）
+  static Future<String?> currentPhone() async {
     final auth = await PersonalAuthService.getAuth();
-    if (auth == null || auth.phone.isEmpty) return false;
-    // 本地库必须先打开（有租户才有地方合并数据）
-    return AppDatabase.instance.tenantId != null;
+    final phone = auth?.phone ?? '';
+    return phone.isEmpty ? null : phone;
   }
 
   /// 一次完整同步：先补发本地变更，再拉取云端增量
   ///
   /// [force] 为 true 时忽略最小间隔（进入会话页时用）。
   static Future<bool> sync({bool force = false}) async {
+    // 入口**同步**上锁：必须在任何 await 之前置位，否则两个并发调用会同时
+    // 通过检查（enqueue 触发的后台同步 + 页面触发的同步），同一批变更被重复推送。
     if (_syncing) return false;
-    if (!await _canSync()) return false;
-    if (!force &&
-        _lastSyncAt != null &&
-        DateTime.now().difference(_lastSyncAt!) < minInterval) {
-      return false;
-    }
-
     _syncing = true;
     try {
+      final phone = await currentPhone();
+      if (phone == null || AppDatabase.instance.tenantId == null) return false;
+
+      final last = _lastSyncAt[phone];
+      if (!force &&
+          last != null &&
+          DateTime.now().difference(last) < minInterval) {
+        return false;
+      }
+
+      // 1) 补发本地待发变更
       await _flush();
-      final pulled = await _pull();
-      _lastSyncAt = DateTime.now();
+      // 2) 首次同步做一次历史回填（老版本升级上来的数据只会补一次）
+      await _maybeBackfill(phone);
+      await _flush();
+      // 3) 拉取云端增量
+      final pulled = await _pull(phone);
+      _lastSyncAt[phone] = DateTime.now();
       return pulled;
     } catch (_) {
       return false;
     } finally {
       _syncing = false;
+    }
+  }
+
+  /// 首次同步：把本地已有历史全量推一次
+  ///
+  /// 为什么需要：outbox 只记录**升级之后新产生**的写入，升级前已有的会话、
+  /// 消息、记忆、搜索沉淀从未上传过 —— 于是"老设备有历史、新设备看不到"。
+  /// 回填是幂等的（服务端按 id 去重、按 updated_at 做 last-write-wins），
+  /// 中途失败会在下次同步重试（重复推送无副作用）。
+  static Future<void> _maybeBackfill(String phone) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(backfillKeyFor(phone)) == true) return;
+    final ok = await backfillLocalHistory();
+    if (ok) await prefs.setBool(backfillKeyFor(phone), true);
+  }
+
+  /// 全量回填本地历史（会话 / 消息 / 记忆 / 搜索沉淀），返回是否全部成功
+  @visibleForTesting
+  static Future<bool> backfillLocalHistory({int batchSize = 200}) async {
+    final tenant = AppDatabase.instance.tenantId;
+    if (tenant == null) return false;
+
+    Future<bool> send(SyncPushPayload payload) async {
+      if (payload.isEmpty) return true;
+      final res = await _api.push(payload).timeout(requestTimeout);
+      return res.ok;
+    }
+
+    try {
+      final sessions = await SessionDao().findByTenant(tenant);
+
+      // 会话
+      for (var i = 0; i < sessions.length; i += batchSize) {
+        final slice = sessions.sublist(
+            i, (i + batchSize).clamp(0, sessions.length));
+        if (!await send(SyncPushPayload(
+            conversations: [for (final s in slice) conversationToWire(s.toMap())]))) {
+          return false;
+        }
+      }
+
+      // 消息（按会话读取，分批推送）
+      var batch = <Map<String, dynamic>>[];
+      Future<bool> flushBatch() async {
+        if (batch.isEmpty) return true;
+        final payload = SyncPushPayload(messages: List.of(batch));
+        batch = <Map<String, dynamic>>[];
+        return send(payload);
+      }
+
+      for (final s in sessions) {
+        final msgs = await MessageDao().findBySession(s.id);
+        for (final m in msgs) {
+          batch.add(messageToWire(m.toMap()));
+          if (batch.length >= batchSize && !await flushBatch()) return false;
+        }
+      }
+      if (!await flushBatch()) return false;
+
+      // 记忆（文件型）
+      final memories = await MemoryStore.listAll(tenant);
+      for (var i = 0; i < memories.length; i += batchSize) {
+        final slice =
+            memories.sublist(i, (i + batchSize).clamp(0, memories.length));
+        if (!await send(SyncPushPayload(
+            memories: [for (final m in slice) memoryToWire(m)]))) {
+          return false;
+        }
+      }
+
+      // 联网搜索沉淀（文件型）
+      final items = await SearchDataStore.listAll(tenant);
+      for (var i = 0; i < items.length; i += batchSize) {
+        final slice = items.sublist(i, (i + batchSize).clamp(0, items.length));
+        if (!await send(SyncPushPayload(
+            searchItems: [for (final it in slice) searchItemToWire(it)]))) {
+          return false;
+        }
+      }
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -142,9 +241,10 @@ class SyncEngine {
   }
 
   /// 拉取云端增量并合并进本地库
-  static Future<bool> _pull() async {
+  static Future<bool> _pull(String phone) async {
     final prefs = await SharedPreferences.getInstance();
-    var cursor = prefs.getInt(cursorKey) ?? 0;
+    final key = cursorKeyFor(phone);
+    var cursor = prefs.getInt(key) ?? 0;
 
     // 循环拉取，直到没有更多（limit=500/次）
     for (var round = 0; round < 20; round++) {
@@ -153,7 +253,7 @@ class SyncEngine {
       final changes = res.data!;
       await applyChanges(changes);
       cursor = changes.seq;
-      await prefs.setInt(cursorKey, cursor);
+      await prefs.setInt(key, cursor);
       if (!changes.hasMore || changes.isEmpty) break;
     }
     return true;
@@ -400,7 +500,7 @@ class SyncEngine {
   /// 仅测试使用：重置节流与进行中标记
   @visibleForTesting
   static void resetForTest() {
-    _lastSyncAt = null;
+    _lastSyncAt.clear();
     _syncing = false;
   }
 }

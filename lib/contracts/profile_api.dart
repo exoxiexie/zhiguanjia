@@ -47,10 +47,14 @@ class ProfileBundle {
   /// 全部职业经历
   final List<ExperienceDto> experiences;
 
+  /// 服务端用户资料（含脱敏身份证号与实名状态，用于换设备后恢复"已认证"）
+  final Map<String, dynamic> user;
+
   const ProfileBundle({
     this.basic = const {},
     this.selfEvaluation = '',
     this.experiences = const [],
+    this.user = const {},
   });
 
   factory ProfileBundle.fromWire(Map<String, dynamic> json) => ProfileBundle(
@@ -60,6 +64,7 @@ class ProfileBundle {
           for (final e in (json['experiences'] as List? ?? const []))
             ExperienceDto.fromWire((e as Map).cast<String, dynamic>()),
         ],
+        user: ((json['user'] as Map?) ?? const {}).cast<String, dynamic>(),
       );
 }
 
@@ -83,9 +88,13 @@ abstract class ProfileApi {
   /// 删除一条经历
   Future<ApiResult<bool>> deleteExperience(String id);
 
-  /// 实名认证（**含完整身份证号，仅 HTTPS 下调用**）
+  /// 实名认证
+  ///
+  /// **只上传脱敏号与 SHA-256 哈希**：完整身份证号永不出客户端，
+  /// 服务端用哈希查重、用脱敏号展示。
   Future<ApiResult<bool>> saveIdentity({
-    required String idCard,
+    required String idCardMasked,
+    required String idCardHash,
     required String realName,
     String gender = '',
     String birthday = '',

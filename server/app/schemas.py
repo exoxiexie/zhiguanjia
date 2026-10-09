@@ -97,13 +97,15 @@ class ExperienceBatchRequest(BaseModel):
 
 
 class IdentityRequest(BaseModel):
-    """实名认证（P2 服务端能力；App 侧在切 HTTPS 后启用）
+    """实名认证：**只收脱敏号 + SHA-256 哈希**
 
-    传输的是完整身份证号，因此**必须走 HTTPS**：
-    服务端只落库「脱敏号 + SHA-256 哈希」，明文不落盘、不打日志。
+    完整身份证号**永不出客户端** —— 客户端本地完成校验与哈希后，
+    只上传脱敏号（用于展示）与哈希（用于"同一证件不可绑多号"查重）。
+    这样即使业务 API 临时走在 HTTP 上，也不会泄漏证件号本身。
     """
 
-    id_card: str = Field(..., min_length=15, max_length=18)
+    id_card_masked: str = Field(..., min_length=4, max_length=24)
+    id_card_hash: str = Field(..., min_length=64, max_length=64)
     real_name: str = Field(default="", max_length=32)
     gender: str = Field(default="", max_length=8)
     birthday: str = Field(default="", max_length=16)

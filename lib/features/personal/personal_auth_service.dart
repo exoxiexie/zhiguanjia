@@ -18,7 +18,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../contracts/api_config.dart';
 import '../../contracts/auth_api.dart';
 import '../api/api_client.dart';
 import '../api/auth_api_impl.dart';
@@ -256,17 +255,16 @@ class PersonalAuthService {
     );
     await _saveUsers(users);
 
-    // 实名上云：**仅 HTTPS 下启用**（该接口传输完整身份证号）。
-    // 备案通过、apiBaseUrl 切成 https 后自动生效，无需再改这里。
-    if (ApiConfig.apiBaseUrl.startsWith('https')) {
-      unawaited(ProfileSync.pushIdentity(
-        idCard: normalized,
-        realName: name,
-        gender: info.gender ?? '',
-        birthday: birthdayStr,
-        province: info.province ?? '',
-      ));
-    }
+    // 实名上云：**只上传脱敏号 + SHA-256 哈希**，完整身份证号永不出本机。
+    // 因此 HTTP 下也能安全同步 —— 换设备后实名状态可恢复。
+    unawaited(ProfileSync.pushIdentity(
+      masked: users[idx].maskedIdCard,
+      hash: sha256IdCard(normalized),
+      realName: name,
+      gender: info.gender ?? '',
+      birthday: birthdayStr,
+      province: info.province ?? '',
+    ));
     return {'ok': true, 'user': users[idx]};
   }
 
@@ -322,6 +320,35 @@ class PersonalAuthService {
       return PersonalAuth.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (_) {
       return null;
+    }
+  }
+
+  /// 从服务端回写实名状态（换设备后恢复「已认证」）
+  ///
+  /// 服务端只有脱敏号，因此本机没有完整证件号时用脱敏号占位：
+  /// `PersonalUser.maskedIdCard` 对非 18 位原样返回，界面展示不受影响；
+  /// 本机已有完整号时**不覆盖**（避免把脱敏号当真实证件号用）。
+  static Future<void> applyRemoteVerification({
+    required String phone,
+    required String maskedIdCard,
+    String verifiedAt = '',
+  }) async {
+    if (phone.isEmpty || maskedIdCard.isEmpty) return;
+    final users = await getUsers();
+    final idx = users.indexWhere((u) => u.phone == phone);
+    if (idx < 0) return;
+    if (users[idx].idCard.isNotEmpty) return;
+
+    users[idx] = users[idx].copyWith(
+      idCard: maskedIdCard,
+      verifiedAt: verifiedAt.isEmpty ? users[idx].verifiedAt : verifiedAt,
+    );
+    await _saveUsers(users);
+
+    // 同步刷新登录态，否则「我的」页读到的还是旧记录
+    final auth = await getAuth();
+    if (auth != null && auth.phone == phone) {
+      await setAuth(PersonalAuth.fromUser(users[idx]));
     }
   }
 

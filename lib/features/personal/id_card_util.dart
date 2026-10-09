@@ -5,6 +5,10 @@
 /// 仅做本地格式校验，不联网核验身份真实性（后续可接公安二要素/三要素 API）。
 library;
 
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 /// 校验结果
 class IdCardInfo {
   /// 是否合法
@@ -179,4 +183,19 @@ class IdCardUtil {
     if (s.length != 18) return s;
     return '${s.substring(0, 6)}********${s.substring(14)}';
   }
+}
+
+
+/// 身份证号 → SHA-256 十六进制哈希（小写）
+///
+/// 用途：实名上云只上传「脱敏号 + 哈希」，**完整证件号永不出本机**；
+/// 服务端用哈希做"同一证件不可绑多号"的查重，哈希不可逆。
+String sha256IdCard(String idCard) =>
+    sha256.convert(utf8.encode(idCard.trim().toUpperCase())).toString();
+
+/// 身份证号脱敏：保留前 6 位与后 4 位（与服务端展示格式一致）
+String maskIdCard(String idCard) {
+  final v = idCard.trim().toUpperCase();
+  if (v.length < 10) return v.isEmpty ? '' : '${v.substring(0, 2)}****';
+  return '${v.substring(0, 6)}********${v.substring(v.length - 4)}';
 }

@@ -21,7 +21,8 @@ class MessageDao {
   Future<void> insertAll(List<MessageEntity> messages) async {
     final batch = _db.batch();
     for (final msg in messages) {
-      batch.insert('messages', msg.toMap());
+      batch.insert('messages', msg.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
   }

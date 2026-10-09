@@ -126,6 +126,9 @@ check("第二次推送游标继续递增", seq2 == 6, seq2)
 r = _client.get("/sync?since=%d" % seq1, headers=h(A))
 body = r.json()
 check("增量只返回新会话", len(body["conversations"]) == 1 and body["conversations"][0]["id"] == "c2", body)
+r = _client.get("/sync?since=0", headers=h(A))
+c1 = [c for c in r.json()["conversations"] if c["id"] == "c1"][0]
+check("会话消息数按服务端实际条数校正", c1["message_count"] == 2, c1)
 check("增量不含旧消息", body["messages"] == [], body)
 
 print("── 6. 同步：消息不可变 + 旧版本不覆盖 ──")
