@@ -15,6 +15,7 @@ import os
 import re
 import hashlib
 import shutil
+from urllib.parse import quote
 import sys
 import datetime
 import http.server
@@ -165,13 +166,15 @@ def page(title, desc, body, home_on="", blog_on=""):
 def post_card(p):
     slug, meta, _ = p
     excerpt = meta["excerpt"] or ""
+    # 链接里的 slug 必须 URL 编码（中文链接直接写会不合规）
     return (
         '<a class="post-item" href="/blog/%s/">\n'
         "  <h3>%s</h3>\n"
         "  <time>%s</time>\n"
         "  <p>%s</p>\n"
         '  <span class="more">阅读全文 →</span>\n'
-        "</a>" % (slug, html.escape(meta["title"]), cn_date(meta["date"]), html.escape(excerpt))
+        "</a>" % (quote(slug), html.escape(meta["title"]), cn_date(meta["date"]),
+                   html.escape(excerpt))
     )
 
 
@@ -277,7 +280,7 @@ def build():
     # sitemap / rss
     urls = [("/", ""), ("/blog/", "weekly")]
     for slug, meta, _ in posts:
-        urls.append(("/blog/%s/" % slug, meta["date"]))
+        urls.append(("/blog/%s/" % quote(slug), meta["date"]))
     sm = ['<?xml version="1.0" encoding="UTF-8"?>',
           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for u, d in urls:
@@ -295,7 +298,8 @@ def build():
         items.append(
             "<item><title>%s</title><link>%s/blog/%s/</link><guid>%s/blog/%s/</guid><pubDate>%s</pubDate>"
             "<description>%s</description></item>"
-            % (html.escape(meta["title"]), SITE_URL, slug, SITE_URL, slug, rfc, html.escape(meta["excerpt"]))
+            % (html.escape(meta["title"]), SITE_URL, quote(slug), SITE_URL,
+               quote(slug), rfc, html.escape(meta["excerpt"]))
         )
     write(os.path.join(DIST, "rss.xml"),
           '<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel>'

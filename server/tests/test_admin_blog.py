@@ -169,6 +169,46 @@ check("线上文章目录已清理",
       not os.path.exists(os.path.join(WEB_ROOT, "blog", "ai-career-five-steps")))
 check("列表已空", len(_client.get("/admin/blog", headers=h(A)).json()["items"]) == 0)
 
+print("── 7. 链接地址自动生成（作者不必填写）──")
+r = _client.post("/admin/blog", headers=h(A), json={
+    "title": "用 AI 做职业规划的五个步骤",
+    "slug": "",                       # 留空 → 按标题自动生成
+    "body_md": "正文",
+})
+check("中文标题自动生成链接 → 200", r.status_code == 200, r.text[:200])
+cn = r.json()["article"]
+check("中文标题生成中文链接（可读、可分享）", cn["slug"] == "用-ai-做职业规划的五个步骤", cn["slug"])
+check("链接地址可读", cn["url"] == "/blog/用-ai-做职业规划的五个步骤/", cn["url"])
+
+r2 = _client.post("/admin/blog", headers=h(A), json={"title": "用 AI 做职业规划的五个步骤"})
+check("同标题重名自动顺延（-2）", r2.json()["article"]["slug"].endswith("-2"),
+      r2.json()["article"]["slug"])
+
+r3 = _client.post("/admin/blog", headers=h(A), json={"title": "！！！？？？"})
+check("纯符号标题回退为 post-日期-随机",
+      r3.json()["article"]["slug"].startswith("post-"), r3.json()["article"]["slug"])
+
+r4 = _client.post("/admin/blog", headers=h(A), json={"title": "英文标题 Post", "slug": ""})
+check("英文标题转小写短横线", r4.json()["article"]["slug"] == "英文标题-post",
+      r4.json()["article"]["slug"])
+
+check("自定义链接仍严格校验（路径穿越被拒）",
+      _client.post("/admin/blog", headers=h(A),
+                   json={"title": "x", "slug": "../../etc/passwd"}).status_code == 400)
+
+# 中文链接的发布链路（Markdown 文件名 + 构建产物 + 首页链接编码）
+aid_cn = cn["id"]
+r = _client.post(f"/admin/blog/{aid_cn}/publish", headers=h(A))
+check("中文链接文章可发布", r.status_code == 200, r.text[:200])
+check("Markdown 以中文名写入", os.path.exists(
+    os.path.join(SITE_DIR, "content", "用-ai-做职业规划的五个步骤.md")))
+_home = open(os.path.join(WEB_ROOT, "index.html"), encoding="utf-8").read()
+check("首页链接已 URL 编码（中文链接合规）",
+      "%E7%94%A8-ai-%E5%81%9A%E8%81%8C%E4%B8%9A%E8%A7%84%E5%88%92" in _home
+      or "用-ai-做职业规划" in _home, "首页未找到该文章链接")
+_sm = open(os.path.join(WEB_ROOT, "sitemap.xml"), encoding="utf-8").read()
+check("sitemap 已编码", "%E7%94%A8" in _sm or "用-ai" in _sm)
+
 print("── 6. 仅重建 ──")
 r = _client.post("/admin/blog/rebuild", headers=h(A))
 check("重建 → 200", r.status_code == 200, r.text[:200])

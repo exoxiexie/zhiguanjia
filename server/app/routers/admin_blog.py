@@ -19,6 +19,7 @@ import datetime
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
 import threading
@@ -39,8 +40,29 @@ SITE_DIR = os.environ.get("ZGJ_SITE_DIR", "/www/wwwroot/zhiguanjia-site")
 # 构建必须**串行**：两次构建并发写同一个 dist/ 会互相覆盖，轻则产物错乱、
 # 重则线上页面半新半旧。拿不到锁就直接告诉前端"正在构建"，而不是傻等或并行。
 _build_lock = threading.Lock()
-_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+# 允许：小写字母、数字、连字符、以及**中日韩汉字**（中文链接可读、对国内搜索友好）
+# 禁止：斜杠、点、空白、控制字符等一切可能造成路径穿越或 URL 歧义的字符
+_SLUG_RE = re.compile(r"^[0-9a-z\u4e00-\u9fff][0-9a-z\u4e00-\u9fff-]{0,63}$")
+_NOT_ALLOWED_RE = re.compile(r"[^0-9a-z\u4e00-\u9fff]+")
 _CST = datetime.timedelta(hours=8)
+
+
+def make_slug(title: str) -> str:
+    """按标题自动生成链接标识（作者不必关心这个字段）
+
+    - 中文标题 → 中文链接（可读、易分享、国内搜索友好）
+    - 英文/数字 → 转小写并把空格标点收成连字符
+    - 标题全是符号/emoji → 回退为「post-日期-随机」
+    """
+    text = (title or "").strip().lower()
+    slug = _NOT_ALLOWED_RE.sub("-", text)
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")[:64].strip("-")
+    if not slug:
+        slug = "post-%s-%s" % (
+            (utcnow() + _CST).strftime("%Y%m%d"),
+            secrets.token_hex(2),
+        )
+    return slug
 
 
 def _today() -> str:
@@ -127,6 +149,13 @@ def _serialize(a: Article, with_body: bool = False) -> dict:
     return out
 
 
+def _find_slug(db: Session, slug: str) -> Article:
+    row = db.scalar(select(Article).where(Article.slug == slug))
+    if row is None:
+        raise api_error(404, "not_found", "文章不存在")
+    return row
+
+
 def _find(db: Session, article_id: str) -> Article:
     row = db.get(Article, article_id)
     if row is None:
@@ -167,19 +196,37 @@ def save_article(
     db: Session = Depends(get_db),
 ) -> dict:
     """新建或更新（article_id 为空则新建）"""
-    slug = (body.slug or "").strip().lower()
-    if not _SLUG_RE.match(slug):
-        raise api_error(
-            400, "bad_slug", "链接标识只能用「小写字母、数字、连字符」，且以字母或数字开头"
-        )
     title = (body.title or "").strip()
     if not title:
         raise api_error(400, "bad_title", "标题不能为空")
 
-    # slug 唯一性（同一篇改 slug 允许；占用了别人的则拒绝）
-    dup = db.scalar(select(Article).where(Article.slug == slug))
-    if dup is not None and dup.id != article_id:
-        raise api_error(409, "slug_taken", f"链接标识「{slug}」已被《{dup.title}》占用")
+    provided = (body.slug or "").strip().lower()
+    if provided:
+        # 作者手动指定了链接：严格校验（防路径穿越/URL 歧义）
+        if not _SLUG_RE.match(provided):
+            raise api_error(
+                400,
+                "bad_slug",
+                "自定义链接只能用「小写字母、数字、汉字、连字符」，且以字母/数字/汉字开头",
+            )
+        slug = provided
+    else:
+        # 未指定：按标题自动生成，作者完全不用关心
+        slug = make_slug(title)
+
+    # 唯一性：手动指定时冲突就报错；自动生成时顺延加 -2/-3
+    def _taken(candidate: str) -> bool:
+        row = db.scalar(select(Article).where(Article.slug == candidate))
+        return row is not None and row.id != article_id
+
+    if provided:
+        if _taken(slug):
+            raise api_error(409, "slug_taken", f"链接「{slug}」已被《{_find_slug(db, slug).title}》占用")
+    else:
+        base, n = slug, 1
+        while _taken(slug) and n < 99:
+            n += 1
+            slug = f"{base}-{n}"
 
     row = _find(db, article_id) if article_id else None
     if row is None:

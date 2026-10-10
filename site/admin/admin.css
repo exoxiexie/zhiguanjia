@@ -144,3 +144,9 @@ button{font:inherit}
 .card .field textarea{line-height:1.7}
 .grid.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:640px){.grid.g3{grid-template-columns:1fr}}
+
+/* ── 编辑器「高级」折叠区 ── */
+.advanced{border-top:1px dashed var(--line);padding-top:12px;margin-top:4px}
+.advanced summary{cursor:pointer;font-size:13px;color:var(--muted);margin-bottom:10px}
+.advanced summary:hover{color:var(--accent)}
+.advanced .muted{font-size:12.5px;line-height:1.7;margin:0 0 10px}

@@ -160,17 +160,22 @@ function editor(box, ctx, id) {
     ]);
 
     var form = el('div', { class: 'card' }, [
-      el('div', { class: 'grid g2' }, [
-        field('标题', 'title', { placeholder: '文章标题' }),
-        field('链接标识（小写字母/数字/连字符）', 'slug', { placeholder: 'ai-career-five-steps' })
-      ]),
+      field('标题', 'title', { placeholder: '文章标题' }),
       el('div', { class: 'grid g3' }, [
         field('作者', 'author', { placeholder: '老谢' }),
         field('日期', 'date', { placeholder: '2026-10-10（留空自动填今天）' }),
         field('标签（逗号分隔）', 'tags', { placeholder: '职业规划, 方法论' })
       ]),
       field('摘要', 'excerpt', { multiline: true, rows: 3, placeholder: '列表与搜索引擎展示的一句话' }),
-      field('正文（Markdown）', 'body_md', { multiline: true, rows: 18, placeholder: '## 小标题\n\n正文…' })
+      field('正文（Markdown）', 'body_md', { multiline: true, rows: 18, placeholder: '## 小标题\n\n正文…' }),
+      // 链接地址默认**自动生成**，作者不必关心；只有想自定义时才展开
+      el('details', { class: 'advanced' }, [
+        el('summary', { text: '高级：自定义链接地址（一般不用填）' }),
+        el('p', { class: 'muted', text:
+          '留空即可 —— 系统会按标题自动生成，例如「用 AI 做职业规划」→ /blog/用-ai-做职业规划/。'
+          + '仅当你希望链接更短或与标题不同时才填写。' }),
+        field('自定义链接', 'slug', { placeholder: '留空自动生成' })
+      ])
     ]);
 
     var actions = el('div', { class: 'toolbar' }, [
@@ -181,12 +186,14 @@ function editor(box, ctx, id) {
 
     function save(status) {
       if (!f.title.trim()) { alert('请填写标题'); return; }
-      if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(f.slug.trim())) {
-        alert('链接标识只能用「小写字母、数字、连字符」，且以字母或数字开头');
+      // 留空 = 交给后端按标题自动生成；只有填了才校验（允许汉字）
+      var customSlug = f.slug.trim().toLowerCase();
+      if (customSlug && !/^[0-9a-z\u4e00-\u9fff][0-9a-z\u4e00-\u9fff-]{0,63}$/.test(customSlug)) {
+        alert('自定义链接只能用「小写字母、数字、汉字、连字符」，且以字母/数字/汉字开头');
         return;
       }
       var payload = {
-        title: f.title, slug: f.slug.trim().toLowerCase(), author: f.author || '老谢',
+        title: f.title, slug: customSlug, author: f.author || '老谢',
         date: f.date, excerpt: f.excerpt,
         tags: f.tags.split(',').map(function (t) { return t.trim(); }).filter(Boolean),
         body_md: f.body_md, status: status
@@ -201,7 +208,7 @@ function editor(box, ctx, id) {
         }
         return withTimeout(ctx.api.blogPublish(newId), 200000, '发布')
           .then(function (p) {
-            pendingToast = '已发布上线：' + p.url;
+            pendingToast = '已发布上线：' + p.url + '（可到列表点「查看」打开）';
             list(box, ctx);
           });
       }).catch(function (e) {
