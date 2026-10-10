@@ -140,6 +140,45 @@ class ApiClient {
     );
   }
 
+  /// 服务端判定「账号被停用」时的统一回调（由 main.dart 注册）
+  ///
+  /// 为什么必须要有：App 是**离线优先**的 —— 发对话/发说说先写本地库、同步在后，
+  /// 业务请求失败会被当成"网络问题"静默忽略。结果就是账号被后台停用后，
+  /// 用户仍能在本地继续使用（真机实测问题）。这里让停用**立即生效**。
+  static void Function(String reason)? onAccountDisabled;
+
+  /// 本次启动是否已触发过（并发请求不重复弹窗）
+  static bool _disabledNotified = false;
+
+  /// 响应是否为「账号被停用」（403 + code=user_disabled）
+  static bool isAccountDisabled(Response<dynamic> res) {
+    if (res.statusCode != 403) return false;
+    final body = res.data;
+    if (body is! Map) return false;
+    final err = body['error'];
+    return err is Map && err['code'] == 'user_disabled';
+  }
+
+  /// 从响应里取停用原因（服务端会把原因写在 message 里）
+  static String disabledReason(Response<dynamic> res) {
+    final body = res.data;
+    if (body is Map) {
+      final err = body['error'];
+      if (err is Map && err['message'] is String) return err['message'] as String;
+    }
+    return '该账号已被停用';
+  }
+
+  /// 处理「账号被停用」（[sendAuthed] 调用；单独抽出来便于测试）
+  static void handleAccountDisabled(Response<dynamic> res) {
+    if (!isAccountDisabled(res) || _disabledNotified) return;
+    _disabledNotified = true;
+    onAccountDisabled?.call(disabledReason(res));
+  }
+
+  /// 仅测试使用：重置"已提示"标记
+  static void resetDisabledFlag() => _disabledNotified = false;
+
   /// 鉴权请求：令牌失效（401）时静默刷新一次并重试
   static Future<Response<dynamic>> sendAuthed(
     String method,
@@ -152,6 +191,7 @@ class ApiClient {
       token = await TokenStore.accessToken();
       res = await send(method, path, data: data, accessToken: token);
     }
+    handleAccountDisabled(res);  // 停用立即生效（登出 + 告知原因）
     return res;
   }
 

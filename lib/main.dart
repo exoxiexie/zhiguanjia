@@ -16,6 +16,7 @@ import 'core/di/service_locator.dart';
 import 'features/agent/agent_service_impl.dart';
 import 'features/api/api_client.dart';
 import 'features/app/app_config_service.dart';
+import 'features/chat/session_reset.dart';
 import 'features/app/force_update_page.dart';
 import 'features/blog/content_sync.dart';
 import 'features/data/profile_sync.dart';
@@ -106,6 +107,9 @@ class _AuthGateState extends State<AuthGate> {
     _chatService = sl.get<ChatService>();
     _agentService = sl.get<AgentService>();
     _loggedInFuture = _checkLogin();
+    // 服务端判定账号被停用 → 立即登出并说明原因
+    // （App 离线优先，若只让请求失败，用户仍能在本地继续使用 —— 真机实测问题）
+    ApiClient.onAccountDisabled = _onAccountDisabled;
     unawaited(_runStartupCheck());
   }
 
@@ -151,6 +155,31 @@ class _AuthGateState extends State<AuthGate> {
       ),
     );
     await AppConfigService.markAnnouncementSeen(cfg.announcementId);
+  }
+
+  /// 账号被停用：清登录态 → 提示原因 → 回登录页
+  Future<void> _onAccountDisabled(String reason) async {
+    await PersonalAuthService.clearAuth();
+    resetUserSessionState(); // 清进程级账号态，避免残留数据串号
+    if (!mounted) return;
+    setState(() {
+      _loggedInFuture = Future<bool>.value(false);
+    });
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('账号已被停用'),
+        content: Text('$reason\n\n如有疑问请联系客服。',
+            style: const TextStyle(fontSize: 14, height: 1.7)),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<bool> _checkLogin() async {
