@@ -21,6 +21,7 @@ admin/
 server/app/admin/
 ├─ deps.py       后台鉴权（权限边界唯一入口）
 ├─ stats.py      运营看板接口
+├─ config.py     公告与配置（公告 / 强制更新 / 功能开关）
 ├─ blog.py       博客发布管理接口
 ├─ system.py     系统管理接口
 ├─ publisher.py  站点发布服务（构建 + 同步的唯一实现）

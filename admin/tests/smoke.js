@@ -60,6 +60,13 @@ const FIXTURES = {
     { date: '2026-10-10', new_devices: 0, new_users: 0, messages: 5, conversations: 1, posts: 0 }] },
   '/admin/blog': { items: [{ id: 'a1', slug: 'hello', title: '示例文章', author: '老谢',
     date: '2026-10-10', status: 'published', url: '/blog/hello/' }], site_dir: '/srv/site', site_dir_ready: true },
+  '/admin/config': {
+    announcement: { enabled: false, id: 'a1', title: '维护通知', body: '今晚维护' },
+    min_version: { version_code: 0, version_name: '', url: '', note: '' },
+    flags: { test_panel: false, test_panel_phones: ['13608074995'] },
+    updated_by: '13608074995', updated_at: '2026-10-10T08:00:00',
+    release: { version_name: '1.0.49', version_code: 50, url: 'https://x/a.apk', changelog: '修复同步' }
+  },
   '/admin/system/status': { api_version: '0.7.0', server_time: '2026-10-10T08:00:00',
     site_dir: '/srv/site', site_dir_ready: true, web_root: '/srv/web', web_root_ready: true,
     articles: 1, articles_published: 1, users: 9,
@@ -107,6 +114,7 @@ mods.forEach(m => eval(fs.readFileSync(path.join(ROOT, m), 'utf8')));
   }
   await visit('#/dashboard', ['装机设备', '活跃设备', '真在使用', '版本分布', '使用深度']);
   await visit('#/blog', ['新建文章', '示例文章', '已发布']);
+  await visit('#/config', ['公告', '强制更新', '功能开关', '灰度手机号', '保存公告']);
   await visit('#/system', ['发布站点', '源码目录', '最近一次发布', '规划中']);
 
   console.log('');

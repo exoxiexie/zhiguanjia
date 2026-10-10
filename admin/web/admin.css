@@ -160,3 +160,9 @@ button{font:inherit}
 .sys-row .v{font-size:13.5px;word-break:break-all}
 .sys-row .v.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#374151}
 .soon-row{display:flex;align-items:center;gap:10px;padding:9px 0;color:#9CA3AF;font-size:13.5px}
+
+/* ── 公告与配置：勾选项 / 风险提示 ── */
+.check{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13.5px;cursor:pointer}
+.check input{width:16px;height:16px}
+.warn-box{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;padding:10px 12px;
+  border-radius:10px;font-size:12.5px;line-height:1.7;margin-bottom:14px}

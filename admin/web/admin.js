@@ -77,6 +77,10 @@ window.ZGJ = (function () {
     },
     blogDelete: function (id) { return request('DELETE', '/admin/blog/' + id); },
     blogPublish: function (id) { return request('POST', '/admin/blog/' + id + '/publish'); },
+    // ── 公告与配置 ──
+    configGet: function () { return request('GET', '/admin/config'); },
+    configSave: function (data) { return request('POST', '/admin/config', { body: data }); },
+
     // ── 系统管理 ──
     systemStatus: function () { return request('GET', '/admin/system/status'); },
     systemRebuild: function () { return request('POST', '/admin/system/rebuild'); }

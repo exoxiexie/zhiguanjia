@@ -238,3 +238,32 @@ class ArticleIn(BaseModel):
     body_md: str = Field(default="", max_length=1000000)
     # draft / published
     status: str = Field(default="draft", max_length=16)
+
+
+class AnnouncementIn(BaseModel):
+    """公告（enabled 且 body 非空才会在 App 启动时弹）"""
+
+    enabled: bool = False
+    id: str = Field(default="", max_length=32)
+    title: str = Field(default="", max_length=200)
+    body: str = Field(default="", max_length=5000)
+
+
+class MinVersionIn(BaseModel):
+    """强制更新：versionCode 低于该值的客户端必须升级（0 = 关闭强制）"""
+
+    version_code: int = Field(default=0, ge=0, le=100000)
+    version_name: str = Field(default="", max_length=24)
+    url: str = Field(default="", max_length=500)
+    note: str = Field(default="", max_length=2000)
+
+
+class ConfigIn(BaseModel):
+    """后台保存下发配置：为 None 的字段表示「不改这一块」"""
+
+    announcement: AnnouncementIn | None = None
+    min_version: MinVersionIn | None = None
+    # 功能开关（含测试入口灰度名单等），整体替换
+    flags: dict | None = None
+    # 公告"重新弹一次"：让 App 忽略"已读"记录
+    reset_announcement_read: bool = False

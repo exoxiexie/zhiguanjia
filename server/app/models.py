@@ -502,6 +502,9 @@ class AppConfig(Base):
 
     # 功能开关（JSON，便于扩展）
     flags_json: Mapped[str] = mapped_column(Text, default="{}")
+
+    # 谁最后改的（配置是最危险的数据：改错会把用户全拦在门外，必须可追溯）
+    updated_by: Mapped[str] = mapped_column(String(32), default="")
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=utcnow, onupdate=utcnow
     )
