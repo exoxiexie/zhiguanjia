@@ -15,7 +15,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import DateTime, func, select
 from sqlalchemy.orm import Session
 
-from ..deps import get_db, require_admin
+from ..deps import get_db
+from .deps import require_admin
 from ..models import (
     BlogPost,
     Conversation,

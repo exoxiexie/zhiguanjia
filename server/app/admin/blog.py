@@ -25,10 +25,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..deps import get_db, require_admin
+from ..deps import get_db
+from .deps import require_admin
 from ..errors import api_error
 from ..models import Article, User, new_uuid, utcnow
-from ..site_publisher import SITE_DIR, rebuild_and_deploy
+from .publisher import SITE_DIR, rebuild_and_deploy
 from ..schemas import ArticleIn
 
 router = APIRouter(tags=["admin-blog"])

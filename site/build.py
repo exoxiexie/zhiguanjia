@@ -241,31 +241,6 @@ def build():
     if os.path.exists(ak):
         shutil.copy(ak, os.path.join(dl, APP_APK))
 
-    # 管理后台（/admin/）
-    # 不进入公开导航、robots 已禁止收录；前端零依赖，加模块 = 加一个 js 文件
-    admin_src = os.path.join(ROOT, "admin")
-    if os.path.isdir(admin_src):
-        admin_dst = os.path.join(DIST, "admin")
-        shutil.copytree(admin_src, admin_dst)
-        # 后台资源一律加指纹：admin.js/admin.css/modules/*.js 都在长缓存里，
-        # 不加指纹会出现"页面新、脚本旧"（见 asset_stamp 注释）
-        stamps = [os.path.join(admin_src, "admin.js"),
-                  os.path.join(admin_src, "admin.css")]
-        mod_dir = os.path.join(admin_src, "modules")
-        if os.path.isdir(mod_dir):
-            stamps += [os.path.join(mod_dir, f) for f in sorted(os.listdir(mod_dir))]
-        stamp = asset_stamp(*stamps)
-        idx = os.path.join(admin_dst, "index.html")
-        # 注意：变量不能叫 html —— 会遮蔽 html 模块（build() 里还要用 html.escape）
-        admin_html = open(idx, encoding="utf-8").read()
-        for ref in ("admin.css", "admin.js"):
-            admin_html = admin_html.replace('"%s"' % ref, '"%s?v=%s"' % (ref, stamp))
-        for f in (os.listdir(mod_dir) if os.path.isdir(mod_dir) else []):
-            admin_html = admin_html.replace(
-                '"modules/%s"' % f, '"modules/%s?v=%s"' % (f, stamp)
-            )
-        open(idx, "w", encoding="utf-8").write(admin_html)
-
     # 404 页
     write(os.path.join(DIST, "404.html"),
           page("页面不存在 · " + SITE_NAME, "页面不存在", tpl("404.html")))

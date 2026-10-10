@@ -14,10 +14,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..deps import get_db, require_admin
+from ..deps import get_db
+from .deps import require_admin
 from ..errors import api_error
 from ..models import Article, User, utcnow
-from ..site_publisher import (
+from .publisher import (
     SITE_DIR,
     WEB_ROOT,
     get_last_build,
@@ -38,7 +39,7 @@ def system_status(
     `last_build` 从磁盘读取（跨 worker、跨重启一致）；
     从未发布过时为 None —— 界面会如实标注，不假装知道。
     """
-    from ..main import APP_VERSION
+    from ..version import APP_VERSION
 
     articles = int(db.scalar(select(func.count()).select_from(Article)) or 0)
     published = int(

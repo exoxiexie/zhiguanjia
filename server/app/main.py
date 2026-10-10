@@ -15,11 +15,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from .admin import router as admin_router
 from .config import settings
 from .db import Base, engine
-from .routers import admin, admin_blog, admin_system, auth, config, content, device, me, profile, sync
+from .routers import auth, config, content, device, me, profile, sync
 
-APP_VERSION = "0.6.0"
+from .version import APP_VERSION  # noqa: E402
 
 
 @asynccontextmanager
@@ -84,9 +85,7 @@ app.include_router(profile.router)
 app.include_router(content.router)
 app.include_router(sync.router)
 app.include_router(device.router)
-app.include_router(admin.router)
-app.include_router(admin_blog.router)
-app.include_router(admin_system.router)
+app.include_router(admin_router)  # 后台管理系统（独立子包）
 app.include_router(config.router)
 
 

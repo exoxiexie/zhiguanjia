@@ -35,14 +35,3 @@ def get_current_user(
     if user.status != 1:
         raise api_error(403, "user_disabled", "账号已被禁用")
     return user
-
-
-def require_admin(user: User = Depends(get_current_user)) -> User:
-    """管理后台统一鉴权：非管理员一律 403
-
-    管理后台（/admin/*）的所有模块都必须走这里，
-    避免将来新增模块时忘记校验权限。
-    """
-    if not getattr(user, "is_admin", False):
-        raise api_error(403, "forbidden", "该账号没有管理权限")
-    return user

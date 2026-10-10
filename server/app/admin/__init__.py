@@ -1,0 +1,19 @@
+"""后台管理系统（独立产品边界）
+
+目录职责：
+- `deps.py`      后台鉴权（权限边界唯一入口）
+- `stats.py`     运营看板接口
+- `blog.py`      博客发布管理接口
+- `system.py`    系统管理接口（站点状态 / 发布站点）
+- `publisher.py` 站点发布服务（构建 + 同步的唯一实现）
+- `router.py`    聚合三组路由，供 main.py 一次挂载
+
+与业务 API 的关系：**刻意共用同一套账号体系与同一个数据库**
+（避免重复实现认证与模型），但目录、鉴权、测试与文档都自成一体。
+将来若要拆成独立服务或子域名（如备案后上 admin.域名），按此边界抽走即可。
+"""
+
+from .deps import require_admin
+from .router import router
+
+__all__ = ["router", "require_admin"]
