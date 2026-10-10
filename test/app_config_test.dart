@@ -13,6 +13,7 @@ import 'package:zhiguanjia/contracts/auth_api.dart';
 import 'package:zhiguanjia/features/app/app_config_service.dart';
 import 'package:zhiguanjia/features/app/local_data_cleaner.dart';
 import 'package:zhiguanjia/features/api/api_client.dart';
+import 'package:zhiguanjia/features/app/device_report_state.dart';
 
 class _FakePathProvider extends PathProviderPlatform
     with MockPlatformInterfaceMixin {
@@ -254,5 +255,61 @@ void main() {
         AppConfigService.testPanelVisibleByFlags(
             const AppRemoteConfig(), '13608074995'),
         isFalse);
+  });
+
+  // ── v1.0.53：上报结果不再静默（此前 catch 吞掉，坏了几个月无人知晓）──
+
+  test('设备上报失败：记录原因（灰度面板可见），而不是完全静默', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'zhiguanjia.api.accessToken': 'token-1',
+      'zhiguanjia.api.deviceId': 'dev-abc',
+    });
+    api.online = false;
+
+    await AppConfigService.reportDevice();
+
+    final snap = await DeviceReportState.load();
+    expect(snap, isNotNull);
+    expect(snap!.ok, isFalse);
+    expect(snap.message, contains('离线'));
+    expect(snap.at.isNotEmpty, isTrue);
+  });
+
+  test('设备上报成功：记录成功与设备信息', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'zhiguanjia.api.accessToken': 'token-1',
+      'zhiguanjia.api.deviceId': 'dev-abc',
+    });
+
+    await AppConfigService.reportDevice();
+
+    final snap = await DeviceReportState.load();
+    expect(snap!.ok, isTrue);
+    expect(snap.message, '上报成功');
+    expect(snap.info['设备标识'], 'dev-abc');
+    expect(snap.info.keys, contains('系统'));
+  });
+
+  test('未登录：不调接口，但记录原因（面板可解释为何没有装机数据）', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+
+    await AppConfigService.reportDevice();
+
+    expect(api.deviceCalls, 0);
+    final snap = await DeviceReportState.load();
+    expect(snap!.ok, isFalse);
+    expect(snap.message, contains('未登录'));
+  });
+
+  test('DeviceReportState 读写往返（唯一事实来源）', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    await DeviceReportState.save(
+        ok: true, message: 'ok', info: <String, String>{'平台': 'android'});
+    final snap = await DeviceReportState.load();
+    expect(snap!.ok, isTrue);
+    expect(snap.info['平台'], 'android');
+
+    await DeviceReportState.clear();
+    expect(await DeviceReportState.load(), isNull);
   });
 }

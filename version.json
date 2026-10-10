@@ -1,6 +1,6 @@
 {
-  "versionName": "1.0.52",
-  "versionCode": 53,
-  "url": "https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.52/zhiguanjia-v1.0.52.apk",
-  "changelog": "修正更新检查在慢网络下的误报失败：单源超时按历史证据调回 15 秒（总 30 秒），并在首轮失败后并行重试一轮。"
+  "versionName": "1.0.53",
+  "versionCode": 54,
+  "url": "https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.53/zhiguanjia-v1.0.53.apk",
+  "changelog": "灰度新增「设备上报诊断」：可查看最近一次上报结果与原因，并一键立即上报；上报失败不再被静默吞掉。"
 }

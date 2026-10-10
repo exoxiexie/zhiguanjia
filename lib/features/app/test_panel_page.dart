@@ -9,6 +9,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../common/plain_group.dart';
+import 'device_report_page.dart';
 import 'sync_diagnostics_page.dart';
 
 class TestPanelPage extends StatelessWidget {
@@ -22,6 +23,16 @@ class TestPanelPage extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         children: <Widget>[
           PlainGroup(entries: <PlainGroupEntry>[
+            PlainGroupEntry(
+              icon: Icons.phone_android_outlined,
+              color: const Color(0xFF0EA5E9),
+              label: '设备上报诊断',
+              trailingText: '装机统计失败时用它',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                    builder: (_) => const DeviceReportPage()),
+              ),
+            ),
             PlainGroupEntry(
               icon: Icons.sync_problem_outlined,
               color: const Color(0xFF7C3AED),

@@ -13,6 +13,8 @@ import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'device_report_state.dart';
+
 import '../../contracts/app_api.dart';
 import '../api/api_client.dart';
 import '../api/app_api_impl.dart';
@@ -140,24 +142,47 @@ class AppConfigService {
     }
   }
 
-  /// 上报设备（装机量/版本分布）。登录后调用，失败静默。
+  /// 上报设备（装机量/版本分布）。登录后调用。
   ///
   /// 幂等：服务端按 (账号, 设备标识) 唯一，同一台设备只算一次装机。
+  ///
+  /// **不再完全静默**：结果写入 [DeviceReportState]，灰度「测试面板」可查看。
+  /// 起因：此前把连续 422 全部吞掉，坏了几个月无人知晓（唯一信号是后台"设备数恒为 0"）。
+  /// 对用户依旧零打扰 —— 只是把"静默失败"变成"可见状态"。
   static Future<void> reportDevice() async {
     try {
-      if ((await TokenStore.accessToken()).isEmpty) return;
+      if ((await TokenStore.accessToken()).isEmpty) {
+        // 未登录：不调接口，但记录状态（面板可解释"为什么没有装机数据"）
+        await DeviceReportState.save(ok: false, message: '未登录，未上报');
+        return;
+      }
       final info = await PackageInfo.fromPlatform();
-      await _api.reportDevice(
-        deviceId: await TokenStore.deviceId(),
-        platform: Platform.isAndroid
-            ? 'android'
-            : (Platform.isIOS ? 'ios' : Platform.operatingSystem),
-        osVersion: Platform.operatingSystemVersion,
+      final deviceId = await TokenStore.deviceId();
+      final platform = Platform.isAndroid
+          ? 'android'
+          : (Platform.isIOS ? 'ios' : Platform.operatingSystem);
+      final osVersion = Platform.operatingSystemVersion;
+      final snapshot = <String, String>{
+        '设备标识': deviceId,
+        '平台': platform,
+        '系统': osVersion,
+        'App 版本': '${info.version}（${info.buildNumber}）',
+      };
+      final res = await _api.reportDevice(
+        deviceId: deviceId,
+        platform: platform,
+        osVersion: osVersion,
         appVersion: info.version,
         versionCode: int.tryParse(info.buildNumber) ?? 0,
       );
-    } catch (_) {
-      // 静默：统计不上报不能影响用户
+      await DeviceReportState.save(
+        ok: res.ok,
+        message: res.ok ? '上报成功' : (res.error?.message ?? '上报失败（无详情）'),
+        info: snapshot,
+      );
+    } catch (e) {
+      // 不打扰用户，但记录原因（否则又是"静默失败"）
+      await DeviceReportState.save(ok: false, message: '异常：$e');
     }
   }
 }
