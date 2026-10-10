@@ -154,5 +154,11 @@
 
 ## 十四、待办 / 风险
 
-- 仓库凭证明文暴露：`git remote` 内嵌 Gitee 口令 + GitHub PAT；`lib/contracts/api_config.dart` 硬编码代理令牌；`dsh/README.md` 含真实 DeepSeek Key。建议尽快轮换（与智懂你共用同一令牌）。
+- ~~仓库凭证明文暴露~~ **【2026-10-10 已核实解决，勿再当风险上报】**
+  - **DeepSeek Key：已迁到阿里云函数计算的环境变量**（用户已完成轮换 + 重构），
+    核实：全部 git 跟踪文件中 `sk-` 形态密钥 **0 处**；`tools/deepseek_proxy.py` 读 `DEEPSEEK_API_KEY` 环境变量。
+  - 仅本地遗留：`dsh/README.md`（**未被 git 跟踪，未公开**）仍有一串 `sk-3a3145…`，若是已删除的旧密钥可随手清掉。
+  - **仍存在的次级项**：`lib/contracts/api_config.dart` 的 `proxyToken`（`deff…`，48 位，
+    **不是 DeepSeek 密钥**，是调用我们中转函数的自定令牌）。泄露后果 = 他人可调我们的中转、
+    消耗 DeepSeek 配额；**不含密钥本体**。处置（低优先级）：轮换 `PROXY_TOKEN` + 中转加每令牌配额。
 - `KNOWN_ISSUES.md` 台账基线 v1.0.7 已过期（P0-3 / P1-3 / P1-4 已随 v1.0.8 修复），需回填校准。
