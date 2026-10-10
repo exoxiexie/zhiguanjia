@@ -81,14 +81,31 @@ def _serialize(r: AppRelease) -> dict:
 
 
 def _apk_url(version_name: str) -> str:
-    """下载地址：**用我们自己的站点**（不依赖第三方，Gitee 挂了也不影响用户更新）"""
+    """安装包下载地址（按配置模板生成）
+
+    默认走 Gitee（有 CDN，比自建站点快得多）；想改成自建站点或阿里云 OSS+CDN，
+    只需设置 `ZGJ_UPDATE_URL_TEMPLATE`，**不必改代码**。
+    """
     from ..config import settings
 
-    base = os.environ.get("ZGJ_SITE_URL", "") or ""
-    if not base:
-        # 默认用官网（备案前后分别为 IP / 域名，可用 ZGJ_SITE_URL 覆盖）
-        base = "http://8.137.71.241"
-    return "%s/zhiguanjia/zhiguanjia-v%s.apk" % (base.rstrip("/"), version_name)
+    return (settings.update_url_template or "").replace("{version}", version_name)
+
+
+def _check_url(url: str) -> dict:
+    """发布后验证地址真能下载 —— 链接打不开这类问题不能悄悄上线"""
+    import urllib.error
+    import urllib.request
+
+    try:
+        req = urllib.request.Request(url, method="GET",
+                                     headers={"Range": "bytes=0-1023"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            got = len(resp.read())
+        return {"ok": True, "status": 200, "note": f"可下载（首包 {got} 字节）"}
+    except urllib.error.HTTPError as exc:
+        return {"ok": False, "status": exc.code, "note": f"HTTP {exc.code}"}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "status": 0, "note": f"访问失败：{exc}"}
 
 
 @router.get("/admin/release")
@@ -242,12 +259,17 @@ def publish_release(
     row.published_at = utcnow()
     db.add(row)
     db.commit()
+
+    # 发布后立刻验证下载地址是否真的可用（链接打不开会在这里暴露）
+    url = _apk_url(row.version_name)
+    check = _check_url(url)
     return {
         "ok": True,
         "message": result["message"],
         "release": _serialize(row),
         "force_update": bool(row.force_update),
-        "url": _apk_url(row.version_name),
+        "url": url,
+        "url_check": check,
     }
 
 

@@ -60,6 +60,15 @@ class Settings:
     # 站点/上传/备份目录与保留份数：
     # 统一走 env + 密钥 JSON（与其它配置一致），这样**定时备份脚本**与 API
     # 读的是同一份配置，不必依赖运行环境里碰巧导出的变量。
+    # 安装包下载地址模板：{version} 会被替换为版本名。
+    # 为什么可配置：不同分发方式（Gitee CDN / 自建站点 / 阿里云 OSS+CDN）只是地址不同，
+    # 不该为了换分发方式去改代码。用 ZGJ_UPDATE_URL_TEMPLATE 覆盖即可。
+    update_url_template: str = _get(
+        "ZGJ_UPDATE_URL_TEMPLATE",
+        "https://gitee.com/laoxie2076/zhiguanjia/releases/download/v{version}/"
+        "zhiguanjia-v{version}.apk",
+    )
+
     site_dir: str = _get("ZGJ_SITE_DIR", "/www/wwwroot/zhiguanjia-site")
     upload_dir: str = _get("ZGJ_UPLOAD_DIR", "/www/wwwroot/zhiguanjia-uploads")
     backup_dir: str = _get("ZGJ_BACKUP_DIR", "/www/backups/zhiguanjia")

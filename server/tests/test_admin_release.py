@@ -32,6 +32,8 @@ os.environ["ZGJ_ENV"] = "test"
 os.environ["ZGJ_SITE_DIR"] = SITE_DIR
 os.environ["ZGJ_WEB_ROOT"] = WEB_ROOT
 os.environ["ZGJ_SITE_URL"] = "http://test.local"
+# 测试里用自建站点作为下载地址模板（避免依赖外网）
+os.environ["ZGJ_UPDATE_URL_TEMPLATE"] = "http://test.local/zhiguanjia/zhiguanjia-v{version}.apk"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -118,7 +120,8 @@ r = _client.post(f"/admin/release/{rid}/publish", headers=h(A))
 check("发布 → 200", r.status_code == 200, r.text[:300])
 ver = json.load(open(os.path.join(SITE_DIR, "version.json")))
 check("更新源已更新为 1.0.50", ver["versionName"] == "1.0.50" and ver["versionCode"] == 51, ver)
-check("下载地址指向我们自己的站点", ver["url"].startswith("http://test.local/"), ver["url"])
+check("下载地址按配置模板生成（换分发方式无需改代码）",
+      ver["url"] == "http://test.local/zhiguanjia/zhiguanjia-v1.0.50.apk", ver["url"])
 check("更新说明已写入", ver["changelog"] == "修复若干问题", ver)
 check("安装包已铺到官网目录",
       os.path.exists(os.path.join(SITE_DIR, "static", "zhiguanjia-v1.0.50.apk")))
@@ -126,6 +129,9 @@ check("下载页已同步新版本名",
       "zhiguanjia-v1.0.50.apk" in open(os.path.join(WEB_ROOT, "zhiguanjia", "index.html"),
                                        encoding="utf-8").read()
       or "1.0.50" in open(os.path.join(WEB_ROOT, "index.html"), encoding="utf-8").read())
+check("发布结果附带下载地址自检（链接不可用会被发现）",
+      "url_check" in r.json() and isinstance(r.json()["url_check"].get("ok"), bool),
+      r.json().get("url_check"))
 check("列表状态为已发布",
       [i for i in _client.get("/admin/release", headers=h(A)).json()["items"]
        if i["id"] == rid][0]["status"] == "published")

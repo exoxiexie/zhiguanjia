@@ -56,6 +56,9 @@ function load(box, ctx, toast) {
       el('div', { class: 'warn-box', text:
         '安装包需在本地用 Flutter 构建（服务器没有 Android 构建环境）。'
         + '上传后先存为草稿，点列表里的「发布」才真正生效 —— 可先上传、择机发布。' }),
+      el('p', { class: 'muted', style: 'font-size:12.5px;line-height:1.7;margin:0 0 12px', text:
+        '发布后 App 的更新地址将成为下方「当前线上版本 → 下载地址」所示的地址；'
+        + '发布时后台会**立刻访问该地址验证能否下载**，链接不可用会在结果里提示。' }),
       el('label', { class: 'field' }, [el('span', { text: 'APK 文件' }), fileInput]),
       el('div', { class: 'grid g2' }, [
         el('label', { class: 'field' }, [el('span', { text: '版本名' }), vname]),
