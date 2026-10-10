@@ -67,6 +67,11 @@ const FIXTURES = {
     updated_by: '13608074995', updated_at: '2026-10-10T08:00:00',
     release: { version_name: '1.0.49', version_code: 50, url: 'https://x/a.apk', changelog: '修复同步' }
   },
+  '/admin/backup': { items: [{ name: '20261010-090000-manual', size: 2048,
+      created_at: '2026-10-10T09:00:00', parts: ['db.sql.gz', 'site-content.tar.gz'] }],
+    dir: '/www/backups/zhiguanjia', keep: 10, parts: ['db', 'content', 'uploads', 'etc'],
+    disk: { total: 42949672960, free: 31138512896, used: 11811160064 },
+    last_auto: null, server_time: '2026-10-10T09:00:00' },
   '/admin/system/status': { api_version: '0.7.0', server_time: '2026-10-10T08:00:00',
     site_dir: '/srv/site', site_dir_ready: true, web_root: '/srv/web', web_root_ready: true,
     articles: 1, articles_published: 1, users: 9,

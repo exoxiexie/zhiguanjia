@@ -6,6 +6,8 @@
 - `blog.py`      博客发布管理接口
 - `system.py`    系统管理接口（站点状态 / 发布站点）
 - `config.py`    公告与配置（公告 / 强制更新 / 功能开关）
+- `config.py`    公告与配置（公告 / 强制更新 / 功能开关）
+- `backup.py`    备份与恢复接口（实现在 backup_service.py）
 - `publisher.py` 站点发布服务（构建 + 同步的唯一实现）
 - `router.py`    聚合三组路由，供 main.py 一次挂载
 

@@ -83,6 +83,12 @@ window.ZGJ = (function () {
 
     // ── 系统管理 ──
     systemStatus: function () { return request('GET', '/admin/system/status'); },
+    backupList: function () { return request('GET', '/admin/backup'); },
+    backupCreate: function () { return request('POST', '/admin/backup'); },
+    backupRestore: function (name, parts) {
+      return request('POST', '/admin/backup/' + name + '/restore?confirm=RESTORE&parts=' + parts);
+    },
+    backupDelete: function (name) { return request('DELETE', '/admin/backup/' + name); },
     systemRebuild: function () { return request('POST', '/admin/system/rebuild'); }
   };
 

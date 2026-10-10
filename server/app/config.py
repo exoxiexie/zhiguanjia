@@ -57,6 +57,14 @@ class Settings:
     debug: bool = _get("ZGJ_DEBUG", "0") == "1"
 
     # 数据库
+    # 站点/上传/备份目录与保留份数：
+    # 统一走 env + 密钥 JSON（与其它配置一致），这样**定时备份脚本**与 API
+    # 读的是同一份配置，不必依赖运行环境里碰巧导出的变量。
+    site_dir: str = _get("ZGJ_SITE_DIR", "/www/wwwroot/zhiguanjia-site")
+    upload_dir: str = _get("ZGJ_UPLOAD_DIR", "/www/wwwroot/zhiguanjia-uploads")
+    backup_dir: str = _get("ZGJ_BACKUP_DIR", "/www/backups/zhiguanjia")
+    backup_keep: int = int(_get("ZGJ_BACKUP_KEEP", "10") or 10)
+
     db_host: str = _get("ZGJ_DB_HOST", "127.0.0.1")
     db_port: int = int(_get("ZGJ_DB_PORT", "3306") or 3306)
     db_name: str = _get("ZGJ_DB_NAME")
