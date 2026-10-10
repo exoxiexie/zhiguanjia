@@ -8,6 +8,8 @@
 - `config.py`    公告与配置（公告 / 强制更新 / 功能开关）
 - `config.py`    公告与配置（公告 / 强制更新 / 功能开关）
 - `backup.py`    备份与恢复接口（实现在 backup_service.py）
+- `audit.py`     操作审计中间件（自动捕获所有 /admin 写操作）
+- `logs.py`      操作审计查询接口
 - `publisher.py` 站点发布服务（构建 + 同步的唯一实现）
 - `router.py`    聚合三组路由，供 main.py 一次挂载
 

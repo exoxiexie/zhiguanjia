@@ -83,6 +83,13 @@ window.ZGJ = (function () {
 
     // ── 系统管理 ──
     systemStatus: function () { return request('GET', '/admin/system/status'); },
+    auditList: function (opts) {
+      var q = [];
+      if (opts && opts.before) q.push('before=' + opts.before);
+      if (opts && opts.onlyFailed) q.push('only_failed=true');
+      q.push('limit=' + ((opts && opts.limit) || 100));
+      return request('GET', '/admin/audit?' + q.join('&'));
+    },
     backupList: function () { return request('GET', '/admin/backup'); },
     backupCreate: function () { return request('POST', '/admin/backup'); },
     backupRestore: function (name, parts) {

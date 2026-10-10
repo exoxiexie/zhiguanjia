@@ -58,8 +58,12 @@ function renderStatus(box, ctx) {
 
     box.appendChild(el('div', { class: 'section-title', text: '安全' }));
     box.appendChild(el('div', { class: 'card' }, [
-      soon(el, '管理员与权限', '增删管理员、按模块分配权限、操作审计'),
-      soon(el, '访问日志', '接口调用与异常日志检索')
+      el('div', { class: 'toolbar', style: 'margin:0 0 8px' }, [
+        el('button', { class: 'btn', text: '操作审计',
+          onclick: function () { auditView(box, ctx); } }),
+        el('span', { class: 'muted', text: '谁在什么时间做了什么（含失败与越权尝试）' })
+      ]),
+      soon(el, '管理员与权限', '增删管理员、按模块分配权限')
     ]));
 
     box.appendChild(el('div', { class: 'section-title', text: '运维' }));
@@ -212,4 +216,95 @@ function doBackup(box, ctx, btn) {
     btn.disabled = false; btn.textContent = '＋ 立即备份';
     alert('备份失败：' + e.message);
   });
+}
+
+/* ══════════════ 操作审计 ══════════════ */
+/* 后端存的是归一化路径，这里映射成人话 */
+var AUDIT_LABELS = {
+  '/admin/blog': '新建 / 修改文章',
+  '/admin/blog/{id}': '删除文章',
+  '/admin/blog/{id}/publish': '发布文章',
+  '/admin/config': '修改下发配置',
+  '/admin/backup': '新建备份',
+  '/admin/backup/{id}': '删除备份',
+  '/admin/backup/{id}/restore': '恢复备份',
+  '/admin/system/rebuild': '发布站点'
+};
+
+function auditView(box, ctx, opts) {
+  var el = ctx.el;
+  opts = opts || {};
+  box.innerHTML = '';
+  box.appendChild(el('div', { class: 'loading', text: '加载中…' }));
+
+  ctx.api.auditList({ before: opts.before || 0, onlyFailed: !!opts.onlyFailed, limit: 100 })
+    .then(function (d) {
+      if (!opts.append) box.innerHTML = '';
+      if (!opts.append) {
+        box.appendChild(el('div', { class: 'toolbar' }, [
+          el('button', { class: 'btn', text: '← 返回系统管理',
+            onclick: function () { renderStatus(box, ctx); } }),
+          el('label', { class: 'check', style: 'margin:0' }, [
+            (function () {
+              var cb = el('input', { type: 'checkbox' });
+              cb.checked = !!opts.onlyFailed;
+              cb.addEventListener('change', function () {
+                auditView(box, ctx, { onlyFailed: cb.checked });
+              });
+              return cb;
+            })(),
+            el('span', { text: '只看失败' })
+          ]),
+          el('span', { class: 'muted', text:
+            '共 ' + d.total + ' 条（最多保留 ' + d.keep + ' 条）　'
+            + '写操作自动记录，含失败与越权尝试' })
+        ]));
+      }
+
+      var table = el('table', { class: 'table' });
+      table.appendChild(el('thead', {}, [el('tr', {}, [
+        el('th', { text: '时间' }), el('th', { text: '操作者' }),
+        el('th', { text: '操作' }), el('th', { text: '对象' }),
+        el('th', { text: '结果' }), el('th', { text: 'IP' })
+      ])]));
+      var tbody = el('tbody', {});
+      table.appendChild(tbody);
+      box.appendChild(el('div', { class: 'card' }, [table]));
+
+      function addRows(items) {
+        items.forEach(function (it) {
+          var label = AUDIT_LABELS[it.action] || it.action;
+          tbody.appendChild(el('tr', {}, [
+            el('td', { text: it.created_at }),
+            el('td', { text: it.actor || '（未登录/越权）' }),
+            el('td', { text: label, title: it.method + ' ' + it.action }),
+            el('td', { text: it.target || '—' }),
+            el('td', {}, [el('span', {
+              class: 'badge ' + (it.ok ? 'on' : 'off'),
+              text: it.ok ? '成功 ' + it.duration_ms + 'ms' : '失败 ' + it.status
+            })]),
+            el('td', { class: 'mono', text: it.ip })
+          ]));
+        });
+      }
+
+      if (!d.items.length) {
+        box.appendChild(el('div', { class: 'empty', text: opts.onlyFailed ? '没有失败记录。' : '还没有操作记录。' }));
+        return;
+      }
+      addRows(d.items);
+
+      var last = d.items[d.items.length - 1].id;
+      box.appendChild(el('div', { class: 'toolbar' }, [
+        el('button', { class: 'btn', text: '加载更多（更早的记录）',
+          onclick: function () {
+            ctx.api.auditList({ before: last, onlyFailed: !!opts.onlyFailed, limit: 100 })
+              .then(function (more) {
+                if (!more.items.length) { alert('没有更早的记录了'); return; }
+                addRows(more.items);
+                last = more.items[more.items.length - 1].id;
+              });
+          } })
+      ]));
+    }).catch(function (e) { ctx.fail(box, e); });
 }

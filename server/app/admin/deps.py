@@ -4,15 +4,22 @@
 就不会漏校验（这也是把后台从业务路由里独立出来的主要收益之一）。
 """
 
-from fastapi import Depends
+from fastapi import Depends, Request
 
 from ..deps import get_current_user
 from ..errors import api_error
 from ..models import User
 
 
-def require_admin(user: User = Depends(get_current_user)) -> User:
-    """非管理员一律 403"""
+def require_admin(
+    request: Request, user: User = Depends(get_current_user)
+) -> User:
+    """非管理员一律 403
+
+    顺带把操作者写进 request.state —— 审计中间件据此记录"谁做的"。
+    """
     if not getattr(user, "is_admin", False):
+        request.state.actor = getattr(user, "phone", "") or ""
         raise api_error(403, "forbidden", "该账号没有管理权限")
+    request.state.actor = getattr(user, "phone", "") or ""
     return user

@@ -6,7 +6,7 @@
 
 import datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from ..errors import api_error
 from ..models import User
@@ -45,18 +45,20 @@ def list_all(user: User = Depends(require_admin)) -> dict:
 
 
 @router.post("/admin/backup")
-def create(user: User = Depends(require_admin)) -> dict:
+def create(request: Request, user: User = Depends(require_admin)) -> dict:
     """立即备份一次"""
     try:
         rec = create_backup(label="manual")
     except Exception as exc:  # noqa: BLE001
         raise api_error(500, "backup_failed", f"备份失败：{exc}")
+    request.state.audit_target = f"新建备份 {rec['name']}"
     return {"ok": True, "backup": rec}
 
 
 @router.post("/admin/backup/{name}/restore")
 def restore(
     name: str,
+    request: Request,
     confirm: str = "",
     parts: str = "",
     user: User = Depends(require_admin),
@@ -64,6 +66,7 @@ def restore(
     """恢复备份（必须显式确认；恢复前会自动先备份一次当前状态）"""
     if confirm != "RESTORE":
         raise api_error(400, "confirm_required", "恢复会覆盖当前数据，需显式确认")
+    request.state.audit_target = f"备份 {name}"
     wanted = [p.strip() for p in parts.split(",") if p.strip()] if parts else None
     try:
         result = restore_backup(name, wanted)
@@ -76,7 +79,8 @@ def restore(
 
 
 @router.delete("/admin/backup/{name}")
-def delete(name: str, user: User = Depends(require_admin)) -> dict:
+def delete(name: str, request: Request, user: User = Depends(require_admin)) -> dict:
+    request.state.audit_target = f"备份 {name}"
     if not delete_backup(name):
         raise api_error(404, "not_found", "备份不存在")
     return {"ok": True}

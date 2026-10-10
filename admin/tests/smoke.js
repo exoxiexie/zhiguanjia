@@ -67,6 +67,10 @@ const FIXTURES = {
     updated_by: '13608074995', updated_at: '2026-10-10T08:00:00',
     release: { version_name: '1.0.49', version_code: 50, url: 'https://x/a.apk', changelog: '修复同步' }
   },
+  '/admin/audit': { items: [{ id: 2, actor: '13608074995', action: '/admin/blog/{id}/publish',
+      method: 'POST', target: '文章《示例》', status: 200, ok: true, ip: '1.2.3.4',
+      duration_ms: 320, created_at: '2026-10-10 09:30:00' }],
+    total: 1, keep: 5000, actions: ['/admin/blog/{id}/publish'] },
   '/admin/backup': { items: [{ name: '20261010-090000-manual', size: 2048,
       created_at: '2026-10-10T09:00:00', parts: ['db.sql.gz', 'site-content.tar.gz'] }],
     dir: '/www/backups/zhiguanjia', keep: 10, parts: ['db', 'content', 'uploads', 'etc'],

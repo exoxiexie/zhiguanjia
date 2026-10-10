@@ -19,7 +19,7 @@ import json
 import os
 import secrets
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from ..deps import get_db
@@ -102,6 +102,7 @@ def get_config(
 @router.post("/admin/config")
 def save_config(
     body: ConfigIn,
+    request: Request,
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -138,6 +139,14 @@ def save_config(
             raise api_error(400, "flags_too_large", f"功能开关过大（上限 {_FLAGS_MAX} 字符）")
         row.flags_json = text
 
+    changed = [
+        label for label, touched in (
+            ("公告", body.announcement is not None),
+            ("强制更新", body.min_version is not None),
+            ("功能开关", body.flags is not None),
+        ) if touched
+    ]
+    request.state.audit_target = "下发配置：" + "、".join(changed or ["无变化"])
     row.updated_by = (user.phone or "")[:32]
     row.updated_at = utcnow()
     db.add(row)

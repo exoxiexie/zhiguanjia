@@ -537,3 +537,31 @@ class Article(Base):
     published_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime, nullable=True
     )
+
+
+class AuditLog(Base):
+    """后台操作审计：谁、何时、做了什么、结果如何
+
+    用途：
+    - 多人协作时"谁改的"是可追溯的（后台已不止一个人在用）
+    - 出问题（文章被删、配置被改、备份被恢复）时能复盘
+
+    记录方式是**中间件自动捕获所有 /admin 写操作**（含失败与未授权尝试），
+    避免"新增接口忘了写日志"造成的漏记；各接口再补充人类可读的对象名。
+    """
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    actor: Mapped[str] = mapped_column(String(32), default="", index=True)
+    # 归一化后的动作，如 /admin/blog/{id}/publish（前端映射为中文）
+    action: Mapped[str] = mapped_column(String(120), default="", index=True)
+    method: Mapped[str] = mapped_column(String(8), default="")
+    target: Mapped[str] = mapped_column(String(200), default="")
+    status: Mapped[int] = mapped_column(Integer, default=0)
+    ok: Mapped[int] = mapped_column(Integer, default=1)
+    ip: Mapped[str] = mapped_column(String(64), default="")
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=utcnow, index=True
+    )

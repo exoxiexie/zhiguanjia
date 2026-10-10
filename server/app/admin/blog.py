@@ -21,7 +21,7 @@ import os
 import re
 import secrets
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -245,6 +245,7 @@ def get_article(
 @router.post("/admin/blog")
 def save_article(
     body: ArticleIn,
+    request: Request,
     article_id: str = "",
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -302,6 +303,7 @@ def save_article(
         row.published_at = explicit
 
     row.updated_at = utcnow()
+    request.state.audit_target = f"文章《{row.title}》"
     db.commit()  # 必须提交：否则 slug 冲突检测与后续发布都读不到这篇
 
     return {"ok": True, "article": _serialize(row, with_body=True)}
@@ -310,11 +312,13 @@ def save_article(
 @router.delete("/admin/blog/{article_id}")
 def delete_article(
     article_id: str,
+    request: Request,
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """删除文章；若已发布，同时删掉 Markdown 并重建（线上页面随之下线）"""
     row = _find(db, article_id)
+    request.state.audit_target = f"文章《{row.title}》"
     slug = row.slug
     was_published = row.status == "published"
     db.delete(row)
@@ -338,11 +342,13 @@ def delete_article(
 @router.post("/admin/blog/{article_id}/publish")
 def publish_article(
     article_id: str,
+    request: Request,
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """发布：写 Markdown → 重新构建 → 同步上线"""
     row = _find(db, article_id)
+    request.state.audit_target = f"文章《{row.title}》"
     if not _SLUG_RE.match(row.slug):
         raise api_error(400, "bad_slug", "链接标识不合法，请先改成小写字母/数字/连字符")
 

@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .admin import router as admin_router
+from .admin.audit import AuditMiddleware
 from .config import settings
 from .db import Base, engine
 from .routers import auth, config, content, device, me, profile, sync
@@ -38,6 +39,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(AuditMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

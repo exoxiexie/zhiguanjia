@@ -10,7 +10,7 @@
 import datetime
 import os
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -65,12 +65,13 @@ def system_status(
 
 @router.post("/admin/system/rebuild")
 def system_rebuild(
-    user: User = Depends(require_admin), db: Session = Depends(get_db)
+    request: Request, user: User = Depends(require_admin), db: Session = Depends(get_db)
 ) -> dict:
     """发布站点：把当前文章与页面重新构建后发布到官网
 
     （从「博客发布管理」搬来 —— 它重建的是整站，属于系统操作）
     """
+    request.state.audit_target = "发布站点"
     result = rebuild_and_deploy()
     if not result["ok"]:
         if result.get("busy"):
