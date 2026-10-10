@@ -60,6 +60,17 @@ node admin/tests/smoke.js
 ./admin/deploy.sh
 ```
 
+## 部署铁律（踩过的坑）
+
+**文章内容的真实来源是服务器**：`/www/wwwroot/zhiguanjia-site/content/*.md`
+（后台「博客发布管理」写入与删除）。本地仓库的 `site/content/` 只留一份说明文件。
+
+- ❌ 不要用裸 `tar` 把本地 `site/` 同步到服务器 —— 会把后台已删除的文章**复活**
+  （2026-10-10 实际发生：删掉的文章随部署又回到线上）
+- ✅ 官网部署一律用 `./site/deploy.sh`（已排除 `content/` 与 `dist/`，并负责构建+同步）
+- ✅ 后台部署一律用 `./admin/deploy.sh`
+- 两个脚本各自独立：官网重建不影响后台，后台发版不影响官网
+
 ## 安全现状
 
 - 复用 App 账号体系（手机号 + 密码），管理员身份是 `users.is_admin` 标记
