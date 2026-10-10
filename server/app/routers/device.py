@@ -55,13 +55,19 @@ def report_device(
         )
         db.add(row)
 
-    row.platform = body.platform or row.platform or "android"
-    row.brand = body.brand or row.brand or ""
-    row.model = body.model or row.model or ""
-    row.os_version = body.os_version or row.os_version or ""
-    row.app_version = body.app_version or row.app_version or ""
+    # 按列宽截断：统计字段不该因长度问题丢掉整条上报
+    # （历史教训：os_version 限 24 字符，真实安卓上报全部 422，
+    #   devices 表长期为空，且 App 侧 catch 静默吞掉，谁都不知道）
+    def _clip(value: str, width: int) -> str:
+        return (value or "")[:width]
+
+    row.platform = _clip(body.platform or row.platform or "android", 16)
+    row.brand = _clip(body.brand or row.brand, 32)
+    row.model = _clip(body.model or row.model, 48)
+    row.os_version = _clip(body.os_version or row.os_version, 64)
+    row.app_version = _clip(body.app_version or row.app_version, 24)
     row.version_code = body.version_code or row.version_code or 0
-    row.channel = body.channel or row.channel or ""
+    row.channel = _clip(body.channel or row.channel, 24)
     row.last_seen_at = utcnow()
     db.commit()
     return {"ok": True, "is_new_device": is_new, "device": row.to_public()}

@@ -220,7 +220,10 @@ class DeviceReportRequest(BaseModel):
     platform: str = Field(default="android", max_length=16)
     brand: str = Field(default="", max_length=32)
     model: str = Field(default="", max_length=48)
-    os_version: str = Field(default="", max_length=24)
+    # 真实安卓返回形如 "Android 14 (API 34) build/TQ3A.230805.001"（40+ 字符），
+    # 原来限制 24 会让**整个请求 422**，上报被静默丢弃（devices 表长期为空）。
+    # 这里放宽到 128，并在落库前按列宽截断 —— 统计字段绝不该因长度丢掉整条上报。
+    os_version: str = Field(default="", max_length=128)
     app_version: str = Field(default="", max_length=24)
     version_code: int = 0
     channel: str = Field(default="", max_length=24)

@@ -462,7 +462,7 @@ class Device(Base):
     platform: Mapped[str] = mapped_column(String(16), default="android")
     brand: Mapped[str] = mapped_column(String(32), default="")
     model: Mapped[str] = mapped_column(String(48), default="")
-    os_version: Mapped[str] = mapped_column(String(24), default="")
+    os_version: Mapped[str] = mapped_column(String(64), default="")
     app_version: Mapped[str] = mapped_column(String(24), default="")
     version_code: Mapped[int] = mapped_column(Integer, default=0)
     channel: Mapped[str] = mapped_column(String(24), default="")

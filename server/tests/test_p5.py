@@ -61,6 +61,17 @@ r = _client.post("/device/report", headers=h(B), json={
     "device_id": "dev-b1", "platform": "android", "app_version": "1.0.40", "version_code": 41})
 check("另一用户另一设备 → is_new_device=true", r.json()["is_new_device"] is True, r.text)
 
+# 回归：真实安卓的 os_version 形如 "Android 14 (API 34) build/TQ3A.230805.001"（40+ 字符）。
+# 曾因服务端 max_length=24 导致**整条上报 422**，而 App 侧 catch 静默吞掉 →
+# devices 表长期为空、后台「设备/最近活跃」永远是空，且无任何报错可见（真实发生过）。
+_long_os = "Android 14 (API 34) build/TQ3A.230805.001"
+r = _client.post("/device/report", headers=h(A), json={
+    "device_id": "dev-a1", "platform": "android", "brand": "Xiaomi", "model": "Xiaomi 14",
+    "os_version": _long_os, "app_version": "1.0.41", "version_code": 42})
+check("真实长度的 os_version 不再 422（可正常上报）", r.status_code == 200, r.text)
+check("超长 os_version 被截断而不是丢整条上报",
+      r.status_code == 200 and len(r.json()["device"]["os_version"]) <= 64, r.json())
+
 with SessionLocal() as db:
     check("devices 表恰好 2 台设备", len(db.scalars(select(Device)).all()) == 2)
 
