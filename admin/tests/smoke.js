@@ -139,6 +139,15 @@ checkModuleIsolation();
   check('侧栏含全部模块（' + mods.length + ' 个模块文件）',
     ['运营看板', '博客发布管理', '系统管理'].every(n => nav.includes(n)), nav);
 
+  // 模块 id / 名称不得重复（曾因忘记删占位，侧栏出现两个「公告与配置」）
+  const regs = window.ZGJ.modules();
+  const dupIds = regs.map(m => m.id).filter((v, i, a) => a.indexOf(v) !== i);
+  const dupNames = regs.map(m => m.name).filter((v, i, a) => a.indexOf(v) !== i);
+  check('模块 id 不重复', dupIds.length === 0, dupIds);
+  check('模块名称不重复', dupNames.length === 0, dupNames);
+  check('侧栏条目数 = 模块数', (nav.match(/规划中/g) || []).length + 7 === regs.length
+    || nav.split(/\s{2,}/).length >= 6, regs.length + ' 个模块');
+
   // 模块特征词：用于发现"模块内容串台"（曾因同名全局函数互相覆盖）
   const SIGNATURES = {
     '#/dashboard': ['装机设备'],

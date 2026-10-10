@@ -298,5 +298,15 @@ window.ZGJ = (function () {
     });
   }
 
-  return { registerModule: registerModule, boot: boot, api: api };
+  // 供测试检查「模块 id/名称是否重复」（曾因忘记删占位出现两个「公告与配置」）
+  function registeredModules() {
+    return modules.map(function (m) { return { id: m.id, name: m.name }; });
+  }
+
+  return {
+    registerModule: registerModule,
+    boot: boot,
+    api: api,
+    modules: registeredModules
+  };
 })();
