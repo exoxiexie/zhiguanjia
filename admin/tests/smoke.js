@@ -107,6 +107,28 @@ const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const mods = [...html.matchAll(/src="(modules\/[^"?]+)/g)].map(m => m[1]);
 mods.forEach(m => eval(fs.readFileSync(path.join(ROOT, m), 'utf8')));
 
+/* ── 静态检查：模块必须包在 IIFE 内 ──
+ * 浏览器里"顶层 function 声明"会挂到全局，两个模块同名就互相覆盖：
+ * 曾真实发生（config.js 与 release.js 都定义 function load，
+ * 结果"公告与配置"打开了"版本发布"的界面）。
+ * eval 桩的作用域与浏览器不同、复现不了，所以这里做静态检查。
+ */
+function checkModuleIsolation() {
+  const dir = path.join(ROOT, 'modules');
+  const bad = [];
+  fs.readdirSync(dir).filter(f => f.endsWith('.js')).forEach(f => {
+    const src = fs.readFileSync(path.join(dir, f), 'utf8');
+    if (!/^\s*\(function\s*\(/.test(src)) bad.push(f + '：未包裹 IIFE');
+    src.split('\n').forEach(line => {
+      if (/^function\s+\w+/.test(line) || /^var\s+\w+/.test(line)) {
+        bad.push(f + '：顶层声明 → ' + line.trim().slice(0, 40));
+      }
+    });
+  });
+  check('模块文件互相隔离（IIFE，无顶层声明）', bad.length === 0, bad);
+}
+checkModuleIsolation();
+
 (async () => {
   store['zgj_admin_token'] = 'test-token';
   store['zgj_admin_account'] = '13900000000';
@@ -117,6 +139,17 @@ mods.forEach(m => eval(fs.readFileSync(path.join(ROOT, m), 'utf8')));
   check('侧栏含全部模块（' + mods.length + ' 个模块文件）',
     ['运营看板', '博客发布管理', '系统管理'].every(n => nav.includes(n)), nav);
 
+  // 模块特征词：用于发现"模块内容串台"（曾因同名全局函数互相覆盖）
+  const SIGNATURES = {
+    '#/dashboard': ['装机设备'],
+    '#/blog': ['新建文章'],
+    '#/config': ['保存公告'],
+    '#/release': ['上传安装包'],
+    '#/users': ['搜索手机号或姓名'],
+    '#/content': ['搜索内容 / 作者手机号'],
+    '#/system': ['站点与发布']
+  };
+
   async function visit(hash, expect) {
     global.location.hash = hash;
     window.ZGJ.boot();          // 重新进入（等价于刷新后首次渲染）
@@ -125,6 +158,10 @@ mods.forEach(m => eval(fs.readFileSync(path.join(ROOT, m), 'utf8')));
     const bad = /渲染失败|加载失败|is not a function|版本不一致/.test(t);
     check('模块 ' + hash + ' 渲染出关键内容',
       expect.every(e => t.includes(e)) && !bad, t.slice(0, 200));
+    // 内容特征：渲染出的内容必须含本模块特征词（防止"打开了 A 却是 B 的界面"）
+    const mine = SIGNATURES[hash] || [];
+    check('模块 ' + hash + ' 内容属于本模块',
+      mine.every(w => t.includes(w)), t.slice(0, 120));
   }
   await visit('#/dashboard', ['装机设备', '活跃设备', '真在使用', '版本分布', '使用深度']);
   await visit('#/blog', ['新建文章', '示例文章', '已发布']);
