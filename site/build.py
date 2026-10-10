@@ -120,6 +120,13 @@ def cn_date(iso):
     return "%d 年 %d 月 %d 日" % (d.year, d.month, d.day)
 
 
+def cn_datetime(date_iso, time_str=""):
+    """中文日期 + 可选时间：2026 年 10 月 9 日 14:30（无时间则只显示日期）"""
+    text = cn_date(date_iso)
+    t = (time_str or "").strip()
+    return (text + " " + t) if t else text
+
+
 def parse_post(path):
     raw = open(path, encoding="utf-8").read()
     meta, body = {}, raw
@@ -135,6 +142,7 @@ def parse_post(path):
     meta.setdefault("title", slug)
     meta.setdefault("date", "")
     meta.setdefault("excerpt", "")
+    meta.setdefault("time", "")
     # 作者：可在 front-matter 里覆盖，默认「老谢」
     meta.setdefault("author", "老谢")
     return slug, meta, body.strip()
@@ -173,7 +181,8 @@ def post_card(p):
         "  <time>%s</time>\n"
         "  <p>%s</p>\n"
         '  <span class="more">阅读全文 →</span>\n'
-        "</a>" % (quote(slug), html.escape(meta["title"]), cn_date(meta["date"]),
+        "</a>" % (quote(slug), html.escape(meta["title"]),
+                   cn_datetime(meta["date"], meta.get("time", "")),
                    html.escape(excerpt))
     )
 
@@ -225,7 +234,8 @@ def build():
     for slug, meta, body in posts:
         art = tpl("post.html")
         art = art.replace("{{TITLE}}", html.escape(meta["title"]))
-        art = art.replace("{{DATE}}", cn_date(meta["date"]))
+        art = art.replace("{{DATE}}",
+                          cn_datetime(meta["date"], meta.get("time", "")))
         art = art.replace("{{AUTHOR}}", html.escape(meta["author"]))
         art = art.replace("{{CONTENT}}", md_to_html(body))
         write(os.path.join(DIST, "blog", slug, "index.html"),
@@ -267,7 +277,11 @@ def build():
     items = []
     for slug, meta, _ in posts[:20]:
         try:
-            rfc = datetime.datetime.fromisoformat(meta["date"]).strftime("%a, %d %b %Y 00:00:00 +0800")
+            t = (meta.get("time") or "").strip()
+            base = datetime.datetime.fromisoformat(
+                meta["date"] + (" " + t if t else "")
+            )
+            rfc = base.strftime("%a, %d %b %Y %H:%M:00 +0800")
         except ValueError:
             rfc = ""
         items.append(

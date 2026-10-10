@@ -233,6 +233,8 @@ class ArticleIn(BaseModel):
     slug: str = Field(default="", max_length=200)
     author: str = Field(default="老谢", max_length=500)
     date: str = Field(default="", max_length=40)
+    # 发布时间 HH:MM（留空 = 首次发布时自动记录）
+    time: str = Field(default="", max_length=5)
     excerpt: str = Field(default="", max_length=5000)
     tags: list[str] = Field(default_factory=list)
     body_md: str = Field(default="", max_length=1000000)

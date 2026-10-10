@@ -64,7 +64,29 @@ def _today() -> str:
     return (utcnow() + _CST).date().isoformat()
 
 
-def _md(a: Article) -> str:
+def _time_of(a: Article, at=None) -> str:
+    """发布时间（HH:MM，中国时间）：取首次发布时刻，重复发布不覆盖
+
+    [at] 供发布流程传入"本次将要记录的时间" —— 因为写 Markdown 在落库之前，
+    不能依赖 a.published_at 已经写好了。
+    """
+    moment = at or a.published_at
+    if not moment:
+        return ""
+    return (moment + _CST).strftime("%H:%M")
+
+
+def _published_at_of(date_str: str, time_str: str):
+    """把「日期 + 时间（中国时间）」换算成库里的 UTC 时间；不合法返回 None"""
+    try:
+        d = datetime.date.fromisoformat((date_str or "").strip())
+        hh, mm = ((time_str or "").strip().split(":") + ["0", "0"])[:2]
+        return datetime.datetime(d.year, d.month, d.day, int(hh), int(mm)) - _CST
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _md(a: Article, at=None) -> str:
     """生成带 front-matter 的 Markdown（与 build.py 的解析格式一致）"""
     tags = ""
     try:
@@ -77,7 +99,8 @@ def _md(a: Article) -> str:
         "---\n"
         f"title: {a.title}\n"
         f"date: {a.date}\n"
-        f"author: {a.author}\n"
+        + (f"time: {_time_of(a, at)}\n" if _time_of(a, at) else "")
+        + f"author: {a.author}\n"
         f"excerpt: {a.excerpt}\n"
         f"{tags}"
         "---\n\n"
@@ -92,6 +115,7 @@ def _serialize(a: Article, with_body: bool = False) -> dict:
         "title": a.title,
         "author": a.author,
         "date": a.date,
+        "time": _time_of(a),
         "excerpt": a.excerpt,
         "status": a.status,
         "url": f"/blog/{a.slug}/",
@@ -163,7 +187,7 @@ def sync_from_files(db: Session) -> int:
             status="published",
             created_at=utcnow(),
             updated_at=utcnow(),
-            published_at=utcnow(),
+            published_at=_published_at_of(meta.get("date", ""), meta.get("time", "")),
         )
         db.add(row)
         try:
@@ -271,6 +295,12 @@ def save_article(
     row.tags_json = json.dumps([t for t in (body.tags or []) if t][:20], ensure_ascii=False)
     row.body_md = body.body_md or ""
     row.status = "published" if body.status == "published" else "draft"
+    # 作者显式填了时间 → 记为发布时间（补录历史文章用）；
+    # 没填则留到首次发布时自动记录（重复发布不会改动它）
+    explicit = _published_at_of(row.date, body.time)
+    if explicit is not None:
+        row.published_at = explicit
+
     row.updated_at = utcnow()
     db.commit()  # 必须提交：否则 slug 冲突检测与后续发布都读不到这篇
 
@@ -316,11 +346,16 @@ def publish_article(
     if not _SLUG_RE.match(row.slug):
         raise api_error(400, "bad_slug", "链接标识不合法，请先改成小写字母/数字/连字符")
 
+    # 先确定"本次发布时间"（首次发布=现在；已发布过则沿用原时间），
+    # 因为 Markdown 要先写、构建成功后才落库 —— 顺序反了会导致
+    # 首次发布的文件里没有时间（实测踩过）。
+    publish_at = row.published_at or utcnow()
+
     path = os.path.join(SITE_DIR, "content", f"{row.slug}.md")
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
-            f.write(_md(row))
+            f.write(_md(row, publish_at))
     except Exception as exc:  # noqa: BLE001
         raise api_error(500, "write_failed", f"写入文章失败：{exc}")
 
@@ -331,7 +366,7 @@ def publish_article(
         raise api_error(500, "publish_failed", result["message"])
 
     row.status = "published"
-    row.published_at = utcnow()
+    row.published_at = publish_at
     row.updated_at = utcnow()
     db.add(row)
     db.commit()

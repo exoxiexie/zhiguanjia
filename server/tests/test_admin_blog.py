@@ -249,6 +249,60 @@ _dups = [i for i in _client.get("/admin/blog", headers=h(A)).json()["items"]
 check("重复导入不产生重复行", len(_dups) == 1, _dups)
 os.remove(ghost2)
 
+print("── 9. 发布时间（几点几分）──")
+import re as _re  # noqa: E402
+
+r = _client.post("/admin/blog", headers=h(A), json={
+    "title": "带时间的文章", "slug": "post-with-time",
+    "date": "2026-10-10", "body_md": "正文"})
+tid = r.json()["article"]["id"]
+_client.post(f"/admin/blog/{tid}/publish", headers=h(A))
+_md_txt = open(os.path.join(SITE_DIR, "content", "post-with-time.md"), encoding="utf-8").read()
+_m = _re.search(r"^time: (\d{2}:\d{2})$", _md_txt, _re.M)
+check("发布后 front-matter 含时间（HH:MM）", bool(_m), _md_txt[:160])
+_first_time = _m.group(1) if _m else ""
+
+check("后台列表能读到时间",
+      bool(_re.match(r"^\d{2}:\d{2}$",
+                     (_client.get(f"/admin/blog/{tid}", headers=h(A)).json().get("time") or ""))),
+      _client.get(f"/admin/blog/{tid}", headers=h(A)).json())
+
+# 重复发布不应改动首次发布时间
+r = _client.post(f"/admin/blog?article_id={tid}", headers=h(A), json={
+    "title": "带时间的文章（改标题）", "slug": "post-with-time",
+    "date": "2026-10-10", "body_md": "正文改了"})
+_client.post(f"/admin/blog/{tid}/publish", headers=h(A))
+_md2 = open(os.path.join(SITE_DIR, "content", "post-with-time.md"), encoding="utf-8").read()
+_m2 = _re.search(r"^time: (\d{2}:\d{2})$", _md2, _re.M)
+check("重复发布不改动首次发布时间", (_m2.group(1) if _m2 else "") == _first_time,
+      (_first_time, _m2.group(1) if _m2 else None))
+
+_html = open(os.path.join(SITE_DIR, "dist", "blog", "post-with-time", "index.html"),
+             encoding="utf-8").read()
+check("文章页日期后带时间（渲染出来）",
+      bool(_re.search(r"\d{4} 年 \d{1,2} 月 \d{1,2} 日 " + _re.escape(_first_time), _html)),
+      _html[_html.find("post-meta"):_html.find("post-meta") + 80])
+check("列表卡片也带时间",
+      _first_time in open(os.path.join(WEB_ROOT, "blog", "index.html"), encoding="utf-8").read())
+
+# 作者显式指定时间（补录历史文章）
+r = _client.post("/admin/blog", headers=h(A), json={
+    "title": "补录历史文章", "slug": "backdated-post",
+    "date": "2026-09-01", "time": "09:05", "body_md": "正文"})
+bid = r.json()["article"]["id"]
+check("作者可显式指定发布时间", r.json()["article"].get("time") == "09:05",
+      r.json()["article"])
+_client.post(f"/admin/blog/{bid}/publish", headers=h(A))
+_bmd = open(os.path.join(SITE_DIR, "content", "backdated-post.md"), encoding="utf-8").read()
+check("显式时间写入 front-matter", "time: 09:05" in _bmd, _bmd[:160])
+_bhtml = open(os.path.join(SITE_DIR, "dist", "blog", "backdated-post", "index.html"),
+              encoding="utf-8").read()
+check("补录文章页显示 09:05", "09:05" in _bhtml)
+
+# 清理这两篇
+for _i in (tid, bid):
+    _client.delete(f"/admin/blog/{_i}", headers=h(A))
+
 print("── 6. 仅重建 ──")
 r = _client.post("/admin/system/rebuild", headers=h(A))
 check("重建 → 200", r.status_code == 200, r.text[:200])

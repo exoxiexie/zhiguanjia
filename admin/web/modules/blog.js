@@ -91,7 +91,7 @@ function list(box, ctx) {
       tbody.appendChild(el('tr', {}, [
         el('td', { text: a.title || '(无标题)' }),
         el('td', { class: 'mono', text: '/blog/' + a.slug + '/' }),
-        el('td', { text: a.date || '-' }),
+        el('td', { text: (a.date || '-') + (a.time ? ' ' + a.time : '') }),
         el('td', {}, [el('span', {
           class: 'badge ' + (a.status === 'published' ? 'on' : 'off'),
           text: a.status === 'published' ? '已发布' : '草稿'
@@ -120,6 +120,7 @@ function editor(box, ctx, id) {
       slug: a.slug || '',
       author: a.author || '老谢',
       date: a.date || '',
+      time: a.time || '',
       excerpt: a.excerpt || '',
       tags: (a.tags || []).join(', '),
       body_md: a.body_md || ''
@@ -149,6 +150,9 @@ function editor(box, ctx, id) {
       el('div', { class: 'grid g3' }, [
         field('作者', 'author', { placeholder: '老谢' }),
         field('日期', 'date', { placeholder: '2026-10-10（留空自动填今天）' }),
+        field('时间', 'time', { placeholder: '留空 = 发布时自动记录' })
+      ]),
+      el('div', { class: 'grid g2' }, [
         field('标签（逗号分隔）', 'tags', { placeholder: '职业规划, 方法论' })
       ]),
       field('摘要', 'excerpt', { multiline: true, rows: 3, placeholder: '列表与搜索引擎展示的一句话' }),
@@ -179,7 +183,7 @@ function editor(box, ctx, id) {
       }
       var payload = {
         title: f.title, slug: customSlug, author: f.author || '老谢',
-        date: f.date, excerpt: f.excerpt,
+        date: f.date, time: f.time, excerpt: f.excerpt,
         tags: f.tags.split(',').map(function (t) { return t.trim(); }).filter(Boolean),
         body_md: f.body_md, status: status
       };
