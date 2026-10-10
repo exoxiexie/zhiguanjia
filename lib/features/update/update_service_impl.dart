@@ -19,8 +19,16 @@ class HttpUpdateService implements UpdateService {
   final List<String> baseUrls;
   final Dio _dio;
 
-  HttpUpdateService({required this.baseUrls, Dio? dio})
-      : _dio = dio ??
+  /// 单源超时与总超时（可注入，便于测试；生产用默认值即可）
+  final Duration perSourceTimeout;
+  final Duration totalTimeout;
+
+  HttpUpdateService({
+    required this.baseUrls,
+    Dio? dio,
+    this.perSourceTimeout = defaultPerSourceTimeout,
+    this.totalTimeout = defaultTotalTimeout,
+  }) : _dio = dio ??
             Dio(BaseOptions(
               connectTimeout: const Duration(seconds: 30),
               receiveTimeout: const Duration(seconds: 30),
@@ -35,49 +43,61 @@ class HttpUpdateService implements UpdateService {
               },
             ));
 
-  /// 单源读取超时。并行竞速下每个源只给这么久（原为逐源尝试、总超时 30 秒）
-  static const Duration _kPerSourceTimeout = Duration(seconds: 7);
+  /// 单源读取超时（默认 15 秒）
+  ///
+  /// ⚠️ 定值依据（历史教训，勿擅自调小）：
+  /// 智懂你 v1.2.69（2026-10-02，提交 2c21bd1a）曾把超时**从 15 秒延长到 30 秒**，
+  /// 标题即「检查更新超时延长至30秒」，原因写明是「**缓解 Gitee 网络波动导致的检查更新失败**」。
+  /// 也就是说 15 秒已是被实测判定偏紧的下限。
+  ///
+  /// 又因为本实现是**并行竞速**：正常路径一有结果就返回，
+  /// **此值只影响失败路径、不影响检查更新的速度** → 没有任何理由调小。
+  static const Duration defaultPerSourceTimeout = Duration(seconds: 15);
 
-  /// 兜底总超时。并行后正常路径约 1 秒、失败路径约 7 秒，远快于此
-  static const Duration _kTotalTimeout = Duration(seconds: 15);
+  /// 兜底总超时（默认 30 秒，与历史上验证过的值一致）
+  static const Duration defaultTotalTimeout = Duration(seconds: 30);
 
   Future<Map<String, dynamic>> _fetchVersionInfo() {
     return _fetchVersionInfoWithSources().timeout(
-      _kTotalTimeout,
+      totalTimeout,
       onTimeout: () => throw Exception('检查更新超时'),
     );
   }
 
   /// 并行读取更新源：**主源成功就用主源**，其余源只作回退
   ///
-  /// 为什么并行：原来逐源尝试，Gitee 一挂用户要等满 30 秒才看到失败；
-  /// 并行后回退源已经在飞行中，主源失败可立即采用 → 最坏从 30 秒降到约 7 秒。
+  /// 为什么并行：原来逐源依次尝试，Gitee 一挂用户要等满整个超时才看到失败；
+  /// 并行后回退源已在飞行中，主源失败可立即采用 → 这是真正的提速来源，
+  /// **与超时值无关**（所以超时可以按历史证据放宽，不必为了快而调小）。
   ///
-  /// 为什么"主源优先"而不是"谁快用谁"：GitHub 镜像可能滞后于 Gitee，
+  /// 为什么"主源优先"而不是"谁快用谁"：GitHub 只是读源回退、镜像可能滞后，
   /// 若谁快用谁，可能读到旧版本号 → 误报「已是最新」。
+  ///
+  /// 为什么失败后要再来一轮：慢网络下首轮可能只是**握手未热**，
+  /// 重试时 DNS/TLS 已就绪、通常是秒回 —— 避免把"慢但能成功"变成"直接失败"。
   Future<Map<String, dynamic>> _fetchVersionInfoWithSources() async {
     if (baseUrls.isEmpty) {
       throw Exception('未配置更新源');
     }
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-
-    // 全部并发发起；非主源先挂错误处理，避免主源成功后被判为「未处理异常」
-    final primary = _fetchOne(baseUrls.first, timestamp);
-    final fallbacks = <Future<Map<String, dynamic>?>>[
-      for (final baseUrl in baseUrls.skip(1))
-        _fetchOne(baseUrl, timestamp)
-            .then<Map<String, dynamic>?>((v) => v, onError: (_) => null),
-    ];
-
     Object? lastError;
-    try {
-      return await primary;
-    } catch (e) {
-      lastError = e;
-    }
-    for (final fallback in fallbacks) {
-      final data = await fallback; // 已在飞行中，通常立刻拿到
-      if (data != null) return data;
+    for (int round = 0; round < 2; round++) {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      // 全部并发发起；非主源先挂错误处理，避免主源成功后被判为「未处理异常」
+      final primary = _fetchOne(baseUrls.first, timestamp);
+      final fallbacks = <Future<Map<String, dynamic>?>>[
+        for (final baseUrl in baseUrls.skip(1))
+          _fetchOne(baseUrl, timestamp)
+              .then<Map<String, dynamic>?>((v) => v, onError: (_) => null),
+      ];
+      try {
+        return await primary;
+      } catch (e) {
+        lastError = e;
+      }
+      for (final fallback in fallbacks) {
+        final data = await fallback; // 已在飞行中，通常立刻拿到
+        if (data != null) return data;
+      }
     }
     throw Exception('所有更新源均不可用：$lastError');
   }
@@ -88,7 +108,7 @@ class HttpUpdateService implements UpdateService {
     final url = baseUrl.contains('gitee.com/api')
         ? '$baseUrl/version.json?ref=master'
         : '$baseUrl/version.json?t=$timestamp';
-    final resp = await _dio.get(url).timeout(_kPerSourceTimeout);
+    final resp = await _dio.get(url).timeout(perSourceTimeout);
     final raw = resp.data;
     // 兼容两种返回格式：
     // 1. Gitee API：返回 Map，content 字段是 base64 编码的 JSON

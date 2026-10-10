@@ -75,11 +75,18 @@ _Script _fail() => (RequestOptions o) =>
 /// 永不返回（模拟链路卡死）
 _Script _hang() => (RequestOptions o) => Completer<ResponseBody>().future;
 
-HttpUpdateService _service(_Adapter adapter, {List<String>? urls}) {
+HttpUpdateService _service(_Adapter adapter,
+    {List<String>? urls,
+    Duration perSource = const Duration(milliseconds: 400),
+    Duration total = const Duration(milliseconds: 1500)}) {
   final Dio dio = Dio();
   dio.httpClientAdapter = adapter;
   return HttpUpdateService(
-      baseUrls: urls ?? const <String>[_gitee, _github], dio: dio);
+    baseUrls: urls ?? const <String>[_gitee, _github],
+    dio: dio,
+    perSourceTimeout: perSource,
+    totalTimeout: total,
+  );
 }
 
 void main() {
@@ -141,7 +148,7 @@ void main() {
     expect(sw.elapsedMilliseconds, lessThan(2000));
   });
 
-  test('主源卡死 → 单源 7 秒超时后回退（原为 30 秒）', () async {
+  test('主源卡死 → 单源超时后仍失败（两轮重试后放弃，不做无休止等待）', () async {
     final _Adapter adapter = _Adapter(<String, _Script>{
       'gitee.com': _hang(),
       'raw.githubusercontent': _fail(),
@@ -150,9 +157,32 @@ void main() {
     final CheckResult r = await _service(adapter).checkForUpdate();
     sw.stop();
     expect(r.hasUpdate, isFalse);
-    expect(sw.elapsedMilliseconds, greaterThan(6000)); // 等满了单源超时
-    expect(sw.elapsedMilliseconds, lessThan(10000));   // 但远小于原来的 30 秒
-  }, timeout: const Timeout(Duration(seconds: 40)));
+    // 两轮 × 400ms 单源超时 ≈ 800ms；远小于旧版顺序等待的秒级
+    expect(sw.elapsedMilliseconds, greaterThan(700));
+    expect(sw.elapsedMilliseconds, lessThan(1500));
+  }, timeout: const Timeout(Duration(seconds: 20)));
+
+  test('第 1 轮失败 → 第 2 轮重试成功（慢网络握手未热也能救回来）', () async {
+    int attempt = 0;
+    final _Adapter adapter = _Adapter(<String, _Script>{
+      'gitee.com': (RequestOptions o) async {
+        attempt++;
+        if (attempt == 1) {
+          return Future<ResponseBody>.error(
+              DioException(requestOptions: o, message: 'first round failed'));
+        }
+        return _body(jsonEncode(<String, dynamic>{
+          'versionName': '1.0.52', 'versionCode': 53,
+          'url': 'https://gitee.com/x/1.0.52.apk', 'changelog': 'retry ok',
+        }));
+      },
+      'raw.githubusercontent': _fail(),
+    });
+    final CheckResult r = await _service(adapter).checkForUpdate();
+    expect(r.hasUpdate, isTrue);
+    expect(r.latest!.versionCode, 53);
+    expect(attempt, greaterThanOrEqualTo(2)); // 确实重试了
+  });
 
   test('主源卡死 + 回退源可用 → 仍在 7 秒档内拿到结果', () async {
     final _Adapter adapter = _Adapter(<String, _Script>{
@@ -165,6 +195,14 @@ void main() {
     expect(r.hasUpdate, isTrue);
     expect(sw.elapsedMilliseconds, lessThan(10000));
   }, timeout: const Timeout(Duration(seconds: 40)));
+
+  test('默认超时值按历史证据设定（15 秒 / 30 秒）—— 防再次被调小', () {
+    // 智懂你 v1.2.69（提交 2c21bd1a，2026-10-02）曾把 15 秒延长到 30 秒，
+    // 原因写明「缓解 Gitee 网络波动导致的检查更新失败」→ 15 秒是被实测判定偏紧的下限。
+    // 本实现并行竞速，超时值不影响正常速度，因此没有理由调小。
+    expect(HttpUpdateService.defaultPerSourceTimeout, const Duration(seconds: 15));
+    expect(HttpUpdateService.defaultTotalTimeout, const Duration(seconds: 30));
+  });
 
   test('未配置更新源 → 明确报失败（不静默当作已是最新）', () async {
     final CheckResult r =
