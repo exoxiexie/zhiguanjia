@@ -17,7 +17,12 @@ from sqlalchemy.orm import Session
 from ..deps import get_db, require_admin
 from ..errors import api_error
 from ..models import Article, User, utcnow
-from ..site_publisher import SITE_DIR, WEB_ROOT, last_build, rebuild_and_deploy
+from ..site_publisher import (
+    SITE_DIR,
+    WEB_ROOT,
+    get_last_build,
+    rebuild_and_deploy,
+)
 
 router = APIRouter(tags=["admin-system"])
 
@@ -30,8 +35,8 @@ def system_status(
 ) -> dict:
     """系统状态：站点目录、内容量、最近一次发布
 
-    `last_build` 是进程内记录（重启后为空）—— 界面会如实标注，
-    不假装知道历史发布情况。
+    `last_build` 从磁盘读取（跨 worker、跨重启一致）；
+    从未发布过时为 None —— 界面会如实标注，不假装知道。
     """
     from ..main import APP_VERSION
 
@@ -53,7 +58,7 @@ def system_status(
         "articles": articles,
         "articles_published": published,
         "users": users,
-        "last_build": last_build or None,
+        "last_build": get_last_build(),
     }
 
 
@@ -70,4 +75,4 @@ def system_rebuild(
         if result.get("busy"):
             raise api_error(409, "busy", result["message"])
         raise api_error(500, "rebuild_failed", result["message"])
-    return {"ok": True, "message": result["message"], "last_build": last_build}
+    return {"ok": True, "message": result["message"], "last_build": get_last_build()}
