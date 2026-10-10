@@ -63,6 +63,10 @@ class Settings:
     # 安装包下载地址模板：{version} 会被替换为版本名。
     # 为什么可配置：不同分发方式（Gitee CDN / 自建站点 / 阿里云 OSS+CDN）只是地址不同，
     # 不该为了换分发方式去改代码。用 ZGJ_UPDATE_URL_TEMPLATE 覆盖即可。
+    # 重置密码的默认值：现阶段统一为 123456（客服好告知、用户好记）；
+    # 将来安全需要升级时改成随机 —— 把本项设为空字符串即可。
+    default_reset_password: str = _get("ZGJ_DEFAULT_RESET_PASSWORD", "123456")
+
     update_url_template: str = _get(
         "ZGJ_UPDATE_URL_TEMPLATE",
         "https://gitee.com/laoxie2076/zhiguanjia/releases/download/v{version}/"

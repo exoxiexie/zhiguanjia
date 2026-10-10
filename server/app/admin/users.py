@@ -197,15 +197,24 @@ def set_admin(
 def reset_password(
     user_id: str,
     request: Request,
+    random_password: bool = False,
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict:
-    """重置密码：生成一次性临时密码（只在此处显示一次），并踢下线所有设备"""
+    """重置密码并踢下线所有设备
+
+    现阶段默认重置为**统一密码**（`ZGJ_DEFAULT_RESET_PASSWORD`，默认 123456）：
+    用户多为手机号登录、常忘记密码，统一密码便于客服口头告知，用户登录后再自行修改。
+    需要更强安全时：把该项配置清空（改为随机），或调用时带 `random_password=true`。
+    """
     row = db.get(User, user_id)
     if row is None:
         raise api_error(404, "not_found", "用户不存在")
 
-    temp = secrets.token_urlsafe(6)[:9]
+    from ..config import settings
+
+    fixed = (settings.default_reset_password or "").strip()
+    temp = secrets.token_urlsafe(6)[:9] if (random_password or not fixed) else fixed
     row.password_hash = hash_password(temp)
     db.query(AuthToken).filter(
         AuthToken.user_id == row.id, AuthToken.revoked_at.is_(None)
@@ -217,5 +226,8 @@ def reset_password(
         "ok": True,
         "phone": row.phone,
         "temp_password": temp,
-        "note": "请通过安全渠道告知用户；该密码仅显示这一次，用户登录后应立即修改。",
+        "random": bool(random_password or not fixed),
+        "note": ("已重置为统一密码，可直接告知用户，登录后建议自行修改。"
+                 if fixed and not random_password
+                 else "该临时密码仅显示这一次，请通过安全渠道告知用户。"),
     }

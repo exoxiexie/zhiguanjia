@@ -13,63 +13,69 @@ ZGJ.registerModule({
   icon: '⚙️',
 
   render: function (box, ctx) {
-    entryView(box, ctx);
+    layout(box, ctx);
   }
 });
 
-/* ───────────── 入口：分类导航 ─────────────
- * 系统管理下功能会越来越多，全部铺在一页会又长又乱；
- * 这里只放分类卡片，点进去才是具体功能（每页都有返回）。
+/* ───────────── 三栏骨架 ─────────────
+ * 左：全局侧栏　中：分类卡片（窄栏，避免挤占右栏）　右：具体功能
+ * 点分类只换右栏内容，不用来回"返回"；长内容也不会把入口页撑长。
  */
-function entryView(box, ctx) {
+function layout(box, ctx) {
   var el = ctx.el;
   box.innerHTML = '';
-  box.appendChild(el('div', { class: 'loading', text: '加载中…' }));
-  ctx.api.systemStatus().then(function (s) {
-    box.innerHTML = '';
-    var lb = s.last_build;
+  var nav = el('div', { class: 'sys-nav' });
+  var pane = el('div', { class: 'sys-pane' });
+  box.appendChild(el('div', { class: 'sys-layout' }, [nav, pane]));
 
-    box.appendChild(el('div', { class: 'card' }, [
-      el('div', { class: 'sys-row' }, [
-        el('span', { class: 'k', text: '站点' }),
-        el('span', { class: 'v', text: s.site_dir + (s.site_dir_ready ? '' : '（缺失）') })
-      ]),
-      el('div', { class: 'sys-row' }, [
-        el('span', { class: 'k', text: '内容' }),
-        el('span', { class: 'v', text: '文章 ' + s.articles + ' 篇（已发布 '
-          + s.articles_published + '）· 用户 ' + s.users + ' 人' })
-      ]),
-      el('div', { class: 'sys-row' }, [
-        el('span', { class: 'k', text: '最近发布' }),
-        el('span', { class: 'v', text: lb ? (lb.at + '　' + lb.message) : '本次服务启动后还没有发布过' })
-      ])
+  function open(name, renderer) {
+    Array.prototype.forEach.call(nav.querySelectorAll('a[data-card]'), function (a) {
+      a.className = a.getAttribute('data-card') === name ? 'on' : '';
+    });
+    pane.innerHTML = '';
+    renderer(pane, ctx);
+  }
+
+  nav.innerHTML = '';
+  nav.appendChild(el('div', { class: 'loading', text: '加载中…' }));
+  ctx.api.systemStatus().then(function (st) {
+    nav.innerHTML = '';
+    nav.appendChild(el('div', { class: 'card sys-summary' }, [
+      el('div', { class: 't', text: '站点' }),
+      el('div', { class: 'd', text: st.site_dir_ready ? '目录就绪' : '目录缺失' }),
+      el('div', { class: 't', text: '内容' }),
+      el('div', { class: 'd', text: '文章 ' + st.articles + ' 篇 · 用户 ' + st.users + ' 人' })
     ]));
 
-    box.appendChild(el('div', { class: 'section-title', text: '系统功能' }));
-    box.appendChild(el('div', { class: 'card' }, [
-      entry(el, '站点与发布', '站点目录状态、手动重新构建并发布到官网',
-        function () { siteView(box, ctx); }),
-      entry(el, '备份与恢复', '备份数据库/文章内容/上传文件/配置；可回滚，每日自动备份',
-        function () { backupView(box, ctx); }),
-      entry(el, '操作审计', '谁在什么时间做了什么（含失败与越权尝试）',
-        function () { auditView(box, ctx); })
+    var cards = el('div', { class: 'card sys-cards' });
+    function card(name, label, desc) {
+      var a = el('a', { href: '#', 'data-card': name }, [
+        el('span', { class: 'lb', text: label }),
+        el('span', { class: 'ds', text: desc })
+      ]);
+      a.addEventListener('click', function (e) { e.preventDefault(); open(name, VIEWS[name]); });
+      cards.appendChild(a);
+    }
+    card('site', '站点与发布', '站点状态 · 手动发布');
+    card('backup', '备份与恢复', '备份 · 回滚 · 自动备份');
+    card('audit', '操作审计', '谁做了什么');
+    nav.appendChild(cards);
+
+    nav.appendChild(el('div', { class: 'section-title', text: '规划中' }));
+    nav.appendChild(el('div', { class: 'card' }, [
+      soon(el, '管理员与权限', '按模块分配权限'),
+      soon(el, '定时任务', '定时发布 / 备份 / 清理')
     ]));
 
-    box.appendChild(el('div', { class: 'section-title', text: '规划中' }));
-    box.appendChild(el('div', { class: 'card' }, [
-      soon(el, '管理员与权限', '增删管理员、按模块分配权限'),
-      soon(el, '定时任务', '定时发布文章、定时备份、定时清理')
-    ]));
+    open('site', VIEWS.site);
   }).catch(function (e) { ctx.fail(box, e); });
 }
 
-function entry(el, name, desc, onOpen) {
-  return el('div', { class: 'sys-row', style: 'cursor:pointer', onclick: onOpen }, [
-    el('span', { class: 'v', style: 'flex:1;font-weight:600', text: name }),
-    el('span', { class: 'muted', style: 'flex:2', text: desc }),
-    el('span', { class: 'row-actions' }, [el('a', { href: '#', text: '进入 ›' })])
-  ]);
-}
+var VIEWS = {
+  site: function (pane, ctx) { siteView(pane, ctx); },
+  backup: function (pane, ctx) { backupView(pane, ctx); },
+  audit: function (pane, ctx) { auditView(pane, ctx); }
+};
 
 /* ───────────── 站点与发布 ───────────── */
 function siteView(box, ctx) {
@@ -79,10 +85,6 @@ function siteView(box, ctx) {
 
   ctx.api.systemStatus().then(function (s) {
     box.innerHTML = '';
-    box.appendChild(el('div', { class: 'toolbar' }, [
-      el('button', { class: 'btn', text: '← 返回系统管理',
-        onclick: function () { entryView(box, ctx); } })
-    ]));
 
     box.appendChild(el('div', { class: 'section-title', text: '站点' }));
     var lb = s.last_build;
@@ -158,12 +160,11 @@ function doRebuild(box, ctx, btn) {
     clearTimeout(timer);
     btn.disabled = false; btn.textContent = '发布站点';
     alert(r.message || '已重新发布');
-    entryView(box, ctx);
+    layout(box, ctx);
   }).catch(function (e) {
     clearTimeout(timer);
     btn.disabled = false; btn.textContent = '发布站点';
     alert('发布失败：' + e.message);
-    entryView(box, ctx);
   });
 }
 
@@ -184,8 +185,6 @@ function backupView(box, ctx, toast) {
   ctx.api.backupList().then(function (d) {
     box.innerHTML = '';
     box.appendChild(el('div', { class: 'toolbar' }, [
-      el('button', { class: 'btn', text: '← 返回系统管理',
-        onclick: function () { entryView(box, ctx); } }),
       el('button', { class: 'btn primary', text: '＋ 立即备份',
         onclick: function (ev) { doBackup(box, ctx, ev.target); } }),
       el('span', { class: 'muted', text:
@@ -300,8 +299,6 @@ function auditView(box, ctx, opts) {
       if (!opts.append) box.innerHTML = '';
       if (!opts.append) {
         box.appendChild(el('div', { class: 'toolbar' }, [
-          el('button', { class: 'btn', text: '← 返回系统管理',
-            onclick: function () { entryView(box, ctx); } }),
           el('label', { class: 'check', style: 'margin:0' }, [
             (function () {
               var cb = el('input', { type: 'checkbox' });

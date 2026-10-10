@@ -166,3 +166,25 @@ button{font:inherit}
 .check input{width:16px;height:16px}
 .warn-box{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;padding:10px 12px;
   border-radius:10px;font-size:12.5px;line-height:1.7;margin-bottom:14px}
+
+/* ── 系统管理：三栏布局（中栏窄、右栏内容）── */
+.sys-layout{display:flex;gap:16px;align-items:flex-start}
+.sys-nav{width:224px;flex:0 0 224px}
+.sys-pane{flex:1;min-width:0}
+.sys-nav .card{padding:12px}
+.sys-summary .t{font-size:12px;color:var(--muted);margin-top:8px}
+.sys-summary .t:first-child{margin-top:0}
+.sys-summary .d{font-size:13px;font-weight:600;word-break:break-all}
+.sys-cards a{display:block;padding:10px 12px;border-radius:9px;text-decoration:none;
+  color:var(--text);margin-bottom:2px}
+.sys-cards a:hover{background:var(--bg)}
+.sys-cards a.on{background:var(--accent-soft)}
+.sys-cards a .lb{display:block;font-size:13.5px;font-weight:600}
+.sys-cards a.on .lb{color:var(--accent)}
+.sys-cards a .ds{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.sys-nav .section-title{margin:14px 0 8px}
+@media (max-width:900px){
+  .sys-layout{flex-direction:column}
+  .sys-nav{width:auto;flex:none}
+  .sys-nav .section-title{display:none}
+}

@@ -130,7 +130,8 @@ mods.forEach(m => eval(fs.readFileSync(path.join(ROOT, m), 'utf8')));
   await visit('#/blog', ['新建文章', '示例文章', '已发布']);
   await visit('#/config', ['公告', '强制更新', '功能开关', '灰度手机号', '保存公告']);
   await visit('#/release', ['当前线上版本', '上传新版本', '发布记录', '上传安装包']);
-  await visit('#/system', ['系统功能', '站点与发布', '备份与恢复', '操作审计', '规划中']);
+  // 三栏：中栏分类卡片 + 右栏功能内容
+  await visit('#/system', ['站点与发布', '备份与恢复', '操作审计', '规划中', '源码目录']);
 
   console.log('');
   console.log('  通过 ' + pass.length + ' 项，失败 ' + fail.length + ' 项');

@@ -130,7 +130,13 @@ print("── 7. 重置密码 ──")
 r = _client.post(f"/admin/users/{UID}/reset-password", headers=h(BOSS))
 check("重置 → 200", r.status_code == 200, r.text[:200])
 temp = r.json()["temp_password"]
-check("返回一次性临时密码", len(temp) >= 6, temp)
+check("默认重置为统一密码 123456（客服便于告知）", temp == "123456", temp)
+check("返回可读提示", "统一密码" in r.json()["note"], r.json()["note"])
+_r = _client.post(f"/admin/users/{UID}/reset-password?random_password=true", headers=h(BOSS))
+check("需要时仍可生成随机密码（安全升级用）",
+      _r.json()["temp_password"] != "123456" and _r.json()["random"] is True, _r.json())
+# 再重置回统一密码，供后续断言使用
+temp = _client.post(f"/admin/users/{UID}/reset-password", headers=h(BOSS)).json()["temp_password"]
 check("旧密码失效",
       _client.post("/auth/login", json={"phone": "13800006003",
                                         "password": "test123456"}).status_code == 401)
