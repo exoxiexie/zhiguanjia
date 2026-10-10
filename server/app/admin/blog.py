@@ -23,6 +23,7 @@ import secrets
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..deps import get_db
@@ -106,6 +107,74 @@ def _serialize(a: Article, with_body: bool = False) -> dict:
     return out
 
 
+def _parse_front_matter(path: str) -> dict:
+    """解析站点源文件里的 front-matter（与 site/build.py 保持同一种格式）"""
+    meta: dict = {}
+    try:
+        raw = open(path, encoding="utf-8").read()
+    except OSError:
+        return meta
+    body = raw
+    if raw.startswith("---"):
+        parts = raw.split("---", 2)
+        if len(parts) >= 3:
+            for line in parts[1].strip().split("\n"):
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    meta[k.strip()] = v.strip()
+            body = parts[2]
+    meta["_body"] = body.strip()
+    return meta
+
+
+def sync_from_files(db: Session) -> int:
+    """把站点源目录里**已存在但不在库里**的文章纳入后台。
+
+    为什么需要：历史上（以及手工放置的）文章只存在于 `content/*.md`，
+    后台列表看不到它们 —— 就出现"网站上有、后台里没有"的幽灵文章，
+    既不能编辑也不能删除（用户真实反馈过"找不到删除的地方"）。
+    以**文件为准**补录为已发布状态；文件不存在时静默跳过。
+    """
+    content_dir = os.path.join(SITE_DIR, "content")
+    if not os.path.isdir(content_dir):
+        return 0
+    imported = 0
+    try:
+        names = [n for n in os.listdir(content_dir) if n.endswith(".md")]
+    except OSError:
+        return 0
+    for name in names:
+        slug = name[:-3]
+        if db.scalar(select(Article).where(Article.slug == slug)) is not None:
+            continue
+        meta = _parse_front_matter(os.path.join(content_dir, name))
+        row = Article(
+            id=new_uuid(),
+            slug=slug,
+            title=(meta.get("title") or slug)[:200],
+            author=(meta.get("author") or "老谢")[:64],
+            date=(meta.get("date") or "")[:20],
+            excerpt=(meta.get("excerpt") or "")[:500],
+            tags_json=json.dumps(
+                [t.strip() for t in (meta.get("tags") or "").split(",") if t.strip()],
+                ensure_ascii=False,
+            ),
+            body_md=meta.get("_body", ""),
+            status="published",
+            created_at=utcnow(),
+            updated_at=utcnow(),
+            published_at=utcnow(),
+        )
+        db.add(row)
+        try:
+            db.commit()
+            imported += 1
+        except IntegrityError:
+            # 多 worker 并发导入同一篇文章时，先提交者胜出 —— 回滚即可，不该报错
+            db.rollback()
+    return imported
+
+
 def _find_slug(db: Session, slug: str) -> Article:
     row = db.scalar(select(Article).where(Article.slug == slug))
     if row is None:
@@ -124,7 +193,11 @@ def _find(db: Session, article_id: str) -> Article:
 def list_articles(
     user: User = Depends(require_admin), db: Session = Depends(get_db)
 ) -> dict:
-    """文章列表（不含正文，列表页够用且更快）"""
+    """文章列表（不含正文，列表页够用且更快）
+
+    开头会先做一次"文件 → 库"的补录：站点上真实存在的文章都要能在后台看见。
+    """
+    sync_from_files(db)
     rows = db.scalars(
         select(Article).order_by(Article.date.desc(), Article.updated_at.desc())
     ).all()

@@ -154,8 +154,9 @@ r = _client.post(f"/admin/blog?article_id={aid}", headers=h(A), json={
     "status": "published",
 })
 check("更新 → 200", r.status_code == 200, r.text[:200])
-check("更新未新建（仍是一篇）",
-      len(_client.get("/admin/blog", headers=h(A)).json()["items"]) == 1)
+check("更新未新建（同 slug 仍只有一篇）",
+      len([i for i in _client.get("/admin/blog", headers=h(A)).json()["items"]
+           if i["slug"] == "ai-career-five-steps"]) == 1)
 r = _client.post(f"/admin/blog/{aid}/publish", headers=h(A))
 check("重发 → 200", r.status_code == 200, r.text[:200])
 check("线上页面已更新",
@@ -167,7 +168,9 @@ check("删除 → 200", r.status_code == 200, r.text[:200])
 check("Markdown 已删除", not os.path.exists(md_path))
 check("线上文章目录已清理",
       not os.path.exists(os.path.join(WEB_ROOT, "blog", "ai-career-five-steps")))
-check("列表已空", len(_client.get("/admin/blog", headers=h(A)).json()["items"]) == 0)
+check("列表中已无该文章",
+      all(i["slug"] != "ai-career-five-steps"
+          for i in _client.get("/admin/blog", headers=h(A)).json()["items"]))
 
 print("── 7. 链接地址自动生成（作者不必填写）──")
 r = _client.post("/admin/blog", headers=h(A), json={
@@ -208,6 +211,43 @@ check("首页链接已 URL 编码（中文链接合规）",
       or "用-ai-做职业规划" in _home, "首页未找到该文章链接")
 _sm = open(os.path.join(WEB_ROOT, "sitemap.xml"), encoding="utf-8").read()
 check("sitemap 已编码", "%E7%94%A8" in _sm or "用-ai" in _sm)
+
+print("── 8. 幽灵文章：站点上有、后台里也要有 ──")
+# 直接往站点源目录放一个 md（模拟历史上手工放置的文章）
+ghost = os.path.join(SITE_DIR, "content", "legacy-post.md")
+open(ghost, "w", encoding="utf-8").write(
+    "---\ntitle: 历史文章（文件形式）\ndate: 2026-10-01\nauthor: 老谢\n"
+    "excerpt: 只存在于站点文件里的文章。\n---\n\n正文内容。\n"
+)
+_items = _client.get("/admin/blog", headers=h(A)).json()["items"]
+_by_slug = {i["slug"]: i for i in _items}
+check("文件形式的文章被纳入后台列表", "legacy-post" in _by_slug, [i["slug"] for i in _items])
+check("补录状态为已发布",
+      _by_slug.get("legacy-post", {}).get("status") == "published", _by_slug.get("legacy-post"))
+check("补录且不重复",
+      len([i for i in _items if i["slug"] == "legacy-post"]) == 1)
+check("标题从 front-matter 读到",
+      _by_slug.get("legacy-post", {}).get("title") == "历史文章（文件形式）",
+      _by_slug.get("legacy-post"))
+
+# 现在可以在后台删除它了（以前做不到 —— 用户反馈"找不到删除的地方"）
+_del = _client.delete(f"/admin/blog/{_by_slug['legacy-post']['id']}", headers=h(A))
+check("幽灵文章可从后台删除", _del.status_code == 200, _del.text[:200])
+check("删除后源文件也被清掉", not os.path.exists(ghost))
+check("删除后列表不再有它",
+      all(i["slug"] != "legacy-post"
+          for i in _client.get("/admin/blog", headers=h(A)).json()["items"]))
+
+ghost2 = os.path.join(SITE_DIR, "content", "dup-check.md")
+open(ghost2, "w", encoding="utf-8").write("---\ntitle: 重复导入校验\ndate: 2026-10-02\n---\n\n正文。\n")
+# 连续两次拉列表（模拟多 worker 并发导入同一文件）
+_id1 = _client.get("/admin/blog", headers=h(A)).status_code
+_id2 = _client.get("/admin/blog", headers=h(A)).status_code
+check("重复导入不报错", _id1 == 200 and _id2 == 200, (_id1, _id2))
+_dups = [i for i in _client.get("/admin/blog", headers=h(A)).json()["items"]
+         if i["slug"] == "dup-check"]
+check("重复导入不产生重复行", len(_dups) == 1, _dups)
+os.remove(ghost2)
 
 print("── 6. 仅重建 ──")
 r = _client.post("/admin/system/rebuild", headers=h(A))
