@@ -75,6 +75,17 @@ check("按姓名检索", any(i["name"] == "张三" for i in
                     _client.get("/admin/users?q=张三", headers=h(BOSS)).json()["items"]))
 check("检索无结果", _client.get("/admin/users?q=不存在的名字", headers=h(BOSS)).json()["total"] == 0)
 
+print("── 2.5 时间必须按东八区显示（库里存 naive UTC）──")
+# 曾出现：后台「最近活跃」直接显示 UTC → 与本地时间差 8 小时（真实发生过）
+import datetime as _dt
+_local = _dt.datetime.utcnow() + _dt.timedelta(hours=8)
+_one = [i for i in d["items"] if i["phone"] == "13800006003"][0]
+_created = _dt.datetime.fromisoformat(_one["created_at"])
+check("后台时间按 CST 输出（与 UTC 相差约 8 小时）",
+      abs((_local - _created).total_seconds()) < 300, _created.isoformat())
+check("不是 UTC（若为 UTC 会差约 8 小时）",
+      abs((_dt.datetime.utcnow() - _created).total_seconds()) > 3600, _created.isoformat())
+
 print("── 3. 详情 ──")
 r = _client.get(f"/admin/users/{UID}", headers=h(BOSS))
 check("详情 → 200", r.status_code == 200, r.text[:200])

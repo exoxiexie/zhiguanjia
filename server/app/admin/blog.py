@@ -119,8 +119,8 @@ def _serialize(a: Article, with_body: bool = False) -> dict:
         "excerpt": a.excerpt,
         "status": a.status,
         "url": f"/blog/{a.slug}/",
-        "updated_at": (a.updated_at or utcnow()).isoformat(),
-        "published_at": a.published_at.isoformat() if a.published_at else "",
+        "updated_at": ((a.updated_at or utcnow()) + _CST).isoformat(),
+        "published_at": (a.published_at + _CST).isoformat() if a.published_at else "",
     }
     if with_body:
         try:

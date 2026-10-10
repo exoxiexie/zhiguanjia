@@ -9,6 +9,7 @@
 - 所有写操作自动进入操作审计
 """
 
+import datetime
 import secrets
 
 from fastapi import APIRouter, Depends, Request
@@ -29,6 +30,9 @@ from ..schemas import UserAdminIn, UserStatusIn
 from ..security import hash_password
 from .deps import require_admin
 
+# 展示用时区：库里存 naive UTC，后台一律按 Asia/Shanghai 显示
+_CST = datetime.timedelta(hours=8)
+
 router = APIRouter(tags=["admin-users"])
 
 
@@ -48,7 +52,7 @@ def _counts(db: Session, uid: str) -> dict:
         "conversations": n(Conversation),
         "messages": n(Message),
         "messages_today": n(Message, Message.created_at >= _today_ms()),
-        "last_seen_at": last_seen.isoformat() if last_seen else "",
+        "last_seen_at": (last_seen + _CST).isoformat() if last_seen else "",
         "device_list": [
             {
                 "device_id": d.device_id,
@@ -57,8 +61,8 @@ def _counts(db: Session, uid: str) -> dict:
                 "model": d.model or "",
                 "app_version": d.app_version or "",
                 "version_code": d.version_code or 0,
-                "first_seen_at": d.first_seen_at.isoformat() if d.first_seen_at else "",
-                "last_seen_at": d.last_seen_at.isoformat() if d.last_seen_at else "",
+                "first_seen_at": (d.first_seen_at + _CST).isoformat() if d.first_seen_at else "",
+                "last_seen_at": (d.last_seen_at + _CST).isoformat() if d.last_seen_at else "",
             }
             for d in device_rows[:10]
         ],
@@ -83,7 +87,7 @@ def _serialize(db: Session, u: User, with_counts: bool = False) -> dict:
         "banned_reason": getattr(u, "banned_reason", "") or "",
         "verified": bool(u.verified_at),
         "id_card_masked": u.id_card_masked or "",
-        "created_at": u.created_at.isoformat() if u.created_at else "",
+        "created_at": (u.created_at + _CST).isoformat() if u.created_at else "",
     }
     if with_counts:
         out.update(_counts(db, u.id))

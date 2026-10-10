@@ -86,7 +86,7 @@ def _serialize(row: AppConfig) -> dict:
         },
         "flags": _flags_of(row),
         "updated_by": row.updated_by or "",
-        "updated_at": (row.updated_at or utcnow()).isoformat(),
+        "updated_at": ((row.updated_at or utcnow()) + _CST).isoformat(),
         "release": _release_info(),
     }
 
