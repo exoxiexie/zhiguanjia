@@ -41,21 +41,6 @@ function list(box, ctx) {
         class: 'btn primary', text: '＋ 新建文章',
         onclick: function () { editor(box, ctx, ''); }
       }),
-      el('button', {
-        class: 'btn', text: '发布站点',
-        title: '把当前文章与页面重新构建后发布到官网。'
-          + '日常发文用每篇的「保存并发布」即可，无需点它；'
-          + '只有手工改过模板或样式后才需要点。',
-        onclick: function (ev) {
-          var b = ev.target;
-          b.disabled = true; b.textContent = '构建中…';
-          function restore() { b.disabled = false; b.textContent = '发布站点'; }
-          withTimeout(ctx.api.blogRebuild(), 200000, '构建发布')
-            .then(function (r) { pendingToast = r.message || '已重新发布'; })
-            .catch(function (e) { pendingToast = '失败：' + e.message; })
-            .then(function () { restore(); list(box, ctx); });
-        }
-      }),
       el('span', { class: 'muted', text: '共 ' + items.length + ' 篇' })
     ]);
     box.appendChild(bar);

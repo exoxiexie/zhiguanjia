@@ -150,3 +150,13 @@ button{font:inherit}
 .advanced summary{cursor:pointer;font-size:13px;color:var(--muted);margin-bottom:10px}
 .advanced summary:hover{color:var(--accent)}
 .advanced .muted{font-size:12.5px;line-height:1.7;margin:0 0 10px}
+
+/* ── 系统管理：分区与信息行 ── */
+.section-title{font-size:13px;font-weight:700;color:var(--muted);margin:18px 0 8px}
+.section-title:first-child{margin-top:0}
+.sys-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #F5F7FA}
+.sys-row:last-child{border-bottom:none}
+.sys-row .k{width:110px;flex:none;color:var(--muted);font-size:13px}
+.sys-row .v{font-size:13.5px;word-break:break-all}
+.sys-row .v.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#374151}
+.soon-row{display:flex;align-items:center;gap:10px;padding:9px 0;color:#9CA3AF;font-size:13.5px}

@@ -17,7 +17,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import settings
 from .db import Base, engine
-from .routers import admin, admin_blog, auth, config, content, device, me, profile, sync
+from .routers import admin, admin_blog, admin_system, auth, config, content, device, me, profile, sync
 
 APP_VERSION = "0.6.0"
 
@@ -86,6 +86,7 @@ app.include_router(sync.router)
 app.include_router(device.router)
 app.include_router(admin.router)
 app.include_router(admin_blog.router)
+app.include_router(admin_system.router)
 app.include_router(config.router)
 
 

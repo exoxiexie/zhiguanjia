@@ -20,9 +20,6 @@ import json
 import os
 import re
 import secrets
-import subprocess
-import sys
-import threading
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -31,15 +28,11 @@ from sqlalchemy.orm import Session
 from ..deps import get_db, require_admin
 from ..errors import api_error
 from ..models import Article, User, new_uuid, utcnow
+from ..site_publisher import SITE_DIR, rebuild_and_deploy
 from ..schemas import ArticleIn
 
 router = APIRouter(tags=["admin-blog"])
 
-SITE_DIR = os.environ.get("ZGJ_SITE_DIR", "/www/wwwroot/zhiguanjia-site")
-
-# 构建必须**串行**：两次构建并发写同一个 dist/ 会互相覆盖，轻则产物错乱、
-# 重则线上页面半新半旧。拿不到锁就直接告诉前端"正在构建"，而不是傻等或并行。
-_build_lock = threading.Lock()
 # 允许：小写字母、数字、连字符、以及**中日韩汉字**（中文链接可读、对国内搜索友好）
 # 禁止：斜杠、点、空白、控制字符等一切可能造成路径穿越或 URL 歧义的字符
 _SLUG_RE = re.compile(r"^[0-9a-z\u4e00-\u9fff][0-9a-z\u4e00-\u9fff-]{0,63}$")
@@ -88,43 +81,6 @@ def _md(a: Article) -> str:
         "---\n\n"
         f"{a.body_md.strip()}\n"
     )
-
-
-def _tail(text: str, n: int = 500) -> str:
-    text = (text or "").strip()
-    return text[-n:] if len(text) > n else text
-
-
-def rebuild_and_deploy() -> dict:
-    """重新构建并同步到站点根目录（后台发布与命令行部署共用同一条链路）"""
-    if not os.path.isdir(SITE_DIR):
-        return {"ok": False, "message": f"站点源码目录不存在：{SITE_DIR}"}
-    if not _build_lock.acquire(blocking=False):
-        return {"ok": False, "busy": True, "message": "另一个构建正在进行，请稍等几秒再试"}
-    try:
-        return _rebuild_locked()
-    finally:
-        _build_lock.release()
-
-
-def _rebuild_locked() -> dict:
-    for script, label in (("build.py", "构建"), ("sync_site.py", "部署")):
-        try:
-            proc = subprocess.run(
-                [sys.executable, script],
-                cwd=SITE_DIR,
-                capture_output=True,
-                text=True,
-                timeout=180,
-            )
-        except Exception as exc:  # noqa: BLE001
-            return {"ok": False, "message": f"{label}异常：{exc}"}
-        if proc.returncode != 0:
-            return {
-                "ok": False,
-                "message": f"{label}失败：{_tail(proc.stderr or proc.stdout)}",
-            }
-    return {"ok": True, "message": "已重新构建并发布到官网"}
 
 
 def _serialize(a: Article, with_body: bool = False) -> dict:
@@ -311,16 +267,3 @@ def publish_article(
         "url": f"/blog/{row.slug}/",
         "article": _serialize(row, with_body=True),
     }
-
-
-@router.post("/admin/blog/rebuild")
-def rebuild_site(
-    user: User = Depends(require_admin), db: Session = Depends(get_db)
-) -> dict:
-    """仅重新构建并部署（用于手工改过模板/内容后的重新上线）"""
-    result = rebuild_and_deploy()
-    if not result["ok"]:
-        if result.get("busy"):
-            raise api_error(409, "busy", result["message"])
-        raise api_error(500, "rebuild_failed", result["message"])
-    return {"ok": True, "message": result["message"]}

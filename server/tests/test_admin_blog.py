@@ -210,7 +210,7 @@ _sm = open(os.path.join(WEB_ROOT, "sitemap.xml"), encoding="utf-8").read()
 check("sitemap 已编码", "%E7%94%A8" in _sm or "用-ai" in _sm)
 
 print("── 6. 仅重建 ──")
-r = _client.post("/admin/blog/rebuild", headers=h(A))
+r = _client.post("/admin/system/rebuild", headers=h(A))
 check("重建 → 200", r.status_code == 200, r.text[:200])
 
 shutil.rmtree(_tmp, ignore_errors=True)
