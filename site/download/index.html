@@ -52,12 +52,15 @@
 
   <div class="card">
     <div class="meta">
-      <div><div class="k">版本</div><div class="v">v1.0.49</div></div>
-      <div><div class="k">大小</div><div class="v">9.8 MB</div></div>
-      <div><div class="k">更新日期</div><div class="v">2026-10-09</div></div>
+      <div><div class="k">版本</div><div class="v">v{{VERSION}}</div></div>
+      <div><div class="k">大小</div><div class="v">{{SIZE}}</div></div>
+      <div><div class="k">更新日期</div><div class="v">{{DATE}}</div></div>
     </div>
-    <a class="btn" href="zhiguanjia-v1.0.49.apk" download>下载安卓版 APK</a>
+    <a class="btn" href="{{DOWNLOAD_URL}}" rel="noopener">下载安卓版 APK</a>
     <div class="hint">适用于 Android 5.0 及以上 · arm64 机型</div>
+    <div class="hint">主下载通道为 HTTPS（浏览器不会拦截）。若无法访问，可试
+      <a href="{{APK}}" download>官网直链（备用）</a>——
+      备案完成后官网将启用 HTTPS，届时此备用链接同样不会出现安全提示。</div>
   </div>
 
   <div class="card">

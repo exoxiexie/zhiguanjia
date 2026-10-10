@@ -36,6 +36,11 @@ SITE_DESC = "每个人，都值得一个终身陪伴的 AI 职业管家。职业
 # 这样发布流程不需要去改代码里的常量
 APP_VERSION = "v1.0.49"
 APP_APK = "zhiguanjia-v1.0.49.apk"
+# 主下载地址（来自 version.json 的 url，通常是 Gitee/CDN）：
+# 为什么主按钮不用自建直链 —— 备案前站点是 HTTP，Chrome 等浏览器会
+# 把"HTTP 下载 APK"判为不安全下载并拦截；HTTPS 的 Gitee 没有这个问题。
+APP_DOWNLOAD_URL = ""
+APP_DATE = ""
 # 两个位置都找：站点源码目录内（后台「版本发布」写这里）、仓库根（本地开发）
 for _cand in (os.path.join(ROOT, "version.json"),
               os.path.join(ROOT, "..", "version.json")):
@@ -46,6 +51,7 @@ for _cand in (os.path.join(ROOT, "version.json"),
     if _vj.get("versionName"):
         APP_VERSION = "v%s" % str(_vj["versionName"]).lstrip("v")
         APP_APK = "zhiguanjia-%s.apk" % APP_VERSION
+        APP_DOWNLOAD_URL = str(_vj.get("url") or "")
         break
 LATEST_ON_HOME = 3
 
@@ -232,6 +238,16 @@ def build():
 
     home = tpl("home.html")
     home = home.replace("{{VERSION}}", APP_VERSION)
+    APP_DATE = datetime.date.today().isoformat()
+    try:
+        _mtime = os.path.getmtime(os.path.join(STATIC, APP_APK))
+        APP_DATE = datetime.date.fromtimestamp(_mtime).isoformat()
+    except OSError:
+        pass
+
+    # 主下载按钮 = version.json 里的地址（Gitee/CDN）；自建直链作为备用
+    dl_url = APP_DOWNLOAD_URL or ("%s/zhiguanjia/%s" % (SITE_URL, APP_APK))
+    home = home.replace("{{DOWNLOAD_URL}}", dl_url)
     home = home.replace("{{APK}}", APP_APK)
     ak = os.path.join(STATIC, APP_APK)
     size = "%.1f MB" % (os.path.getsize(ak) / 1048576.0) if os.path.exists(ak) else "-"
@@ -260,7 +276,14 @@ def build():
     os.makedirs(dl)
     src_page = os.path.join(ROOT, "download", "index.html")
     if os.path.exists(src_page):
-        shutil.copy(src_page, os.path.join(dl, "index.html"))
+        page_html = open(src_page, encoding="utf-8").read()
+        page_html = (page_html
+                     .replace("{{DOWNLOAD_URL}}", dl_url)
+                     .replace("{{APK}}", APP_APK)
+                     .replace("{{VERSION}}", APP_VERSION.lstrip("v"))
+                     .replace("{{SIZE}}", size)
+                     .replace("{{DATE}}", APP_DATE))
+        write(os.path.join(dl, "index.html"), page_html)
     shutil.copy(os.path.join(STATIC, "qr.png"), os.path.join(dl, "qr.png"))
     if os.path.exists(ak):
         shutil.copy(ak, os.path.join(dl, APP_APK))
