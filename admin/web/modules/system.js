@@ -13,19 +13,77 @@ ZGJ.registerModule({
   icon: '⚙️',
 
   render: function (box, ctx) {
-    renderStatus(box, ctx);
+    entryView(box, ctx);
   }
 });
 
-function renderStatus(box, ctx) {
+/* ───────────── 入口：分类导航 ─────────────
+ * 系统管理下功能会越来越多，全部铺在一页会又长又乱；
+ * 这里只放分类卡片，点进去才是具体功能（每页都有返回）。
+ */
+function entryView(box, ctx) {
+  var el = ctx.el;
+  box.innerHTML = '';
+  box.appendChild(el('div', { class: 'loading', text: '加载中…' }));
+  ctx.api.systemStatus().then(function (s) {
+    box.innerHTML = '';
+    var lb = s.last_build;
+
+    box.appendChild(el('div', { class: 'card' }, [
+      el('div', { class: 'sys-row' }, [
+        el('span', { class: 'k', text: '站点' }),
+        el('span', { class: 'v', text: s.site_dir + (s.site_dir_ready ? '' : '（缺失）') })
+      ]),
+      el('div', { class: 'sys-row' }, [
+        el('span', { class: 'k', text: '内容' }),
+        el('span', { class: 'v', text: '文章 ' + s.articles + ' 篇（已发布 '
+          + s.articles_published + '）· 用户 ' + s.users + ' 人' })
+      ]),
+      el('div', { class: 'sys-row' }, [
+        el('span', { class: 'k', text: '最近发布' }),
+        el('span', { class: 'v', text: lb ? (lb.at + '　' + lb.message) : '本次服务启动后还没有发布过' })
+      ])
+    ]));
+
+    box.appendChild(el('div', { class: 'section-title', text: '系统功能' }));
+    box.appendChild(el('div', { class: 'card' }, [
+      entry(el, '站点与发布', '站点目录状态、手动重新构建并发布到官网',
+        function () { siteView(box, ctx); }),
+      entry(el, '备份与恢复', '备份数据库/文章内容/上传文件/配置；可回滚，每日自动备份',
+        function () { backupView(box, ctx); }),
+      entry(el, '操作审计', '谁在什么时间做了什么（含失败与越权尝试）',
+        function () { auditView(box, ctx); })
+    ]));
+
+    box.appendChild(el('div', { class: 'section-title', text: '规划中' }));
+    box.appendChild(el('div', { class: 'card' }, [
+      soon(el, '管理员与权限', '增删管理员、按模块分配权限'),
+      soon(el, '定时任务', '定时发布文章、定时备份、定时清理')
+    ]));
+  }).catch(function (e) { ctx.fail(box, e); });
+}
+
+function entry(el, name, desc, onOpen) {
+  return el('div', { class: 'sys-row', style: 'cursor:pointer', onclick: onOpen }, [
+    el('span', { class: 'v', style: 'flex:1;font-weight:600', text: name }),
+    el('span', { class: 'muted', style: 'flex:2', text: desc }),
+    el('span', { class: 'row-actions' }, [el('a', { href: '#', text: '进入 ›' })])
+  ]);
+}
+
+/* ───────────── 站点与发布 ───────────── */
+function siteView(box, ctx) {
   var el = ctx.el;
   box.innerHTML = '';
   box.appendChild(el('div', { class: 'loading', text: '加载中…' }));
 
   ctx.api.systemStatus().then(function (s) {
     box.innerHTML = '';
+    box.appendChild(el('div', { class: 'toolbar' }, [
+      el('button', { class: 'btn', text: '← 返回系统管理',
+        onclick: function () { entryView(box, ctx); } })
+    ]));
 
-    /* ── 站点 ── */
     box.appendChild(el('div', { class: 'section-title', text: '站点' }));
     var lb = s.last_build;
     box.appendChild(el('div', { class: 'card' }, [
@@ -100,12 +158,12 @@ function doRebuild(box, ctx, btn) {
     clearTimeout(timer);
     btn.disabled = false; btn.textContent = '发布站点';
     alert(r.message || '已重新发布');
-    renderStatus(box, ctx);
+    entryView(box, ctx);
   }).catch(function (e) {
     clearTimeout(timer);
     btn.disabled = false; btn.textContent = '发布站点';
     alert('发布失败：' + e.message);
-    renderStatus(box, ctx);
+    entryView(box, ctx);
   });
 }
 
@@ -127,7 +185,7 @@ function backupView(box, ctx, toast) {
     box.innerHTML = '';
     box.appendChild(el('div', { class: 'toolbar' }, [
       el('button', { class: 'btn', text: '← 返回系统管理',
-        onclick: function () { renderStatus(box, ctx); } }),
+        onclick: function () { entryView(box, ctx); } }),
       el('button', { class: 'btn primary', text: '＋ 立即备份',
         onclick: function (ev) { doBackup(box, ctx, ev.target); } }),
       el('span', { class: 'muted', text:
@@ -243,7 +301,7 @@ function auditView(box, ctx, opts) {
       if (!opts.append) {
         box.appendChild(el('div', { class: 'toolbar' }, [
           el('button', { class: 'btn', text: '← 返回系统管理',
-            onclick: function () { renderStatus(box, ctx); } }),
+            onclick: function () { entryView(box, ctx); } }),
           el('label', { class: 'check', style: 'margin:0' }, [
             (function () {
               var cb = el('input', { type: 'checkbox' });

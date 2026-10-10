@@ -33,5 +33,7 @@ def get_current_user(
     if user is None:
         raise api_error(401, "user_not_found", "账号不存在")
     if user.status != 1:
-        raise api_error(403, "user_disabled", "账号已被禁用")
+        reason = getattr(user, "banned_reason", "") or ""
+        raise api_error(403, "user_disabled",
+                        "该账号已被停用" + (f"：{reason}" if reason else ""))
     return user

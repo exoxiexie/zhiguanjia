@@ -83,6 +83,25 @@ window.ZGJ = (function () {
 
     // ── 系统管理 ──
     systemStatus: function () { return request('GET', '/admin/system/status'); },
+    userList: function (opts) {
+      opts = opts || {};
+      var q = ['limit=' + (opts.limit || 50)];
+      if (opts.q) q.push('q=' + encodeURIComponent(opts.q));
+      if (opts.onlyBanned) q.push('only_banned=true');
+      return request('GET', '/admin/users?' + q.join('&'));
+    },
+    userGet: function (id) { return request('GET', '/admin/users/' + id); },
+    userStatus: function (id, status, reason) {
+      return request('POST', '/admin/users/' + id + '/status',
+        { body: { status: status, reason: reason || '' } });
+    },
+    userAdmin: function (id, isAdmin) {
+      return request('POST', '/admin/users/' + id + '/admin', { body: { is_admin: isAdmin } });
+    },
+    userResetPassword: function (id) {
+      return request('POST', '/admin/users/' + id + '/reset-password');
+    },
+
     releaseList: function () { return request('GET', '/admin/release'); },
     releasePublish: function (id) { return request('POST', '/admin/release/' + id + '/publish'); },
     releaseDelete: function (id) { return request('DELETE', '/admin/release/' + id); },

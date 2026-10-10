@@ -57,6 +57,9 @@ class User(Base):
     status: Mapped[int] = mapped_column(Integer, default=1)  # 1 正常，0 禁用
     # 管理员标记：只有管理员能看装机统计等运营数据（避免普通用户看到全站数据）
     is_admin: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 停用原因（复用已有的 status 字段：status != 1 即禁止登录、刷新令牌失效）
+    banned_reason: Mapped[str] = mapped_column(String(200), default="")
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=utcnow, onupdate=utcnow

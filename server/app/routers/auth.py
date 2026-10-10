@@ -112,7 +112,12 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -
     if user is None or not verify_password(body.password, user.password_hash):
         raise api_error(401, "bad_credentials", "手机号或密码不正确")
     if user.status != 1:
-        raise api_error(403, "user_disabled", "账号已被禁用")
+        raise api_error(
+            403,
+            "user_disabled",
+            "该账号已被停用"
+            + (f"：{getattr(user, 'banned_reason', '')}" if getattr(user, "banned_reason", "") else ""),
+        )
 
     tokens = _issue_tokens(db, user, body.device_id, body.device_name, body.platform)
     return {"user": user.to_public(), **tokens}

@@ -269,3 +269,14 @@ class ConfigIn(BaseModel):
     flags: dict | None = None
     # 公告"重新弹一次"：让 App 忽略"已读"记录
     reset_announcement_read: bool = False
+
+
+class UserStatusIn(BaseModel):
+    """停用 / 恢复账号（1 正常，0 停用）"""
+
+    status: int = Field(default=1, ge=0, le=1)
+    reason: str = Field(default="", max_length=200)
+
+
+class UserAdminIn(BaseModel):
+    is_admin: bool = False
