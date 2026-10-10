@@ -285,7 +285,13 @@ var AUDIT_LABELS = {
   '/admin/backup': '新建备份',
   '/admin/backup/{id}': '删除备份',
   '/admin/backup/{id}/restore': '恢复备份',
-  '/admin/system/rebuild': '发布站点'
+  '/admin/system/rebuild': '发布站点',
+  '/admin/content/{id}/hide': '下架说说',
+  '/admin/content/{id}/restore': '恢复说说',
+  '/admin/users/{id}/status': '停用 / 恢复用户',
+  '/admin/users/{id}/admin': '调整用户管理员权限',
+  '/admin/users/{id}/reset-password': '重置用户密码',
+  '/admin/release/{id}/publish': '发布新版本'
 };
 
 function auditView(box, ctx, opts) {

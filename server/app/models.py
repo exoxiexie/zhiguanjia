@@ -215,6 +215,8 @@ class BlogPost(Base):
     created_at: Mapped[int] = mapped_column(BigInteger, default=0)
     updated_at: Mapped[int] = mapped_column(BigInteger, default=0)
     deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    # 下架原因（后台内容审核；便于复查与申诉）
+    hidden_reason: Mapped[str] = mapped_column(String(200), default="")
     seq: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
 
     def to_public(self) -> dict:

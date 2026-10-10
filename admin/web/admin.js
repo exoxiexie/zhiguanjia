@@ -83,6 +83,18 @@ window.ZGJ = (function () {
 
     // ── 系统管理 ──
     systemStatus: function () { return request('GET', '/admin/system/status'); },
+    contentList: function (opts) {
+      opts = opts || {};
+      var q = ['limit=' + (opts.limit || 50)];
+      if (opts.q) q.push('q=' + encodeURIComponent(opts.q));
+      if (opts.onlyHidden) q.push('only_hidden=true');
+      return request('GET', '/admin/content?' + q.join('&'));
+    },
+    contentHide: function (id, reason) {
+      return request('POST', '/admin/content/' + id + '/hide', { body: { reason: reason } });
+    },
+    contentRestore: function (id) { return request('POST', '/admin/content/' + id + '/restore'); },
+
     userList: function (opts) {
       opts = opts || {};
       var q = ['limit=' + (opts.limit || 50)];

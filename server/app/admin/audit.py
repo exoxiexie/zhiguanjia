@@ -23,14 +23,26 @@ KEEP = int(os.environ.get("ZGJ_AUDIT_KEEP", "5000"))
 _PRUNE_SLACK = 200
 
 
+# 这些是"动作词"，保留原名；其余像 id 的段落统一归一化为 {id}
+_ACTION_WORDS = {
+    "admin", "blog", "config", "backup", "system", "users", "content", "release",
+    "audit", "stats", "trend", "logs", "info",
+    "publish", "restore", "hide", "status", "reset-password", "rebuild",
+}
+
+
 def normalize_action(method: str, path: str) -> str:
-    """把路径里的具体 id 换成 {id}，便于聚合与前端映射中文"""
+    """把路径里的具体 id 换成 {id}，便于聚合与前端映射中文
+
+    id 判定：含连字符/数字，或过长（slug、备份名、uuid、说说 id 都覆盖到）。
+    """
     parts = []
     for seg in path.strip("/").split("/"):
         if not seg:
             continue
-        # 文章 slug / 备份名 / uuid 都视为参数
-        if len(seg) > 20 or ("-" in seg and any(c.isdigit() for c in seg)):
+        if seg in _ACTION_WORDS:
+            parts.append(seg)
+        elif len(seg) > 20 or "-" in seg or any(c.isdigit() for c in seg):
             parts.append("{id}")
         else:
             parts.append(seg)

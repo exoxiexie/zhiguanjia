@@ -280,3 +280,9 @@ class UserStatusIn(BaseModel):
 
 class UserAdminIn(BaseModel):
     is_admin: bool = False
+
+
+class ContentHideIn(BaseModel):
+    """下架内容（必须填原因）"""
+
+    reason: str = Field(default="", max_length=200)
