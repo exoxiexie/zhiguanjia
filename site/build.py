@@ -14,6 +14,7 @@ import html
 import os
 import re
 import hashlib
+import json
 import shutil
 from urllib.parse import quote
 import sys
@@ -31,8 +32,21 @@ STATIC = os.path.join(ROOT, "static")
 SITE_URL = "http://8.137.71.241"
 SITE_NAME = "职管家"
 SITE_DESC = "每个人，都值得一个终身陪伴的 AI 职业管家。职业规划、简历优化、求职面试、技能成长、薪酬谈判、职场法律。"
+# 版本信息以仓库根的 version.json 为**唯一来源**（后台「版本发布」会更新它）
+# 这样发布流程不需要去改代码里的常量
 APP_VERSION = "v1.0.49"
 APP_APK = "zhiguanjia-v1.0.49.apk"
+# 两个位置都找：站点源码目录内（后台「版本发布」写这里）、仓库根（本地开发）
+for _cand in (os.path.join(ROOT, "version.json"),
+              os.path.join(ROOT, "..", "version.json")):
+    try:
+        _vj = json.load(open(_cand, encoding="utf-8"))
+    except Exception:
+        continue
+    if _vj.get("versionName"):
+        APP_VERSION = "v%s" % str(_vj["versionName"]).lstrip("v")
+        APP_APK = "zhiguanjia-%s.apk" % APP_VERSION
+        break
 LATEST_ON_HOME = 3
 
 # 备案期间保持 False（搜索引擎不收录 IP 地址）；域名上线后改成 True 即可

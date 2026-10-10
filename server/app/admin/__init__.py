@@ -10,6 +10,7 @@
 - `backup.py`    备份与恢复接口（实现在 backup_service.py）
 - `audit.py`     操作审计中间件（自动捕获所有 /admin 写操作）
 - `logs.py`      操作审计查询接口
+- `release.py`   版本发布（上传 APK → 写更新源 → 铺官网下载页 → 重建发布）
 - `publisher.py` 站点发布服务（构建 + 同步的唯一实现）
 - `router.py`    聚合三组路由，供 main.py 一次挂载
 

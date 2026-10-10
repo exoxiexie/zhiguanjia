@@ -565,3 +565,31 @@ class AuditLog(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=utcnow, index=True
     )
+
+
+class AppRelease(Base):
+    """App 版本发布记录
+
+    APK 在本地编译（需要 Flutter/Android SDK，服务器跑不了），
+    上传到后台后由后台完成**分发侧的一切**：
+    写入 version.json（App 更新源）→ 铺到官网下载页 → 重建发布官网 →
+    可选设置强制更新 → 留发布历史。
+
+    状态：draft（已上传未发布）/ published（已上线）/ archived（被新版本取代）
+    """
+
+    __tablename__ = "app_releases"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    version_name: Mapped[str] = mapped_column(String(24), default="")
+    version_code: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    file_name: Mapped[str] = mapped_column(String(120), default="")
+    size: Mapped[int] = mapped_column(BigInteger, default=0)
+    sha256: Mapped[str] = mapped_column(String(64), default="")
+    changelog: Mapped[str] = mapped_column(Text, default="")
+    # 发布时是否同时开启强制更新（versionCode 低于本版本者必须升级）
+    force_update: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(16), default="draft", index=True)
+    created_by: Mapped[str] = mapped_column(String(32), default="")
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=utcnow)
+    published_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)

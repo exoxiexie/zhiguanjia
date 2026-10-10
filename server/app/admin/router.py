@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from . import backup, blog, config, logs, stats, system
+from . import backup, blog, config, logs, release, stats, system
 
 router = APIRouter()
 router.include_router(stats.router)
@@ -11,3 +11,4 @@ router.include_router(system.router)
 router.include_router(config.router)
 router.include_router(backup.router)
 router.include_router(logs.router)
+router.include_router(release.router)

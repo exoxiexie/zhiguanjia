@@ -67,6 +67,11 @@ const FIXTURES = {
     updated_by: '13608074995', updated_at: '2026-10-10T08:00:00',
     release: { version_name: '1.0.49', version_code: 50, url: 'https://x/a.apk', changelog: '修复同步' }
   },
+  '/admin/release': { items: [{ id: 'r1', version_name: '1.0.50', version_code: 51,
+      size: 10485760, sha256: 'a'.repeat(64), changelog: '修复', force_update: false,
+      status: 'draft', created_at: '2026-10-10 10:00:00' }],
+    current: { version_name: '1.0.49', version_code: 50, url: 'http://x/a.apk', changelog: '旧' },
+    apk_dir: '/srv/site/static' },
   '/admin/audit': { items: [{ id: 2, actor: '13608074995', action: '/admin/blog/{id}/publish',
       method: 'POST', target: '文章《示例》', status: 200, ok: true, ip: '1.2.3.4',
       duration_ms: 320, created_at: '2026-10-10 09:30:00' }],
@@ -124,6 +129,7 @@ mods.forEach(m => eval(fs.readFileSync(path.join(ROOT, m), 'utf8')));
   await visit('#/dashboard', ['装机设备', '活跃设备', '真在使用', '版本分布', '使用深度']);
   await visit('#/blog', ['新建文章', '示例文章', '已发布']);
   await visit('#/config', ['公告', '强制更新', '功能开关', '灰度手机号', '保存公告']);
+  await visit('#/release', ['当前线上版本', '上传新版本', '发布记录', '上传安装包']);
   await visit('#/system', ['发布站点', '源码目录', '最近一次发布', '规划中']);
 
   console.log('');

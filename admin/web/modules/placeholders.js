@@ -18,10 +18,6 @@ ZGJ.registerModule({
   desc: '公告下发、强制更新版本、功能开关（含测试入口灰度名单）—— 目前由接口与数据库直接维护，将图形化。'
 });
 ZGJ.registerModule({
-  id: 'release', name: '版本发布', icon: '🚀', planned: true,
-  desc: '上传安装包、填写更新说明、同步更新源与官网下载页、灰度与回滚。'
-});
-ZGJ.registerModule({
   id: 'feedback', name: '反馈处理', icon: '💬', planned: true,
   desc: '用户反馈与问题工单的收集、分派、跟进与归档。'
 });

@@ -83,6 +83,30 @@ window.ZGJ = (function () {
 
     // ── 系统管理 ──
     systemStatus: function () { return request('GET', '/admin/system/status'); },
+    releaseList: function () { return request('GET', '/admin/release'); },
+    releasePublish: function (id) { return request('POST', '/admin/release/' + id + '/publish'); },
+    releaseDelete: function (id) { return request('DELETE', '/admin/release/' + id); },
+    /** 上传安装包：用 XHR 以便显示上传进度（10MB 包在弱网下需要反馈） */
+    releaseUpload: function (formData, onProgress) {
+      return new Promise(function (resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', API + '/admin/release');
+        if (token()) xhr.setRequestHeader('Authorization', 'Bearer ' + token());
+        xhr.upload.onprogress = function (e) {
+          if (onProgress && e.lengthComputable) onProgress(e.loaded / e.total);
+        };
+        xhr.onload = function () {
+          var data = null;
+          try { data = JSON.parse(xhr.responseText || '{}'); } catch (err) { /* 非 JSON */ }
+          if (xhr.status >= 200 && xhr.status < 300) { resolve(data); return; }
+          var msg = (data && data.error && data.error.message) || ('上传失败（HTTP ' + xhr.status + '）');
+          var e2 = new Error(msg); e2.status = xhr.status; reject(e2);
+        };
+        xhr.onerror = function () { reject(new Error('网络中断，上传失败')); };
+        xhr.send(formData);
+      });
+    },
+
     auditList: function (opts) {
       var q = [];
       if (opts && opts.before) q.push('before=' + opts.before);
