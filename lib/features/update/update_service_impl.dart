@@ -1,8 +1,8 @@
 /// 基于 HTTP 的更新服务实现
 ///
-/// 支持多个更新源：按顺序从 [baseUrls] 读取 version.json，
-/// 第一个成功的源生效（Gitee 优先，GitHub 回退），
-/// 再用 version.json 里的 url 字段下载新版 APK。
+/// 更新源**并行读取**：主源（Gitee）成功即采用，其余源仅作回退。
+/// 注意 GitHub 只是**读源回退**（镜像可能滞后于 Gitee），**不是下载备份** ——
+/// 下载地址始终取自 version.json 的 url 字段（指向 Gitee Release）。
 /// 目录隔离：本模块只属于 update 域，不依赖其他业务模块。
 library;
 
@@ -35,44 +35,72 @@ class HttpUpdateService implements UpdateService {
               },
             ));
 
-  /// 依序尝试每个更新源读取 version.json，第一个成功即返回
-  /// 总超时保护：30 秒内必须返回，避免一直转圈
-  Future<Map<String, dynamic>> _fetchVersionInfo() async {
+  /// 单源读取超时。并行竞速下每个源只给这么久（原为逐源尝试、总超时 30 秒）
+  static const Duration _kPerSourceTimeout = Duration(seconds: 7);
+
+  /// 兜底总超时。并行后正常路径约 1 秒、失败路径约 7 秒，远快于此
+  static const Duration _kTotalTimeout = Duration(seconds: 15);
+
+  Future<Map<String, dynamic>> _fetchVersionInfo() {
     return _fetchVersionInfoWithSources().timeout(
-      const Duration(seconds: 30),
-      onTimeout: () => throw Exception('检查更新超时（30秒）'),
+      _kTotalTimeout,
+      onTimeout: () => throw Exception('检查更新超时'),
     );
   }
 
+  /// 并行读取更新源：**主源成功就用主源**，其余源只作回退
+  ///
+  /// 为什么并行：原来逐源尝试，Gitee 一挂用户要等满 30 秒才看到失败；
+  /// 并行后回退源已经在飞行中，主源失败可立即采用 → 最坏从 30 秒降到约 7 秒。
+  ///
+  /// 为什么"主源优先"而不是"谁快用谁"：GitHub 镜像可能滞后于 Gitee，
+  /// 若谁快用谁，可能读到旧版本号 → 误报「已是最新」。
   Future<Map<String, dynamic>> _fetchVersionInfoWithSources() async {
-    Object? lastError;
-    // 时间戳绕过 CDN 缓存
+    if (baseUrls.isEmpty) {
+      throw Exception('未配置更新源');
+    }
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    for (final baseUrl in baseUrls) {
-      try {
-        // Gitee API 用 ref=master 参数，其他源用时间戳绕过缓存
-        final url = baseUrl.contains('gitee.com/api')
-            ? '$baseUrl/version.json?ref=master'
-            : '$baseUrl/version.json?t=$timestamp';
-        final resp = await _dio.get(url);
-        final raw = resp.data;
-        // 兼容两种返回格式：
-        // 1. Gitee API：返回 Map，content 字段是 base64 编码的 JSON
-        // 2. GitHub raw：返回纯文本 JSON 字符串
-        if (raw is Map && raw['content'] != null) {
-          // Gitee API 格式：解码 base64
-          final decoded = utf8.decode(base64Decode(raw['content'].toString()));
-          return jsonDecode(decoded) as Map<String, dynamic>;
-        }
-        if (raw is String) {
-          return jsonDecode(raw) as Map<String, dynamic>;
-        }
-        return (raw as Map).cast<String, dynamic>();
-      } catch (e) {
-        lastError = e;
-      }
+
+    // 全部并发发起；非主源先挂错误处理，避免主源成功后被判为「未处理异常」
+    final primary = _fetchOne(baseUrls.first, timestamp);
+    final fallbacks = <Future<Map<String, dynamic>?>>[
+      for (final baseUrl in baseUrls.skip(1))
+        _fetchOne(baseUrl, timestamp)
+            .then<Map<String, dynamic>?>((v) => v, onError: (_) => null),
+    ];
+
+    Object? lastError;
+    try {
+      return await primary;
+    } catch (e) {
+      lastError = e;
+    }
+    for (final fallback in fallbacks) {
+      final data = await fallback; // 已在飞行中，通常立刻拿到
+      if (data != null) return data;
     }
     throw Exception('所有更新源均不可用：$lastError');
+  }
+
+  /// 读取单个更新源（带单源超时）
+  Future<Map<String, dynamic>> _fetchOne(String baseUrl, int timestamp) async {
+    // Gitee API 用 ref=master，其他源用时间戳绕过 CDN 缓存
+    final url = baseUrl.contains('gitee.com/api')
+        ? '$baseUrl/version.json?ref=master'
+        : '$baseUrl/version.json?t=$timestamp';
+    final resp = await _dio.get(url).timeout(_kPerSourceTimeout);
+    final raw = resp.data;
+    // 兼容两种返回格式：
+    // 1. Gitee API：返回 Map，content 字段是 base64 编码的 JSON
+    // 2. GitHub raw：返回纯文本 JSON 字符串
+    if (raw is Map && raw['content'] != null) {
+      final decoded = utf8.decode(base64Decode(raw['content'].toString()));
+      return jsonDecode(decoded) as Map<String, dynamic>;
+    }
+    if (raw is String) {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    }
+    return (raw as Map).cast<String, dynamic>();
   }
 
   @override

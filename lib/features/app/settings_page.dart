@@ -12,7 +12,6 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../../contracts/app_api.dart';
 import '../../contracts/update_service.dart';
 import '../api/app_api_impl.dart';
 import '../chat/session_reset.dart';
@@ -23,7 +22,11 @@ import '../personal/personal_login_page.dart';
 import '../update/update_service_impl.dart';
 import 'local_data_cleaner.dart';
 
-/// 更新服务器地址（多源：Gitee API 优先，GitHub 回退；均公网可访问）
+/// 更新服务器地址
+///
+/// **主源 = Gitee API**；GitHub raw **仅作读源回退**（镜像可能滞后，故只在主源失败时使用），
+/// 它**不是下载备份** —— APK 下载地址始终取自 version.json 的 url（指向 Gitee Release）。
+/// 两源并行发起，主源成功即采用；单源超时 7 秒。
 const List<String> _kUpdateBaseUrls = <String>[
   'https://gitee.com/api/v5/repos/laoxie2076/zhiguanjia/contents',
   'https://raw.githubusercontent.com/exoxiexie/zhiguanjia/main',
@@ -290,9 +293,10 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (step2 != true || !context.mounted) return;
 
-    final messenger = ScaffoldMessenger.of(context);
     final res = await const HttpAppApi().deleteAccount();
     if (!res.ok) {
+      // 异步之后必须确认仍挂载，否则可能使用已销毁的 context
+      if (!context.mounted) return;
       showAppSnackBar(context, res.error?.message ?? '注销失败，请稍后重试');
       return;
     }

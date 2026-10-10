@@ -7,7 +7,6 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../chat/session_reset.dart';
@@ -23,7 +22,6 @@ import '../personal/personal_login_page.dart';
 import '../personal/personal_model.dart';
 import '../personal/personal_verify_page.dart';
 import '../personal/user_avatar.dart';
-import '../update/update_service_impl.dart';
 
 /// 头像图片选择回调（可注入，便于测试；默认走 image_picker）
 typedef AvatarPickFn = Future<String?> Function(ImageSource source);

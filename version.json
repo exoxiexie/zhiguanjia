@@ -1,1 +1,6 @@
-{"versionName":"1.0.50","versionCode":51,"url":"https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.50/zhiguanjia-v1.0.50.apk","changelog":"账号被后台停用后立即生效：自动退出登录并说明原因（此前停用后仍能在本地继续使用）。"}
+{
+  "versionName": "1.0.51",
+  "versionCode": 52,
+  "url": "https://gitee.com/laoxie2076/zhiguanjia/releases/download/v1.0.51/zhiguanjia-v1.0.51.apk",
+  "changelog": "检查更新更快更稳：更新源改为并行读取，单源 7 秒超时（原来 Gitee 不通时用户最长要等 30 秒）。"
+}
