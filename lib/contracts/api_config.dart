@@ -33,11 +33,16 @@ class ApiConfig {
   // `https://zhidongni.com.cn/api` 并启用 HTTPS——**App 侧只改这一处**。
   // 开发期用 HTTP：Android 已允许明文（AndroidManifest 中
   // usesCleartextTraffic="true"），且当前仅自用，无第三方风险。
-  static const String apiBaseUrl = 'http://8.137.71.241/api';
+  /// 服务端 API 地址
+  ///
+  /// 2026-10-13 起切到**备案域名 + HTTPS**（蜀ICP备2026060572号，2026-10-12 通过）：
+  /// 原 `http://8.137.71.241/api`（IP + 明文）已弃用 —— 明文请求在客户端与合规上都不合适。
+  /// 切换前已实测：域名 HTTPS 下 /api/health 等全部 200。
+  static const String apiBaseUrl = 'https://zhidongni.com.cn/api';
 
   /// 上传文件（说说配图）的访问前缀
   ///
   /// 服务端返回的是相对地址（`/uploads/{用户}/{文件名}`），客户端用本常量拼全。
-  /// TODO(备案): 与 [apiBaseUrl] 同步改为域名（`https://zhidongni.com.cn`）。
-  static const String mediaBaseUrl = 'http://8.137.71.241';
+  /// 媒体（用户上传图片等）地址，同域名 HTTPS
+  static const String mediaBaseUrl = 'https://zhidongni.com.cn';
 }

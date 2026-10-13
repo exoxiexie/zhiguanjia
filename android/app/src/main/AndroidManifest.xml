@@ -5,7 +5,6 @@
     <uses-feature android:name="android.hardware.usb.host" android:required="false"/>
     <application
         android:label="职管家"
-        android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

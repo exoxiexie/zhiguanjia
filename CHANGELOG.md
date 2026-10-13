@@ -394,6 +394,19 @@
 - 新增 4 项：失败记录原因 / 成功记录信息 / 未登录记录原因 / 状态读写往返
 - 全项目测试通过；`flutter analyze` **0 error / 0 warning**
 
+## [1.0.54] - 2026-10-13
+
+### 变更（备案落地）
+- **服务端地址切换到备案域名 + HTTPS**：`http://8.137.71.241/api` → **`https://zhidongni.com.cn/api`**，
+  媒体地址同理（`mediaBaseUrl`）—— 全站告别 IP + 明文
+- **关闭明文流量**：移除 AndroidManifest 的 `usesCleartextTraffic`，App 只允许 HTTPS
+- 背景：ICP 备案于 2026-10-12 通过（**蜀ICP备2026060572号**），官网已全站 HTTPS
+- ⚠️ 不保留老版本兼容（用户为唯一开发者、线上仅测试账号）：`v1.0.53 及更早` 走 IP+HTTP，
+  升级到本版后自动切到域名 HTTPS
+
+### 测试
+- 全项目测试通过；`flutter analyze` 0 error / 0 warning
+
 ## [Unreleased]
 
 ### 官网 · 博客文章显示作者（2026-10-10）
