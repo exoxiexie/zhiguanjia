@@ -56,7 +56,7 @@ for _cand in (os.path.join(ROOT, "version.json"),
 LATEST_ON_HOME = 3
 
 # 备案期间保持 False（搜索引擎不收录 IP 地址）；域名上线后改成 True 即可
-ALLOW_INDEX = False
+ALLOW_INDEX = True  # 备案已通过（蜀ICP备2026060572号），允许收录
 
 
 # ────────────────────────── Markdown 子集渲染 ──────────────────────────
@@ -274,6 +274,12 @@ def build():
     # 下载页（保持 /zhiguanjia/ 路径不变，二维码长期有效）
     dl = os.path.join(DIST, "zhiguanjia")
     os.makedirs(dl)
+    # 隐私政策页（备案要求；备案号在 base.html 页脚）
+    write(os.path.join(DIST, "privacy", "index.html"),
+          page("隐私政策 · " + SITE_NAME,
+               "职管家隐私政策：我们收集哪些信息、如何使用与保护你的数据。",
+               tpl("privacy.html")))
+
     src_page = os.path.join(ROOT, "download", "index.html")
     if os.path.exists(src_page):
         page_html = open(src_page, encoding="utf-8").read()
@@ -300,7 +306,7 @@ def build():
     write(os.path.join(DIST, "robots.txt"), robots_txt)
 
     # sitemap / rss
-    urls = [("/", ""), ("/blog/", "weekly")]
+    urls = [("/", ""), ("/blog/", "weekly"), ("/zhiguanjia/", ""), ("/privacy/", "")]
     for slug, meta, _ in posts:
         urls.append(("/blog/%s/" % quote(slug), meta["date"]))
     sm = ['<?xml version="1.0" encoding="UTF-8"?>',

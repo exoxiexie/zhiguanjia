@@ -90,6 +90,8 @@ article.post blockquote{border-left:3px solid var(--orange);padding-left:16px;co
 .site-footer .f1{font-size:15px;font-weight:700}
 .site-footer .f2{color:#8A8F9A;font-size:13px;margin-top:8px}
 .site-footer .f3{color:#5C6068;font-size:12px;margin-top:18px}
+.site-footer a{color:#5C6068;text-decoration:none}
+.site-footer a:hover{color:#9CA3AF}
 
 @media(max-width:640px){
   .site-nav a{margin-left:16px;font-size:14px}
